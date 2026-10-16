@@ -1,19 +1,15 @@
 <div align="center">
 
-# ⬡ OSIRIS
+# ATLAS
 
-### Open Source Intelligence & Reconnaissance Integrated System
+### Advanced Tactical Location & Analytics System
 
-[![Live Demo](https://img.shields.io/badge/osirisai.live-00E5FF?style=for-the-badge&logo=vercel&logoColor=white)](https://osirislive.app)
-[![Support OSIRIS](https://img.shields.io/badge/Support_Project-Patreon-FF424D?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/posts/159077425)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![MapLibre](https://img.shields.io/badge/MapLibre_GL-GPU_Rendered-396CB2?style=for-the-badge)](https://maplibre.org)
 [![License](https://img.shields.io/badge/License-MIT-D4AF37?style=for-the-badge)](LICENSE)
 
-**A real-time global intelligence dashboard that aggregates live flight tracking, CCTV networks, earthquake monitoring, conflict zone mapping, and 24/7 news feeds into a single GPU-accelerated interface.**
-
-[Live Demo](https://osirisai.live) · [Report Bug](https://github.com/simplifaisoul/osiris/issues) · [Request Feature](https://github.com/simplifaisoul/osiris/issues) · [Join Discord](https://discord.gg/umBykEpb98)
+**The map application at `/home/localhost/osiris`. It is a separate deployment from the command center. A public domain, social profile, and support link are not set.**
 
 </div>
 
@@ -22,25 +18,25 @@
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/taiwan-cctv.jpg" alt="OSIRIS over Taipei on the Night map, with live traffic-camera previews pinned across the city and the Longmen Building rooftop feed open" width="100%">
+  <img src="docs/screenshots/taiwan-cctv.jpg" alt="ATLAS over Taipei on the Night map, with live traffic-camera previews pinned across the city and the Longmen Building rooftop feed open" width="100%">
   <br><sub><b>Taiwan</b> — Taipei's public traffic cameras streaming live on the Night map, one feed open full-size</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/seoul-live-cctv.jpg" alt="OSIRIS over Seoul in 3D terrain around Namsan Tower, with live CCTV previews and the Cheonggyecheon feed open" width="100%">
+  <img src="docs/screenshots/seoul-live-cctv.jpg" alt="ATLAS over Seoul in 3D terrain around Namsan Tower, with live CCTV previews and the Cheonggyecheon feed open" width="100%">
   <br><sub><b>Seoul</b> — live CCTV in 3D terrain around Namsan Tower, with the Cheonggyecheon feed playing</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/save-an-area.jpg" alt="A drawn area over mountain terrain in OSIRIS, with the live cameras inside it and the Drawing Tools panel showing the saved area" width="100%">
-  <br><sub><b>Save an Area</b> — draw a region and OSIRIS finds every camera inside it, ready to export as GeoJSON</sub>
+  <img src="docs/screenshots/save-an-area.jpg" alt="A drawn area over mountain terrain in ATLAS, with the live cameras inside it and the Drawing Tools panel showing the saved area" width="100%">
+  <br><sub><b>Save an Area</b> — draw a region and ATLAS finds every camera inside it, ready to export as GeoJSON</sub>
 </p>
 
 ---
 
 ## Overview
 
-Osiris is a production-grade OSINT platform that provides situational awareness across multiple intelligence domains. Built with Next.js 16 and MapLibre GL, every data point is rendered via WebGL for 60fps performance even with thousands of concurrent entities on-screen.
+ATLAS is the monitoring map for this deployment. Built with Next.js 16 and MapLibre GL, every data point is rendered via WebGL for 60fps performance even with thousands of concurrent entities on-screen.
 
 ### Key Capabilities
 
@@ -66,7 +62,7 @@ Osiris is a production-grade OSINT platform that provides situational awareness 
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  OSIRIS CLIENT                   │
+│                  ATLAS CLIENT                    │
 │  ┌──────────┐  ┌──────────┐  ┌───────────────┐ │
 │  │ MapLibre  │  │  HUD     │  │  RECON Toolkit│ │
 │  │  GL (GPU) │  │ Panels   │  │  Port Scan    │ │
@@ -158,35 +154,28 @@ Run `npm test` for offline checks or `RUN_LIVE_TESTS=1 npx vitest run src/app/ap
 ## Quick Start
 
 ```bash
-git clone https://github.com/simplifaisoul/osiris.git
-cd osiris
+cd /home/localhost/osiris
 npm install
-npm run dev
+npm run dev -- --hostname 0.0.0.0 --port 3005
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://127.0.0.1:3005](http://127.0.0.1:3005). Do not use port 3000 for this map.
 
 ### Docker / Self-Hosting
 
 ```bash
-git clone https://github.com/simplifaisoul/osiris.git
-cd osiris
+cd /home/localhost/osiris
 cp .env.template .env     # optional — configure keys / port
 docker compose up -d
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The image is a multi-stage
+The running development server for this deployment is port 3005, not Compose. The image is a multi-stage
 `node:22-alpine` standalone build (~220 MB, non-root). The compose file also
 carries CasaOS app metadata (`x-casaos:`) for one-click install on
 [CasaOS](https://casaos.io). See **[DOCKER.md](DOCKER.md)** for the full Docker,
 CasaOS and API-key guide.
 
-**Prebuilt image (GHCR)** — skip the build and pull it directly:
-
-```bash
-docker pull ghcr.io/simplifaisoul/osiris:latest
-docker run -d -p 3000:3000 --env-file .env ghcr.io/simplifaisoul/osiris:latest
-```
+A public container registry for this deployment is not set. Do not treat an upstream image name as the product identity.
 
 **Custom port** — the container always listens on `3000`; set `OSIRIS_PORT` in
 `.env` to change the published host port (e.g. `OSIRIS_PORT=3005`) without
@@ -194,7 +183,7 @@ editing the compose file.
 
 ### Environment Variables
 
-OSIRIS works **partially without any API keys** — all core feeds use public,
+ATLAS works **partially without any API keys** — all core feeds use public,
 keyless sources. Copy [`.env.template`](.env.template) to `.env` and set only
 what you need:
 
@@ -257,7 +246,7 @@ every camera in the layer. Bram and Annelies have kept it by hand since 2012, an
 without their index these cameras would still be scattered across several hundred
 unrelated sites with no way to find them.
 
-OSIRIS links every one of them straight through to the operator who runs it, which is
+ATLAS links every one of them straight through to the operator who runs it, which is
 also how bekijkhet.nu asks to be read.
 
 ---
@@ -270,18 +259,8 @@ MIT — see [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**🛠️ SUPPORT THE OSIRIS PROJECT**
-The OSIRIS Global Intelligence Grid is entirely open-source, but running the backend scanners and data firehoses isn't cheap.
+Support and social links for this deployment are not set.
 
-If you want to help keep the servers alive, and support us to get access to better tools  unlock the **Special OSIRIS Console**, Currently Just a Cool UI. a you can officially support the project here : 
-
-🔗 [Support OSIRIS on Patreon](https://www.patreon.com/posts/159077425)
-
-*Supporters receive the `🔴 RedTeam Console` role and access to encrypted developer comms.*
-
-
-**Built by [simplifaisoul](https://github.com/simplifaisoul)**
-
-[Join our Discord to be a part of this movement!](https://discord.gg/umBykEpb98)
+The MIT notice in [LICENSE](LICENSE) stays, including Copyright (c) 2026 simplifaisoul.
 
 </div>

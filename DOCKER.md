@@ -1,10 +1,10 @@
-# Self-Hosting OSIRIS with Docker
+# Self-Hosting ATLAS with Docker
 
-OSIRIS ships as a self-contained Next.js standalone build. This guide covers
+ATLAS — Advanced Tactical Location & Analytics System ships as a self-contained Next.js standalone build. The display name does not change container names. This guide covers
 running it with Docker / Docker Compose, deploying it as a [CasaOS](https://casaos.io)
 app, and configuring the optional API keys.
 
-> **TL;DR:** OSIRIS runs fully **without any API keys**. All core feeds
+> **TL;DR:** ATLAS runs fully **without any API keys**. All core feeds
 > (aviation, satellites, fires, earthquakes, weather, news, CVEs) use public
 > keyless sources. Keys only matter for the optional RECON scanner backend and
 > for raising rate limits on a few feeds.
@@ -14,8 +14,7 @@ app, and configuring the optional API keys.
 ## 1. Docker Compose (recommended)
 
 ```bash
-git clone https://github.com/simplifaisoul/osiris.git
-cd osiris
+cd /home/localhost/osiris
 
 # optional: configure keys / scanner backend
 cp .env.template .env        # then edit .env
@@ -32,7 +31,7 @@ What the compose file does:
   instead, add `image: ghcr.io/simplifaisoul/osiris:latest` to the `osiris`
   service and drop the `build:` block.
 - **`env_file: .env` (`required: false`)** — if a `.env` file exists its
-  values are injected into the container; if it's missing, OSIRIS still starts
+  values are injected into the container; if it's missing, ATLAS still starts
   with the keyless feeds.
 - **`ports: ${OSIRIS_PORT:-3000}:3000`** — the web UI. The container always
   listens on 3000; the published **host** port is `OSIRIS_PORT` (default
@@ -52,7 +51,7 @@ docker compose down             # stop & remove
 
 A prebuilt image for `linux/amd64` and `linux/arm64` is published to the GitHub
 Container Registry on every push to `master` and every `v*.*.*` tag, so you can
-run OSIRIS without building anything:
+run the published image without building anything. That image name is not the display name of this deployment:
 
 ```bash
 docker pull ghcr.io/simplifaisoul/osiris:latest   # or a pinned tag, e.g. :0.1.0
@@ -92,7 +91,7 @@ reads.
 2. CasaOS dashboard → **`+`** → **Install a customized app** → paste the
    contents of `docker-compose.yml`.
    *(or simply run `docker compose up -d` from the cloned directory).*
-3. OSIRIS appears on the dashboard with its icon, reachable on host port
+3. The app appears on the dashboard with its icon, reachable on host port
    `3000` (or whatever `OSIRIS_PORT` you set in `.env`).
 
 The app icon is the gold Eye-of-Horus mark in
@@ -119,7 +118,7 @@ Copy `.env.template` to `.env` and fill in only what you need.
 | `SCANNER_KEY` | Shared secret; **must equal the backend's `OSIRIS_KEY`** | RECON toolkit |
 
 Without `SCANNER_URL`/`SCANNER_KEY` the RECON endpoints return `503` and the
-rest of OSIRIS works normally. Generate a key with `openssl rand -hex 32`.
+rest of ATLAS works normally. Generate a key with `openssl rand -hex 32`.
 
 ### Optional keys (reserved / for higher rate limits)
 
