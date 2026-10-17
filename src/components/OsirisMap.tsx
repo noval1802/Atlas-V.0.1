@@ -14,6 +14,7 @@ import CctvPreviews, { type PreviewCamera } from '@/components/CctvPreviews';
 import MapControls from '@/components/MapControls';
 import LiveNewsPreviews, { type PreviewFeed } from '@/components/LiveNewsPreviews';
 import { attachTerrain, type TerrainStatus } from '@/lib/map-terrain';
+import type { ActiveLayers } from '@/lib/layer-feeds';
 
 import { applyMapProjection } from '@/lib/map-projection';
 
@@ -32,7 +33,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 interface OsirisMapProps {
   data: any;
-  activeLayers: Record<string, boolean>;
+  activeLayers: ActiveLayers;
   onEntityClick?: (entity: any) => void;
   onMouseCoords?: (coords: { lat: number; lng: number }) => void;
   onRightClick?: (coords: { lat: number; lng: number }) => void;

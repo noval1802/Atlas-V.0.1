@@ -1,4 +1,22 @@
-export type CatalogCamera = { id: string | number; [key: string]: unknown };
+export type CatalogCamera = {
+  id: string | number;
+  source?: unknown;
+  lat?: number;
+  lng?: number;
+  name?: string;
+  city?: string;
+  country?: string;
+  feed_url?: string;
+  stream_url?: string;
+  stream_type?: string;
+  external_url?: string;
+  [key: string]: unknown;
+};
+
+/** Drop one operator's cameras before a replacement catalogue is merged in. */
+export function dropCamerasFromSource<T extends { source?: unknown }>(cameras: T[], source: string): T[] {
+  return cameras.filter(camera => camera.source !== source);
+}
 
 /** Partial retries must add cameras, not erase previously loaded regions. */
 export function mergeCameraCatalog<T extends { id: string | number }>(previous: T[], incoming: T[]): T[] {

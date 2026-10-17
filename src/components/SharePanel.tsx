@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Share2, Copy, Check, Link2, X, Globe, MapPin } from 'lucide-react';
+import type { ActiveLayers } from '@/lib/layer-feeds';
 
 interface SharePanelProps {
   mapView: { zoom: number; latitude: number; longitude?: number };
-  activeLayers: Record<string, boolean>;
+  activeLayers: ActiveLayers;
   mouseCoords?: { lat: number; lng: number } | null;
 }
 
