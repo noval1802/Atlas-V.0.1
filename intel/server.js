@@ -741,15 +741,7 @@ app.get('/resolve', async (req, res) => {
     if (req.query.icao24) props.icao24 = sanitizeId(req.query.icao24);
     const result = await resolver(id, props);
     res.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=7200');
-    res.json({
-      nodes: result.nodes,
-      links: result.links,
-      entity: { type, id },
-      source: 'OSIRIS Intelligence Layer',
-      sanctions_index_size: sanctionsIndex.entries.length,
-      wikidata_cache_hits: wdCache.size,
-      timestamp: new Date().toISOString(),
-    });
+    res.json(resolveResponse(type, id, result));
   } catch (e) {
     console.error('[INTEL] Resolve error:', e);
     res.status(500).json({ error: 'Resolution failed', nodes: [], links: [] });
@@ -773,4 +765,20 @@ async function boot() {
   });
 }
 
-boot().catch(e => { console.error('[INTEL] Fatal:', e); process.exit(1); });
+function resolveResponse(type, id, result) {
+  return {
+    nodes: result.nodes,
+    links: result.links,
+    entity: { type, id },
+    source: 'ATLAS Intelligence Layer',
+    sanctions_index_size: sanctionsIndex.entries.length,
+    wikidata_cache_hits: wdCache.size,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+if (require.main === module) {
+  boot().catch(e => { console.error('[INTEL] Fatal:', e); process.exit(1); });
+}
+
+module.exports = { resolveResponse };
