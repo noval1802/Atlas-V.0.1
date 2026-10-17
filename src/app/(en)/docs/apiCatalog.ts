@@ -67,7 +67,7 @@ export const API_GROUPS: ApiGroup[] = [
         method: 'GET',
         summary: 'Liveness probe. Never touches an upstream feed, so it stays fast under load.',
         returns: ['status', 'platform', 'version', 'uptime', 'timestamp', 'endpoints'],
-        notes: '`status` is the literal string `operational`. `uptime` is process uptime in seconds.',
+        notes: '`status` is the literal string `serving`. `uptime` is process uptime in seconds.',
       },
       {
         path: '/api/stats',
