@@ -4,8 +4,14 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, TrendingUp } from 'lucide-react';
 
+/* The embedded chart is still the unadopted pair. Both HUD mounts stay, and
+   this component renders nothing until that asset is chosen. Flip the
+   constant to bring the button and the modal back. */
+export const SHOW_LEGACY_TOKEN_PANEL = false;
+
 export default function TokenPanel() {
   const [isOpen, setIsOpen] = useState(false);
+  if (!SHOW_LEGACY_TOKEN_PANEL) return null;
 
   return (
     <>
