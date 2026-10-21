@@ -130,7 +130,7 @@ export async function loadSites(): Promise<Record<string, SiteDef>> {
       if (!res.ok) throw new Error(`Sherlock data.json responded ${res.status}`);
       const raw = await res.json();
       const sites: Record<string, SiteDef> = {};
-      for (const [name, def] of Object.entries<any>(raw)) {
+      for (const [name, def] of Object.entries(raw as Record<string, Partial<SiteDef>>)) {
         if (name === '$schema' || !def?.url || !def?.errorType) continue;
         sites[name] = def as SiteDef;
       }

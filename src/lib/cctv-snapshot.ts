@@ -52,6 +52,15 @@ export async function readSnapshot(): Promise<SnapshotFile | null> {
   }
 }
 
+/** Remove one region's saved cameras so a replaced token cannot restore them. */
+export async function dropSnapshotRegion(region: string): Promise<void> {
+  const saved = await readSnapshot();
+  if (!saved?.regions[region]) return;
+  const regions = { ...saved.regions };
+  delete regions[region];
+  await writeSnapshot(regions);
+}
+
 /**
  * Write via a temporary file and rename, so a crash mid-write cannot leave a
  * half-written catalogue that the next boot would refuse to parse.

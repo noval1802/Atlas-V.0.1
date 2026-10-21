@@ -53,8 +53,27 @@ services:
     networks:
       - default
 
+  osiris-postgres:
+    image: postgres:16-alpine
+    container_name: osiris-postgres
+    environment:
+      POSTGRES_USER: osiris
+      POSTGRES_PASSWORD: ${OSIRIS_POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: osiris_ops
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - osiris-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U osiris -d osiris_ops"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
 volumes:
   nginx-cache:
+  osiris-postgres-data:
 
 networks:
   umami_default:

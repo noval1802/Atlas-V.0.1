@@ -84,30 +84,36 @@ export function stealthHeaders(extraHeaders?: Record<string, string>): Record<st
 /**
  * Perform a fetch with stealth headers injected automatically.
  * Drop-in replacement for global fetch() with identical signature.
+ *
+ * `timeoutMs` covers the wait for response headers. The default stays at
+ * 30 seconds so a hung upstream cannot occupy a region slot. A caller with
+ * a slow but expected download (the Jasa Marga WFS layer) passes its own.
  */
 export async function stealthFetch(
   url: string | URL | Request,
-  init?: RequestInit
+  init?: RequestInit & { timeoutMs?: number },
 ): Promise<Response> {
+  const timeoutMs = init?.timeoutMs ?? 30_000;
+  const { timeoutMs: _ignored, ...requestInit } = init ?? {};
   const headers = stealthHeaders(
-    init?.headers ? Object.fromEntries(
-      init.headers instanceof Headers
-        ? init.headers.entries()
-        : Array.isArray(init.headers)
-          ? init.headers
-          : Object.entries(init.headers)
+    requestInit.headers ? Object.fromEntries(
+      requestInit.headers instanceof Headers
+        ? requestInit.headers.entries()
+        : Array.isArray(requestInit.headers)
+          ? requestInit.headers
+          : Object.entries(requestInit.headers)
     ) : undefined
   );
 
   const controller = new AbortController();
-  if (init?.signal) {
-    init.signal.addEventListener('abort', () => controller.abort());
+  if (requestInit.signal) {
+    requestInit.signal.addEventListener('abort', () => controller.abort());
   }
 
-  const timeoutId = setTimeout(() => controller.abort(new Error('stealthFetch Hard Timeout')), 30000);
+  const timeoutId = setTimeout(() => controller.abort(new Error('stealthFetch Hard Timeout')), timeoutMs);
 
   try {
-    const res = await fetch(url, { ...init, headers, signal: controller.signal });
+    const res = await fetch(url, { ...requestInit, headers, signal: controller.signal });
     clearTimeout(timeoutId);
     return res;
   } catch (err) {

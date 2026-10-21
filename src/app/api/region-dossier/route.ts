@@ -53,7 +53,7 @@ export async function placeAt(lat: number, lng: number): Promise<PhotonPlace | n
       }
     }
     return [];
-  }, PLACE_TTL_MS)();
+  }, PLACE_TTL_MS, false)(); // a miss is not kept, so the next click asks Photon again
   return rows[0] ?? null;
 }
 
@@ -187,7 +187,13 @@ export async function GET(request: Request) {
 
     let countryName = '';
     let countryCode = '';
-    let locationInfo: any = {};
+    let locationInfo: {
+      city?: string;
+      state?: string;
+      country?: string;
+      country_code?: string;
+      display_name?: string;
+    } = {};
 
     if (place) {
       countryName = place.country || '';
@@ -216,7 +222,7 @@ export async function GET(request: Request) {
             { signal: AbortSignal.timeout(5000) }
           );
           if (res.ok) {
-            const wiki = await res.json();
+            const wiki = await res.json() as { title?: string; extract?: string; thumbnail?: { source?: string } };
             return {
               title: wiki.title,
               extract: wiki.extract?.substring(0, 500),

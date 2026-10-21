@@ -3,9 +3,38 @@ import { NextResponse } from 'next/server';
 // Cyber threat intelligence from public feeds
 // Inspired by WorldMonitor's infrastructure tracking
 
+interface CisaVuln {
+  cveID?: string;
+  vulnerabilityName?: string;
+  vendorProject?: string;
+  product?: string;
+  dateAdded?: string;
+  dueDate?: string;
+}
+interface ThreatItem {
+  id?: string;
+  name?: string;
+  vendor?: string;
+  product?: string;
+  severity: string;
+  date?: string;
+  due?: string;
+  source: string;
+}
+interface ThreatResults {
+  threats: ThreatItem[];
+  stats: {
+    cisa_total?: number;
+    shadowserver?: string;
+    active_cves?: number;
+    threat_level?: string;
+  };
+  timestamp: string;
+}
+
 export async function GET() {
   try {
-    const results: any = { threats: [], stats: {}, timestamp: new Date().toISOString() };
+    const results: ThreatResults = { threats: [], stats: {}, timestamp: new Date().toISOString() };
 
     // 1. CISA Known Exploited Vulnerabilities (authoritative US govt source)
     try {
@@ -13,15 +42,15 @@ export async function GET() {
         
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as { vulnerabilities?: CisaVuln[] };
         const recent = (data.vulnerabilities || [])
-          .filter((v: any) => {
-            const added = new Date(v.dateAdded);
+          .filter((v) => {
+            const added = new Date(v.dateAdded || '');
             const daysAgo = (Date.now() - added.getTime()) / (1000 * 60 * 60 * 24);
             return daysAgo <= 30;
           })
           .slice(0, 10)
-          .map((v: any) => ({
+          .map((v) => ({
             id: v.cveID,
             name: v.vulnerabilityName,
             vendor: v.vendorProject,

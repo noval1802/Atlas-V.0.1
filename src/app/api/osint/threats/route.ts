@@ -12,7 +12,28 @@ export async function GET(req: Request) {
   }
   
   try {
-    const results: any = { timestamp: new Date().toISOString() };
+    const results: {
+      timestamp: string;
+      pulses?: {
+        name?: string;
+        description?: string;
+        created?: string;
+        modified?: string;
+        tags?: string[];
+        adversary?: string;
+        targeted_countries?: string[];
+        indicators_count?: number;
+      }[];
+      tor_exit_node?: boolean | null;
+      otx?: {
+        reputation?: number;
+        pulse_count?: number;
+        country?: string;
+        asn?: string;
+        whois?: { registrar?: string; creation_date?: string; expiration_date?: string } | null;
+      };
+      threat_level?: string;
+    } = { timestamp: new Date().toISOString() };
 
     // 1. AlienVault OTX — public pulse feed (no key needed for public data)
     try {
@@ -26,8 +47,19 @@ export async function GET(req: Request) {
           signal: AbortSignal.timeout(8000),
         });
         if (actRes.ok) {
-          const data = await actRes.json();
-          results.pulses = (data.results || []).slice(0, 10).map((p: any) => ({
+          const data = await actRes.json() as {
+            results?: {
+              name?: string;
+              description?: string;
+              created?: string;
+              modified?: string;
+              tags?: string[];
+              adversary?: string;
+              targeted_countries?: string[];
+              indicator_count?: number;
+            }[];
+          };
+          results.pulses = (data.results || []).slice(0, 10).map((p) => ({
             name: p.name,
             description: p.description?.slice(0, 200),
             created: p.created,
@@ -65,7 +97,12 @@ export async function GET(req: Request) {
             signal: AbortSignal.timeout(5000),
           });
           if (res.ok) {
-            const data = await res.json();
+            const data = await res.json() as {
+              reputation?: number;
+              pulse_info?: { count?: number };
+              country_name?: string;
+              asn?: string;
+            };
             results.otx = {
               reputation: data.reputation,
               pulse_count: data.pulse_info?.count || 0,
@@ -81,7 +118,10 @@ export async function GET(req: Request) {
             signal: AbortSignal.timeout(5000),
           });
           if (res.ok) {
-            const data = await res.json();
+            const data = await res.json() as {
+              pulse_info?: { count?: number };
+              whois?: { registrar?: string; creation_date?: string; expiration_date?: string } | null;
+            };
             results.otx = {
               pulse_count: data.pulse_info?.count || 0,
               whois: data.whois ? {

@@ -1,5 +1,27 @@
 import { NextResponse } from 'next/server';
 import WebSocket from 'ws';
+import type { ShipRow } from '@/lib/map-data';
+
+interface AisShip extends ShipRow {
+  id: number;
+  mmsi: number;
+  timestamp: number;
+  lat: number;
+  lng: number;
+  speed: number;
+  heading?: number;
+  name?: string;
+  destination?: string;
+  type?: string;
+}
+interface AisFrame {
+  MetaData?: { MMSI?: number; ShipName?: string };
+  MessageType?: string;
+  Message?: {
+    PositionReport?: { Latitude: number; Longitude: number; Sog: number; TrueHeading?: number; Cog?: number };
+    ShipStaticData?: { Name?: string; Destination?: string; Type?: number };
+  };
+}
 
 /**
  * OSIRIS — Maritime Intelligence
@@ -84,7 +106,7 @@ const CHOKEPOINTS = [
 // For Next.js dev server or Node.js Docker container, this will persist.
 
 const globalForAis = globalThis as unknown as {
-  shipsCache: Map<number, any>;
+  shipsCache: Map<number, AisShip>;
   isAisConnecting: boolean;
 };
 
@@ -143,7 +165,7 @@ function connectAisStream() {
   });
 
   // Map AIS ship types to OSIRIS categories
-  const getOsirisShipType = (typeCode: number) => {
+  const getOsirisShipType = (typeCode?: number) => {
     if (!typeCode) return 'cargo';
     if (typeCode >= 80 && typeCode <= 89) return 'tanker';
     if (typeCode >= 70 && typeCode <= 79) return 'cargo';
@@ -153,13 +175,13 @@ function connectAisStream() {
 
   ws.on("message", (data) => {
     try {
-      const parsed = JSON.parse(data.toString());
+      const parsed = JSON.parse(data.toString()) as AisFrame;
       const mmsi = parsed.MetaData?.MMSI;
       if (!mmsi) return;
 
       const existing = shipsCache.get(mmsi) || {
         id: mmsi, mmsi: mmsi, timestamp: Date.now()
-      };
+      } as AisShip;
 
       // Extract Name from MetaData if available (present in most messages)
       if (parsed.MetaData?.ShipName) {

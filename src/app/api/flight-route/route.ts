@@ -23,7 +23,36 @@ import { stealthFetch } from '@/lib/stealthFetch';
 export const maxDuration = 15;
 
 // ── Cache ──────────────────────────────────────────────────────────
-const routeCache = new Map<string, { data: any; ts: number }>();
+interface RouteEndpoint {
+  iata: string;
+  icao: string;
+  name: string;
+  city: string;
+  country: string;
+  lat: number;
+  lng: number;
+}
+interface RouteHit {
+  found: true;
+  callsign: string;
+  icao24: string;
+  source: string;
+  origin: RouteEndpoint;
+  destination: RouteEndpoint;
+  arc: [number, number][];
+  totalDistanceKm: number;
+  departureTime: string | null;
+  arrivalTime: string | null;
+  progress: number;
+}
+interface RouteMiss {
+  found: false;
+  callsign: string;
+  icao24: string;
+}
+type CachedRoute = RouteHit | RouteMiss;
+
+const routeCache = new Map<string, { data: CachedRoute; ts: number }>();
 const CACHE_HIT_TTL  = 30 * 60 * 1000; // 30 min for found routes
 const CACHE_MISS_TTL =  2 * 60 * 1000; // 2 min for misses
 const FETCH_TIMEOUT  = 4000;            // 4s per source
@@ -92,10 +121,20 @@ function estimateTimes(
 }
 
 // ── Airport resolver (async — with dynamic fallback) ──────────────
+interface AdsbAirport {
+  latitude?: string | number;
+  longitude?: string | number;
+  iata_code?: string;
+  icao_code?: string;
+  name?: string;
+  municipality?: string;
+  country_iso_name?: string;
+}
+
 async function resolveAirports(
   oCode: string | null | undefined,
   dCode: string | null | undefined,
-  adsbO?: any, adsbD?: any,
+  adsbO?: AdsbAirport | null, adsbD?: AdsbAirport | null,
 ): Promise<{ origin: Airport; destination: Airport } | null> {
   if (!oCode || !dCode) return null;
   if (oCode === dCode) return null; // Same airport = invalid route
@@ -110,7 +149,7 @@ async function resolveAirports(
       iata: adsbO.iata_code || '', icao: adsbO.icao_code || oCode,
       name: adsbO.name || oCode, city: adsbO.municipality || '',
       country: adsbO.country_iso_name || '',
-      lat: parseFloat(adsbO.latitude), lng: parseFloat(adsbO.longitude),
+      lat: parseFloat(String(adsbO.latitude)), lng: parseFloat(String(adsbO.longitude)),
     };
   }
   if (!dest && adsbD?.latitude && adsbD?.longitude) {
@@ -118,7 +157,7 @@ async function resolveAirports(
       iata: adsbD.iata_code || '', icao: adsbD.icao_code || dCode,
       name: adsbD.name || dCode, city: adsbD.municipality || '',
       country: adsbD.country_iso_name || '',
-      lat: parseFloat(adsbD.latitude), lng: parseFloat(adsbD.longitude),
+      lat: parseFloat(String(adsbD.latitude)), lng: parseFloat(String(adsbD.longitude)),
     };
   }
 
@@ -139,7 +178,9 @@ async function fromAdsbdb(callsign: string): Promise<{ origin: Airport; destinat
   );
   if (res.status === 429) { setCooldown('adsbdb'); throw new Error('adsbdb 429'); }
   if (!res.ok) throw new Error(`adsbdb ${res.status}`);
-  const data = await res.json();
+  const data = await res.json() as {
+    response?: { flightroute?: { origin?: AdsbAirport; destination?: AdsbAirport } };
+  };
   const route = data?.response?.flightroute;
   if (!route?.origin || !route?.destination) throw new Error('adsbdb: no route');
   const pair = await resolveAirports(
@@ -160,7 +201,7 @@ async function fromHexdb(callsign: string): Promise<{ origin: Airport; destinati
   );
   if (res.status === 429) { setCooldown('hexdb'); throw new Error('hexdb 429'); }
   if (!res.ok) throw new Error(`hexdb ${res.status}`);
-  const data = await res.json();
+  const data = await res.json() as { route?: string; origin?: string; destination?: string };
   let oCode: string | null = null, dCode: string | null = null;
   if (data.route && typeof data.route === 'string' && data.route.includes('-')) {
     const parts = data.route.split('-');
@@ -183,14 +224,22 @@ async function fromAirplanesLive(icao24: string, callsign: string): Promise<{ or
   const res = await stealthFetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT) });
   if (res.status === 429) { setCooldown('airplaneslive'); throw new Error('airplaneslive 429'); }
   if (!res.ok) throw new Error(`airplaneslive ${res.status}`);
-  const data = await res.json();
+  const data = await res.json() as {
+    ac?: {
+      oDB?: { icao?: string; lat?: number; lon?: number; name?: string; city?: string; country?: string; iata?: string };
+      dDB?: { icao?: string; lat?: number; lon?: number; name?: string; city?: string; country?: string; iata?: string };
+      from?: string;
+      to?: string;
+      route?: string;
+    }[];
+  };
   const ac = data?.ac?.[0];
   if (!ac) throw new Error('airplaneslive: no ac');
 
   let oCode: string | null = null;
   let dCode: string | null = null;
-  let oData: any = null;
-  let dData: any = null;
+  let oData: AdsbAirport | null = null;
+  let dData: AdsbAirport | null = null;
 
   // Pattern 1: explicit origin/destination DB objects with ICAO + coords
   if (ac.oDB?.icao && ac.dDB?.icao) {
@@ -287,7 +336,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (!route) {
-    const miss = { found: false, callsign, icao24 };
+    const miss: RouteMiss = { found: false, callsign, icao24 };
     routeCache.set(cacheKey, { data: miss, ts: Date.now() });
     return NextResponse.json(miss, {
       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },

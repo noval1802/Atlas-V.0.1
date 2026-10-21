@@ -1,3 +1,4 @@
+import type { IncomingMessage } from 'http';
 import { NextResponse } from 'next/server';
 import { stealthFetch } from '@/lib/stealthFetch';
 
@@ -26,6 +27,13 @@ interface ConflictZone {
   events: ConflictEvent[];
   eventCount: number;
   lastUpdated: string;
+}
+
+interface RssIncoming {
+  statusCode: number;
+  headers: { location?: string };
+  on(event: 'data', cb: (chunk: string) => void): void;
+  on(event: 'end', cb: () => void): void;
 }
 
 interface ConflictEvent {
@@ -161,7 +169,8 @@ async function fetchAllLiveConflictData(): Promise<{ events: ConflictEvent[]; ev
     const fetchRSS = (url: string): Promise<string> => {
       return new Promise((resolve, reject) => {
         const client = url.startsWith('https') ? https : http;
-        const req = client.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, family: 4 }, (res: any) => {
+        const req = client.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, family: 4 }, (raw: IncomingMessage) => {
+          const res = raw as RssIncoming;
           if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
              return fetchRSS(url.startsWith('https') && res.headers.location.startsWith('/') ? `https://${new URL(url).host}${res.headers.location}` : res.headers.location).then(resolve).catch(reject);
           }

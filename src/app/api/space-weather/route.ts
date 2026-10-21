@@ -8,18 +8,22 @@ import { NextResponse } from 'next/server';
  * Data: Kp index (geomagnetic), solar flares, CME alerts
  */
 
+interface KpReading { kp_index?: string | number; Kp?: string | number; time_tag?: string }
+interface SwpcAlert { product_id?: string; issue_datetime?: string; message?: string }
+interface SolarFlare { max_class?: string; begin_time?: string; max_time?: string; end_time?: string }
+
 export async function GET() {
   try {
     const [kpRes, alertsRes, flareRes] = await Promise.allSettled([
       fetch('https://services.swpc.noaa.gov/json/planetary_k_index_1m.json', {
         signal: AbortSignal.timeout(8000),
-      }).then(r => r.json()),
+      }).then(r => r.json() as Promise<unknown>),
       fetch('https://services.swpc.noaa.gov/json/alerts.json', {
         signal: AbortSignal.timeout(8000),
-      }).then(r => r.json()),
+      }).then(r => r.json() as Promise<unknown>),
       fetch('https://services.swpc.noaa.gov/json/goes/primary/xray-flares-latest.json', {
         signal: AbortSignal.timeout(8000),
-      }).then(r => r.json()),
+      }).then(r => r.json() as Promise<unknown>),
     ]);
 
     /* Latest Kp index (geomagnetic storm indicator).
@@ -31,8 +35,8 @@ export async function GET() {
     let kpIndex: number | null = null;
     let kpTimestamp = '';
     if (kpRes.status === 'fulfilled' && Array.isArray(kpRes.value) && kpRes.value.length > 0) {
-      const latest = kpRes.value[kpRes.value.length - 1];
-      const parsed = parseFloat(latest.kp_index ?? latest.Kp);
+      const latest = kpRes.value[kpRes.value.length - 1] as KpReading;
+      const parsed = parseFloat(String(latest.kp_index ?? latest.Kp));
       if (Number.isFinite(parsed)) {
         kpIndex = parsed;
         kpTimestamp = latest.time_tag || '';
@@ -53,9 +57,9 @@ export async function GET() {
     }
 
     // Recent alerts
-    const alerts: any[] = [];
+    const alerts: { id: string; issue_datetime?: string; message: string }[] = [];
     if (alertsRes.status === 'fulfilled' && Array.isArray(alertsRes.value)) {
-      for (const alert of alertsRes.value.slice(0, 10)) {
+      for (const alert of (alertsRes.value as SwpcAlert[]).slice(0, 10)) {
         alerts.push({
           id: alert.product_id || `alert-${Date.now()}`,
           issue_datetime: alert.issue_datetime,
@@ -65,9 +69,9 @@ export async function GET() {
     }
 
     // Recent solar flares
-    const flares: any[] = [];
+    const flares: { class?: string; begin?: string; peak?: string; end?: string }[] = [];
     if (flareRes.status === 'fulfilled' && Array.isArray(flareRes.value)) {
-      for (const flare of flareRes.value.slice(0, 5)) {
+      for (const flare of (flareRes.value as SolarFlare[]).slice(0, 5)) {
         if (!flare.max_class) continue;
         flares.push({
           class: flare.max_class,

@@ -113,7 +113,7 @@ function proxyFetch(url: string, referer: string | null, address?: string): Prom
     };
     if (referer) headers['Referer'] = referer;
 
-    const options: any = {
+    const options: https.RequestOptions = {
       headers,
       timeout: ATTEMPT_TIMEOUT_MS,
     };
@@ -122,7 +122,7 @@ function proxyFetch(url: string, referer: string | null, address?: string): Prom
        from the URL, so the request is the same one Node would have sent. */
     if (address) {
       const family = net.isIPv6(address) ? 6 : 4;
-      options.lookup = (_host: string, opts: { all?: boolean }, cb: (err: null, addr: unknown, family?: number) => void) =>
+      options.lookup = (_host, opts, cb) =>
         // Node asks for every address when Happy Eyeballs is on; this is the one.
         cb(null, opts?.all ? [{ address, family }] : address, family);
     }
@@ -190,8 +190,9 @@ export async function GET(request: NextRequest) {
         'Access-Control-Allow-Origin': '*',
       },
     });
-  } catch (error: any) {
-    console.error('Camera proxy error:', error?.message || error);
-    return NextResponse.json({ error: 'Proxy failed: ' + (error?.message || 'unknown') }, { status: 502 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Camera proxy error:', message);
+    return NextResponse.json({ error: 'Proxy failed: ' + (message || 'unknown') }, { status: 502 });
   }
 }

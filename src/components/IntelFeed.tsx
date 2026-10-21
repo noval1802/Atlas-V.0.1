@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Newspaper, ChevronDown, ChevronUp, ExternalLink, MapPin, Zap } from 'lucide-react';
+import type { MapData } from '@/lib/map-data';
 
 /* ═══════════════════════════════════════════════════════════════
    OSIRIS — Intelligence Feed
@@ -10,7 +11,7 @@ import { Newspaper, ChevronDown, ChevronUp, ExternalLink, MapPin, Zap } from 'lu
    ═══════════════════════════════════════════════════════════════ */
 
 interface IntelFeedProps {
-  data: any;
+  data: MapData;
   onLocate?: (lat: number, lng: number) => void;
 }
 
@@ -63,7 +64,7 @@ export default function IntelFeed({ data, onLocate }: IntelFeedProps) {
           <Newspaper className="w-3.5 h-3.5 text-[var(--gold-primary)]" />
           <span className="hud-text text-[11px] text-[var(--text-primary)]">SIGINT FEED</span>
           <span className="gotham-tag gotham-tag--info" style={{ fontSize: '9px', padding: '1px 5px' }}>{news.length}</span>
-          {news.some((n: any) => n.risk_score >= 8) && (
+          {news.some((n) => (n.risk_score ?? 0) >= 8) && (
             <span className="gotham-tag gotham-tag--critical" style={{ fontSize: '9px', padding: '1px 4px' }}>ALERTS</span>
           )}
         </div>
@@ -90,7 +91,7 @@ export default function IntelFeed({ data, onLocate }: IntelFeedProps) {
                   </span>
                 </div>
               ) : (
-                news.slice(0, 25).map((item: any, i: number) => (
+                news.slice(0, 25).map((item, i) => (
                   <div
                     key={i}
                     role="button"
@@ -101,8 +102,8 @@ export default function IntelFeed({ data, onLocate }: IntelFeedProps) {
                   >
                     {/* Top row: risk badge + source + time */}
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-mono font-bold tracking-widest ${getRiskClass(item.risk_score)}`}>
-                        {getRiskLabel(item.risk_score)}
+                      <span className={`text-[10px] font-mono font-bold tracking-widest ${getRiskClass(item.risk_score ?? 0)}`}>
+                        {getRiskLabel(item.risk_score ?? 0)}
                       </span>
                       <span className="text-[9px] font-mono text-[var(--text-muted)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded">
                         {item.source}
@@ -111,7 +112,8 @@ export default function IntelFeed({ data, onLocate }: IntelFeedProps) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onLocate?.(item.coords[0], item.coords[1]);
+                            const coords = item.coords;
+                            if (coords) onLocate?.(coords[0], coords[1]);
                           }}
                           className="text-[var(--text-muted)] hover:text-[var(--cyan-primary)] transition-colors"
                           title={item.coords_anchor ? `Approximate: centroid for "${item.coords_anchor}", not the event location` : 'Approximate location'}
@@ -120,7 +122,7 @@ export default function IntelFeed({ data, onLocate }: IntelFeedProps) {
                         </button>
                       )}
                       <span className="text-[9px] font-mono text-[var(--text-muted)] ml-auto">
-                        {timeAgo(item.published)}
+                        {timeAgo(item.published ?? '')}
                       </span>
                     </div>
 

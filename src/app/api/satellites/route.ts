@@ -2,6 +2,9 @@
 import { NextResponse } from 'next/server';
 import { stealthFetch } from '@/lib/stealthFetch';
 import { propagateTLE } from '@/lib/orbit';
+import type { SatellitePoint } from '@/lib/map-data';
+
+interface TleRecord { name: string; line1: string; line2: string }
 
 export const maxDuration = 60;
 
@@ -121,7 +124,7 @@ const CACHE_DIR = join(process.cwd(), '.next', 'cache');
 const CACHE_FILE = join(CACHE_DIR, 'satellites-tle-cache.json');
 
 /** Save TLE data to disk so it survives server restarts */
-function saveToDisk(sats: any[]) {
+function saveToDisk(sats: TleRecord[]) {
   try {
     if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
     writeFileSync(CACHE_FILE, JSON.stringify({ time: Date.now(), sats }));
@@ -129,19 +132,19 @@ function saveToDisk(sats: any[]) {
 }
 
 /** Load TLE data from disk (valid for 4 hours) */
-function loadFromDisk(): { sats: any[]; time: number } | null {
+function loadFromDisk(): { sats: TleRecord[]; time: number } | null {
   try {
     if (!existsSync(CACHE_FILE)) return null;
-    const data = JSON.parse(readFileSync(CACHE_FILE, 'utf-8'));
+    const data = JSON.parse(readFileSync(CACHE_FILE, 'utf-8')) as { sats?: TleRecord[]; time?: number };
     // Accept disk cache up to 4 hours old
-    if (data.sats?.length > 0 && Date.now() - data.time < 14400000) {
-      return data;
+    if (data.sats && data.sats.length > 0 && typeof data.time === 'number' && Date.now() - data.time < 14400000) {
+      return { sats: data.sats, time: data.time };
     }
   } catch { /* corrupted cache */ }
   return null;
 }
 
-let globalCachedSats: any[] = [];
+let globalCachedSats: TleRecord[] = [];
 let globalCacheTime = 0;
 
 // On module load, try to restore from disk immediately
@@ -191,7 +194,7 @@ async function fetchCelesTrakGroup(url: string): Promise<{ name: string; line1: 
 export async function GET() {
   try {
     const nowTime = Date.now();
-    let allSats: any[] = globalCachedSats;
+    let allSats: TleRecord[] = globalCachedSats;
     let source = 'memory-cache';
 
     if (globalCachedSats.length === 0 || globalCachedSats.length < 5000 || nowTime - globalCacheTime > 3600000) { // refresh if empty, too few, or stale
@@ -246,8 +249,8 @@ export async function GET() {
           });
           
           if (res.ok) {
-            const data = await res.json();
-            const fetchedSats: any[] = [];
+            const data = await res.json() as { tle0?: string; tle1?: string; tle2?: string }[];
+            const fetchedSats: TleRecord[] = [];
             const seenNames = new Set<string>();
 
             for (const item of data) {
@@ -285,7 +288,7 @@ export async function GET() {
     }
 
     // No artificial cap — propagate all satellites, MapLibre handles it fine
-    const satellites = [];
+    const satellites: (SatellitePoint & { category: string })[] = [];
     for (const sat of allSats) {
       const pos = propagateSGP4Simple(sat.line1, sat.line2);
       if (!pos) continue;

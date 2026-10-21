@@ -12,6 +12,8 @@
  * where almost everything fails on a pair of numeric comparisons.
  */
 
+import { mapDataList, type MapRecord } from '@/lib/map-data';
+
 export interface AoiEntity {
   id: string;
   label: string;
@@ -51,7 +53,7 @@ interface LayerSpec {
   color: string;
   /** Field holding a human-readable name, first match wins. */
   labelFields: string[];
-  detail?: (e: any) => string | undefined;
+  detail?: (e: MapRecord) => string | undefined;
 }
 
 /**
@@ -114,7 +116,7 @@ export function bboxOf(ring: number[][]): { west: number; south: number; east: n
   return { west, south, east, north };
 }
 
-function pickLabel(e: any, fields: string[]): string {
+function pickLabel(e: MapRecord, fields: string[]): string {
   for (const f of fields) {
     const v = e?.[f];
     if (v !== undefined && v !== null && String(v).trim()) return String(v).trim();
@@ -129,7 +131,7 @@ function pickLabel(e: any, fields: string[]): string {
  * rather than treated as empty, so a layer that has not loaded yet simply does
  * not appear instead of reporting a confident zero.
  */
-export function selectInPolygon(ring: number[][], data: Record<string, any>): AoiReport {
+export function selectInPolygon(ring: number[][], data: object): AoiReport {
   if (!ring || ring.length < 3) return { total: 0, groups: [] };
 
   const box = bboxOf(ring);
@@ -137,8 +139,8 @@ export function selectInPolygon(ring: number[][], data: Record<string, any>): Ao
   let total = 0;
 
   for (const spec of AOI_LAYERS) {
-    const rows = data?.[spec.key];
-    if (!Array.isArray(rows) || rows.length === 0) continue;
+    const rows = mapDataList(data, spec.key);
+    if (!rows || rows.length === 0) continue;
 
     const items: AoiEntity[] = [];
     const memberIds: string[] = [];

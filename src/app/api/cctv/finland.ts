@@ -1,3 +1,4 @@
+import type { CatalogCamera } from '@/lib/camera-catalog';
 import { stealthFetch } from '@/lib/stealthFetch';
 
 /**
@@ -6,7 +7,28 @@ import { stealthFetch } from '@/lib/stealthFetch';
  * ~470 weathercam stations across Finland — NO API KEY NEEDED
  */
 
-export async function fetchFinlandCameras(): Promise<any[]> {
+interface FinlandPreset {
+  imageUrl?: string;
+  id?: string | number;
+}
+
+interface FinlandFeature {
+  id?: string | number;
+  geometry?: { coordinates?: number[] };
+  properties?: {
+    id?: string | number;
+    presets?: FinlandPreset[];
+    name?: string;
+    names?: { fi?: string };
+    municipality?: string;
+  };
+}
+
+interface FinlandStations {
+  features?: FinlandFeature[];
+}
+
+export async function fetchFinlandCameras(): Promise<CatalogCamera[]> {
   try {
     const res = await stealthFetch('https://tie.digitraffic.fi/api/weathercam/v1/stations', {
       signal: AbortSignal.timeout(12000),
@@ -14,8 +36,8 @@ export async function fetchFinlandCameras(): Promise<any[]> {
     });
     if (!res.ok) return [];
 
-    const data = await res.json();
-    const cams: any[] = [];
+    const data = await res.json() as FinlandStations;
+    const cams: CatalogCamera[] = [];
 
     for (const feature of (data.features || [])) {
       const coords = feature.geometry?.coordinates;

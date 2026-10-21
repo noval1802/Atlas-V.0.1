@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { config } from './middleware';
+import { config } from './proxy';
 import { version as maplibreVersion } from 'maplibre-gl/package.json';
 
 const vendorDir = fileURLToPath(new URL('../public/vendor/maplibre/', import.meta.url));
@@ -34,9 +34,14 @@ describe('map runtime assets', () => {
     expect(matches('/dark-matter-style.json')).toBe(false);
   });
 
-  it('still counts page views', () => {
-    expect(matches('/')).toBe(true);
-    expect(matches('/merch')).toBe(true);
-    expect(matches('/api/cctv')).toBe(false);
+  it('still counts page views and keeps analytics off API routes', () => {
+    const analytics = config.matcher.find((entry) => entry.includes('(?!api'));
+    expect(analytics).toBeTruthy();
+    const analyticsMatches = (path: string) => new RegExp(`^${analytics}$`).test(path);
+    expect(analyticsMatches('/')).toBe(true);
+    expect(analyticsMatches('/merch')).toBe(true);
+    expect(analyticsMatches('/api/cctv')).toBe(false);
+    expect(analyticsMatches(workerPath)).toBe(false);
+    expect(config.matcher).toContain('/api/:path*');
   });
 });

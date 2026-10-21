@@ -45,7 +45,7 @@ async function readStr(s:BluetoothRemoteGATTService,u:number){try{const c=await 
 function decode(dv:DataView){const b=new Uint8Array(dv.buffer);const hex=Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join(' ');try{const t=new TextDecoder().decode(dv.buffer);if(/^[\x20-\x7E\n\r\t]+$/.test(t))return{text:t,hex};}catch{}return{text:hex,hex};}
 function validHex(s:string){const h=s.replace(/[\s,:-]/g,'');return h.length>0&&h.length%2===0&&/^[0-9a-fA-F]+$/.test(h);}
 function parseHex(s:string){const h=s.replace(/[\s,:-]/g,'');return new Uint8Array((h.match(/.{1,2}/g)||[]).map(b=>parseInt(b,16)));}
-async function writeSafe(ch:BluetoothRemoteGATTCharacteristic,d:BufferSource,resp:boolean){if(resp&&typeof ch.writeValueWithResponse==='function')await ch.writeValueWithResponse(d);else if(!resp&&typeof ch.writeValueWithoutResponse==='function')await ch.writeValueWithoutResponse(d);else await(ch as any).writeValue(d);}
+async function writeSafe(ch:BluetoothRemoteGATTCharacteristic,d:BufferSource,resp:boolean){if(resp&&typeof ch.writeValueWithResponse==='function')await ch.writeValueWithResponse(d);else if(!resp&&typeof ch.writeValueWithoutResponse==='function')await ch.writeValueWithoutResponse(d);else await ch.writeValue(d);}
 function fts(t:number){const d=new Date(t);return d.toLocaleTimeString('en-US',{hour12:false})+'.'+d.getMilliseconds().toString().padStart(3,'0');}
 function toHex(s:string){return Array.from(new TextEncoder().encode(s)).map(x=>x.toString(16).padStart(2,'0')).join(' ');}
 
@@ -54,8 +54,9 @@ function toHex(s:string){return Array.from(new TextEncoder().encode(s)).map(x=>x
    ═══════════════════════════════════════════════════════════════ */
 const DB_NAME='marauder_v8'; const DB_VER=1; const STORE='captures';
 function openDB():Promise<IDBDatabase>{return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VER);r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'});};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
-async function vaultSave(dev:any){const db=await openDB();return new Promise<void>((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(dev);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
-async function vaultLoadAll():Promise<any[]>{const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).getAll();req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error);});}
+type VaultRecord = Omit<BLEDev, 'bt' | 'srv'>;
+async function vaultSave(dev:VaultRecord){const db=await openDB();return new Promise<void>((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(dev);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
+async function vaultLoadAll():Promise<VaultRecord[]>{const db=await openDB();return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).getAll();req.onsuccess=()=>res(req.result as VaultRecord[]);req.onerror=()=>rej(req.error);});}
 async function vaultClear(){const db=await openDB();return new Promise<void>((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
 async function vaultDelete(id:string){const db=await openDB();return new Promise<void>((res,rej)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(id);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});}
 
@@ -69,10 +70,11 @@ function getGPS():Promise<GeoFix|null>{return new Promise(res=>{if(!navigator.ge
    NETWORK RECON — WebRTC + connection + port probe
    ═══════════════════════════════════════════════════════════════ */
 interface NetIntel { localIPs:string[]; type?:string; downlink?:number; rtt?:number; saveData?:boolean; openPorts:{port:number;service:string;ms:number}[]; ts:number; }
+interface NetConnection { effectiveType?: string; downlink?: number; rtt?: number; saveData?: boolean; }
 async function probeNetwork():Promise<NetIntel>{
   const intel:NetIntel={localIPs:[],openPorts:[],ts:Date.now()};
   // Connection API
-  const conn=(navigator as any).connection;
+  const conn=(navigator as Navigator & { connection?: NetConnection }).connection;
   if(conn){intel.type=conn.effectiveType;intel.downlink=conn.downlink;intel.rtt=conn.rtt;intel.saveData=conn.saveData;}
   // WebRTC local IPs
   try{const ips=await new Promise<string[]>((resolve)=>{const found:string[]=[];const pc=new RTCPeerConnection({iceServers:[]});pc.createDataChannel('');pc.createOffer().then(o=>pc.setLocalDescription(o)).catch(()=>{});const to=setTimeout(()=>{pc.close();resolve(found);},3000);pc.onicecandidate=e=>{if(!e.candidate)return;const m=e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);if(m&&!found.includes(m[1]))found.push(m[1]);const m6=e.candidate.candidate.match(/([0-9a-f]{1,4}(:[0-9a-f]{1,4}){7})/i);if(m6&&!found.includes(m6[1]))found.push(m6[1]);};setTimeout(()=>{clearTimeout(to);pc.close();resolve(found);},2500);});intel.localIPs=ips;}catch{}
@@ -81,7 +83,7 @@ async function probeNetwork():Promise<NetIntel>{
   for(const{port,svc}of ports){
     const t0=performance.now();
     try{const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),400);await fetch(`http://127.0.0.1:${port}/`,{mode:'no-cors',signal:ctrl.signal});clearTimeout(to);const ms=Math.round(performance.now()-t0);intel.openPorts.push({port,service:svc,ms});}
-    catch(e:any){const ms=Math.round(performance.now()-t0);if(ms<350&&e.name!=='AbortError')intel.openPorts.push({port,service:svc,ms});}
+    catch(e:unknown){const ms=Math.round(performance.now()-t0);const name=e instanceof Error?e.name:'';if(ms<350&&name!=='AbortError')intel.openPorts.push({port,service:svc,ms});}
   }
   return intel;
 }
@@ -144,7 +146,7 @@ export default function WorldRemote({onClose,onPlaceOnMap}:{onClose?:()=>void,on
     const iv=setInterval(()=>{if(mtd.current)setTick(t=>t+1);},1000);
     // Load vault
     vaultLoadAll().then(saved=>{if(saved.length>0&&mtd.current){
-      const restored=saved.map((d:any)=>({...d,connected:false,probing:false,srv:undefined,bt:undefined,rssiHistory:d.rssiHistory||[],gattDump:d.gattDump||[]}));
+      const restored=saved.map((d):BLEDev=>({...d,connected:false,probing:false,srv:undefined,bt:undefined,rssiHistory:d.rssiHistory||[],gattDump:d.gattDump||[]}));
       setDevices(restored);setVaultCount(saved.length);setVaultLoaded(true);
     }else{setVaultLoaded(true);}}).catch(()=>setVaultLoaded(true));
     return()=>{mtd.current=false;clearInterval(iv);if(errT.current)clearTimeout(errT.current);nL.current.clear();};
@@ -160,7 +162,7 @@ export default function WorldRemote({onClose,onPlaceOnMap}:{onClose?:()=>void,on
   /* ═══ PERSIST TO VAULT ═══ */
   const saveToVault=useCallback(async(dev:BLEDev)=>{
     const safe={...dev,bt:undefined,srv:undefined};// strip non-serializable
-    try{await vaultSave(safe);setVaultCount(c=>c+1);log('INFO','VAULT',`Saved "${dev.name}" to local database`);}catch(e:any){log('ERROR','VAULT',e.message);}
+    try{await vaultSave(safe);setVaultCount(c=>c+1);log('INFO','VAULT',`Saved "${dev.name}" to local database`);}catch(e:unknown){log('ERROR','VAULT',e instanceof Error?e.message:String(e));}
   },[log]);
 
   /* ═══ VIEW ON WORLD MAP ═══ */
@@ -237,7 +239,7 @@ export default function WorldRemote({onClose,onPlaceOnMap}:{onClose?:()=>void,on
       for(const svc of PROBE_SVCS){try{await s.getPrimaryService(svc);foundSvcs.push(svc);const sn=SVC_NAMES[svc]||`0x${svc.toString(16)}`;if(!services.includes(sn)){services.push(sn);log('ENUM',name,`Service: ${sn}`);};}catch{}}
 
       try{s.disconnect();}catch{}
-    }catch(e:any){log('ERROR',dev.name,`Probe error: ${e.message}`);}
+    }catch(e:unknown){log('ERROR',dev.name,`Probe error: ${e instanceof Error?e.message:String(e)}`);}
 
     const cls=classify(name,appearance,mfr,foundSvcs);
     const ms=Math.round(performance.now()-p0);
@@ -263,7 +265,7 @@ export default function WorldRemote({onClose,onPlaceOnMap}:{onClose?:()=>void,on
       setDevices(p=>[...p,raw]);
       const probed=await deepProbe(raw);
       if(mtd.current){setDevices(p=>p.map(x=>x.id===d.id?probed:x));await saveToVault(probed);}
-    }catch(e:any){if(e.name!=='NotFoundError'){setErr(e.message);log('ERROR','SCANNER',e.message);}else log('INFO','SCANNER','Picker dismissed');}
+    }catch(e:unknown){const name=e instanceof Error?e.name:'';const message=e instanceof Error?e.message:String(e);if(name!=='NotFoundError'){setErr(message);log('ERROR','SCANNER',message);}else log('INFO','SCANNER','Picker dismissed');}
     finally{if(mtd.current)setScanning(false);}
   },[devices,scanning,deepProbe,onDC,setErr,log,saveToVault]);
 
@@ -271,7 +273,7 @@ export default function WorldRemote({onClose,onPlaceOnMap}:{onClose?:()=>void,on
   const connect=useCallback(async(dev:BLEDev)=>{if(!dev.bt?.gatt||connecting)return;setConnecting(dev.id);log('CONNECT',dev.name,'Connecting...');
     try{const s=await dev.bt.gatt.connect();let b=dev.battery;try{const bs=await s.getPrimaryService(0x180F);const bc=await bs.getCharacteristic(0x2A19);b=(await bc.readValue()).getUint8(0);}catch{}
       setDevices(p=>p.map(d=>d.id===dev.id?{...d,connected:true,srv:s,battery:b}:d));log('CONNECT',dev.name,'✓ Connected');
-    }catch(e:any){setErr(e.message);log('ERROR',dev.name,e.message);}finally{if(mtd.current)setConnecting(null);}
+    }catch(e:unknown){const message=e instanceof Error?e.message:String(e);setErr(message);log('ERROR',dev.name,message);}finally{if(mtd.current)setConnecting(null);}
   },[connecting,setErr,log]);
   const disconnect=useCallback((dev:BLEDev)=>{try{dev.bt?.gatt?.connected&&dev.bt.gatt.disconnect();}catch{}setDevices(p=>p.map(d=>d.id===dev.id?{...d,connected:false,srv:undefined}:d));if(gattTarget===dev.id){setGattTarget(null);setGattSvcs([]);}log('DISCONNECT',dev.name,'Dropped');},[gattTarget,log]);
 
@@ -286,9 +288,9 @@ export default function WorldRemote({onClose,onPlaceOnMap}:{onClose?:()=>void,on
         }}catch{}result.push({uuid:s.uuid,name:sn,chars});}
       if(mtd.current){setGattSvcs(result);if(result.length>0)setExSvc(result[0].uuid);}
       log('INFO',dev.name,`✓ ${result.length} services, ${result.reduce((a,s)=>a+s.chars.length,0)} characteristics`);
-    }catch(e:any){log('ERROR',dev.name,e.message);}finally{if(mtd.current)setGattLoading(false);}
+    }catch(e:unknown){log('ERROR',dev.name,e instanceof Error?e.message:String(e));}finally{if(mtd.current)setGattLoading(false);}
   },[log]);
-  const toggleN=useCallback(async(su:string,ch:Chr,dn:string)=>{if(!ch.char)return;const key=`${su}/${ch.uuid}`;try{if(ch.notifying){await ch.char.stopNotifications();const l=nL.current.get(key);if(l){ch.char.removeEventListener('characteristicvaluechanged',l);nL.current.delete(key);}setGattSvcs(p=>p.map(s=>s.uuid===su?{...s,chars:s.chars.map(c=>c.uuid===ch.uuid?{...c,notifying:false}:c)}:s));log('SUB',dn,`✗ ${ch.name}`);}else{await ch.char.startNotifications();const listener=(e:Event)=>{if(!mtd.current)return;const t=(e.target as BluetoothRemoteGATTCharacteristic).value;if(!t)return;const d=decode(t);setGattSvcs(p=>p.map(s=>s.uuid===su?{...s,chars:s.chars.map(c=>c.uuid===ch.uuid?{...c,value:d.text,hex:d.hex}:c)}:s));log('NOTIFY',dn,`${ch.name}: ${d.text.slice(0,50)}`,d.hex,t.byteLength);};ch.char.addEventListener('characteristicvaluechanged',listener);nL.current.set(key,listener);setGattSvcs(p=>p.map(s=>s.uuid===su?{...s,chars:s.chars.map(c=>c.uuid===ch.uuid?{...c,notifying:true}:c)}:s));log('SUB',dn,`✓ ${ch.name}`);}}catch(e:any){log('ERROR',dn,(e.message||'').slice(0,40));}
+  const toggleN=useCallback(async(su:string,ch:Chr,dn:string)=>{if(!ch.char)return;const key=`${su}/${ch.uuid}`;try{if(ch.notifying){await ch.char.stopNotifications();const l=nL.current.get(key);if(l){ch.char.removeEventListener('characteristicvaluechanged',l);nL.current.delete(key);}setGattSvcs(p=>p.map(s=>s.uuid===su?{...s,chars:s.chars.map(c=>c.uuid===ch.uuid?{...c,notifying:false}:c)}:s));log('SUB',dn,`✗ ${ch.name}`);}else{await ch.char.startNotifications();const listener=(e:Event)=>{if(!mtd.current)return;const t=(e.target as BluetoothRemoteGATTCharacteristic).value;if(!t)return;const d=decode(t);setGattSvcs(p=>p.map(s=>s.uuid===su?{...s,chars:s.chars.map(c=>c.uuid===ch.uuid?{...c,value:d.text,hex:d.hex}:c)}:s));log('NOTIFY',dn,`${ch.name}: ${d.text.slice(0,50)}`,d.hex,t.byteLength);};ch.char.addEventListener('characteristicvaluechanged',listener);nL.current.set(key,listener);setGattSvcs(p=>p.map(s=>s.uuid===su?{...s,chars:s.chars.map(c=>c.uuid===ch.uuid?{...c,notifying:true}:c)}:s));log('SUB',dn,`✓ ${ch.name}`);}}catch(e:unknown){const message=e instanceof Error?e.message:String(e);log('ERROR',dn,message.slice(0,40));}
   },[log]);
 
   /* ═══ NETWORK RECON ═══ */
@@ -362,7 +364,7 @@ export default function WorldRemote({onClose,onPlaceOnMap}:{onClose?:()=>void,on
           {/* Tab Bar */}
           <div className="flex items-center px-2 py-1.5 shrink-0 gap-0.5 border-b border-[rgba(255,255,255,0.04)]" style={{background:'rgba(0,0,0,0.2)'}}>
             {([['scan','DEVICES',Scan],['intel','INTEL',Globe],['log','LOG',Terminal]] as const).map(([id,label,Icon])=>(
-              <button key={id} onClick={()=>setView(id as any)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[9px] font-mono font-bold tracking-[0.12em] transition-all flex-1 justify-center"
+              <button key={id} onClick={()=>setView(id)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[9px] font-mono font-bold tracking-[0.12em] transition-all flex-1 justify-center"
                 style={{color:view===id?'var(--cyan-primary)':'var(--text-muted)',background:view===id?'rgba(0,230,255,0.06)':'transparent'}}>
                 <Icon className="w-3 h-3"/>{label}
               </button>

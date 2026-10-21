@@ -59,11 +59,14 @@
   --border-secondary: rgba(var(--gold-rgb), 0.08);
   --border-active: rgba(var(--gold-rgb), 0.4);
   --border-cyan: rgba(var(--cyan-rgb), 0.2);
+  /* Idle edge of a text field. 42% white stays at least 3:1 on the field fill and the shell behind it. Focus still replaces this with cyan. */
+  --control-border: rgba(255, 255, 255, 0.42);
 
   /* ── Text ── */
   --text-primary: #E8E6E0;
   --text-secondary: #9B978E;
-  --text-muted: #5C5A54;
+  /* Lightest core surface is --bg-tertiary. This gray is the darkest that still clears 4.5:1 there. */
+  --text-muted: #8C8A84;
   --text-heading: #F5F0E0;
   --text-gold: #D4AF37;
   --text-cyan: #00E5FF;
@@ -123,7 +126,8 @@ body.theme-ghost {
 
   --text-primary: #E1BEE7;
   --text-secondary: #9575CD;
-  --text-muted: #4A148C;
+  /* Duller than ghost secondary, and still 4.5:1 on ghost tertiary. Not the core gray. */
+  --text-muted: #8A74B0;
   --text-heading: #B388FF;
   --text-gold: #B388FF;
   --text-cyan: #7C4DFF;
@@ -176,6 +180,47 @@ html:has(.docs-root) body {
   scroll-behavior: smooth;
 }
 
+/* Sign-in and operational pages opt out of the map's viewport lock.
+   The map never renders .ops-scroll, so its document stays fixed.
+   Only the root scrolls: the body stays visible so a second bar cannot appear. */
+html:has(.ops-scroll) {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html:has(.ops-scroll) body {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+/* Privacy is a long document, not the map. Same single-root scroll as the
+   operational pages: html scrolls, body stays visible, so a second bar
+   does not appear. The map never renders .privacy-root. */
+html:has(.privacy-root) {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html:has(.privacy-root) body {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+/* Center the sign-in card while it fits. Once it is taller than the
+   viewport, start at the top so the first field and the last control
+   both remain reachable. */
+.ops-auth-main {
+  min-height: 100vh;
+  min-height: 100dvh;
+  justify-content: safe center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html:has(.docs-root),
   html:has(.docs-root) body { scroll-behavior: auto; }
@@ -189,7 +234,7 @@ html:has(.docs-root) body {
 .docs-code .tok-lit { color: #B388FF; }
 .docs-code .tok-kw  { color: #FF7B9C; }
 .docs-code .tok-fn  { color: var(--cyan-primary); }
-.docs-code .tok-com { color: #5C5A54; font-style: italic; }
+.docs-code .tok-com { color: var(--text-muted); font-style: italic; }
 
 /* ── Scrollbar ── */
 .styled-scrollbar::-webkit-scrollbar { width: 3px; }
@@ -307,6 +352,9 @@ html:has(.docs-root) body {
 @keyframes splashScanDrift {
   0% { background-position: 0 0; }
   100% { background-position: 0 100vh; }
+}
+.splash-scan-drift {
+  animation: splashScanDrift 8s linear infinite;
 }
 
 /* Ticker scroll — pure CSS, GPU-accelerated */
@@ -450,8 +498,8 @@ html:has(.docs-root) body {
   .desktop-panel { display: none !important; }
 
   /* Adjust map popups for touch */
-  .maplibregl-popup { max-width: 260px !important; font-size: 10px !important; }
-  .maplibregl-popup-content { max-width: 260px !important; padding: 8px !important; }
+  .maplibregl-popup { max-width: 320px !important; font-size: 10px !important; }
+  .maplibregl-popup-content { max-width: 320px !important; padding: 0 !important; }
   .maplibregl-popup-close-button { font-size: 18px !important; padding: 4px 8px !important; }
 
   /* Glass panel mobile tweaks */
@@ -726,6 +774,10 @@ html:has(.docs-root) body {
   animation: scan-line-sweep 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   will-change: transform, opacity;
   z-index: 10;
+}
+
+.motion-scan-link {
+  animation: scan-line-sweep 1.8s ease-in-out infinite;
 }
 
 .scan-line--gold {
@@ -1057,6 +1109,9 @@ html:has(.docs-root) body {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
 }
+.motion-progress-sweep {
+  animation: progress-glow-slide 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
 
 .intel-progress {
   position: relative;
@@ -1337,11 +1392,29 @@ html:has(.docs-root) body {
 
   .glass-panel-interactive,
   .btn-tactical,
-  .panel-slide-left,
-  .panel-slide-right,
+  .layer-toggle,
+  .layer-toggle::after,
+  .layer-toggle-premium,
   .layer-toggle-premium::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
+    animation: none;
+    transition: none;
+  }
+
+  .panel-slide-left,
+  .panel-slide-right {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  .pulse-ring::before,
+  .pulse-ring::after,
+  .notification-pulse::before,
+  .scan-line,
+  .splash-scanline {
+    opacity: 0;
   }
 }
 
@@ -1350,6 +1423,9 @@ html:has(.docs-root) body {
   0% { opacity: 1; }
   50% { opacity: 0.4; }
   100% { opacity: 1; }
+}
+.motion-sweep-pulse {
+  animation: sweep-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes sweep-radar {
@@ -2353,10 +2429,39 @@ html:has(.docs-root) body {
   .gotham-pulse-ring::after,
   .gotham-pulse-ring__ring {
     animation: none;
+    opacity: 0;
   }
 
   .gotham-card {
-    transition-duration: 0.01ms !important;
+    transition: none;
+  }
+}
+
+/* The universal 0.6s color transition does not name a class, so a later
+   bare selector turns it off. Class transitions stay. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none;
+  }
+
+  .animate-osiris-pulse,
+  .animate-glow-pulse,
+  .animate-data-pulse,
+  .animate-threat-flash,
+  .animate-ticker,
+  .splash-ring--outer,
+  .splash-ring--mid,
+  .splash-ring--inner,
+  .splash-scanline,
+  .splash-progress-bar,
+  .splash-scan-drift,
+  .motion-progress-sweep,
+  .motion-sweep-pulse,
+  .motion-scan-link,
+  .threat-badge-critical,
+  .threat-badge-high,
+  .threat-badge-elevated {
+    animation: none;
   }
 }
 

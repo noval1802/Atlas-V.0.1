@@ -21,7 +21,7 @@ export async function GET(req: Request) {
       throw new Error(`MAC Lookup API HTTP ${res.status}`);
     }
 
-    const data = await res.json();
+    const data = await res.json() as { found?: boolean; company?: string; address?: string; macPrefix?: string };
     if (data && data.found) {
       return NextResponse.json({
         mac: cleanMac,
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
     } else {
       return NextResponse.json({ mac: cleanMac, vendor: 'Not Found' });
     }
-  } catch (error: any) {
-    return NextResponse.json({ error: 'MAC lookup failed', detail: error.message }, { status: 502 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: 'MAC lookup failed', detail: error instanceof Error ? error.message : String(error) }, { status: 502 });
   }
 }

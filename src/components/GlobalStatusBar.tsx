@@ -83,19 +83,12 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
             .then(data => ({
               ok: true,
               json: async () => ({
-                earthquakes: (data.features || []).map((f: any) => ({
-                  id: f.id,
-                  lat: f.geometry?.coordinates?.[1] || 0,
-                  lng: f.geometry?.coordinates?.[0] || 0,
+                earthquakes: ((data as { features?: Array<{ id?: string; geometry?: { coordinates?: number[] }; properties?: { mag?: number; place?: string; time?: number } }> }).features || []).map((f): Earthquake => ({
+                  id: f.id ?? '',
                   depth: f.geometry?.coordinates?.[2] || 0,
-                  magnitude: f.properties?.mag,
-                  place: f.properties?.place,
-                  time: f.properties?.time,
-                  url: f.properties?.url,
-                  tsunami: f.properties?.tsunami,
-                  type: f.properties?.type,
-                  felt: f.properties?.felt,
-                  alert: f.properties?.alert,
+                  magnitude: f.properties?.mag ?? 0,
+                  place: f.properties?.place ?? '',
+                  time: f.properties?.time ?? 0,
                 }))
               })
             })),
@@ -151,6 +144,24 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
           >
             <span className="text-[9px] font-bold tracking-[0.15em] uppercase">Privacy</span>
           </Link>
+          <Link href="/operator" title="Dasbor operator" aria-label="Dasbor operator"
+            className="h-full px-3 flex items-center text-[var(--gold-primary)]/80 hover:text-[var(--gold-primary)] hover:bg-[var(--gold-primary)]/15 border-r border-white/[0.04] transition-all duration-200"
+          >
+            <span className="text-[9px] font-bold tracking-[0.15em] uppercase">Operasi</span>
+          </Link>
+          <button
+            type="button"
+            title="Keluar"
+            aria-label="Keluar"
+            onClick={() => {
+              void fetch('/api/ops/logout', { method: 'POST' }).finally(() => {
+                window.location.assign('/masuk');
+              });
+            }}
+            className="h-full px-3 flex items-center text-white/55 hover:text-white hover:bg-white/[0.04] border-r border-white/[0.04] transition-all duration-200"
+          >
+            <span className="text-[9px] font-bold tracking-[0.15em] uppercase">Keluar</span>
+          </button>
         </div>
 
         {/* ── CENTER: Scrolling ticker ── */}

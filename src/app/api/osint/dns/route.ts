@@ -19,7 +19,17 @@ export async function GET(req: Request) {
 
   try {
     const types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'SOA'];
-    const results: any = { domain, records: {}, timestamp: new Date().toISOString() };
+    const results: {
+      domain: string;
+      records: Record<string, { name?: string; type?: number; ttl?: number; data?: string }[]>;
+      timestamp: string;
+      summary?: {
+        ip_addresses: (string | undefined)[];
+        mail_servers: (string | undefined)[];
+        nameservers: (string | undefined)[];
+        total_records: number;
+      };
+    } = { domain, records: {}, timestamp: new Date().toISOString() };
 
     const lookups = await Promise.allSettled(
       types.map(async (type) => {
@@ -28,7 +38,7 @@ export async function GET(req: Request) {
           headers: { 'Accept': 'application/json' },
         });
         if (res.ok) {
-          const data = await res.json();
+          const data = await res.json() as { Answer?: { name?: string; type?: number; TTL?: number; data?: string }[]; Status?: number };
           return { type, answers: data.Answer || [], status: data.Status };
         }
         return { type, answers: [], status: -1 };
@@ -38,7 +48,7 @@ export async function GET(req: Request) {
     for (const result of lookups) {
       if (result.status === 'fulfilled') {
         const { type, answers } = result.value;
-        results.records[type] = answers.map((a: any) => ({
+        results.records[type] = answers.map((a) => ({
           name: a.name,
           type: a.type,
           ttl: a.TTL,
@@ -53,9 +63,9 @@ export async function GET(req: Request) {
     const nsRecords = results.records.NS || [];
     
     results.summary = {
-      ip_addresses: aRecords.map((r: any) => r.data),
-      mail_servers: mxRecords.map((r: any) => r.data),
-      nameservers: nsRecords.map((r: any) => r.data),
+      ip_addresses: aRecords.map((r) => r.data),
+      mail_servers: mxRecords.map((r) => r.data),
+      nameservers: nsRecords.map((r) => r.data),
       total_records: Object.values(results.records).flat().length,
     };
 

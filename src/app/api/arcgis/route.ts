@@ -213,7 +213,19 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const data = await res.json();
+      const data = await res.json() as {
+        error?: { message?: string };
+        results?: {
+          id?: string;
+          title?: string;
+          url?: string;
+          snippet?: string;
+          owner?: string;
+          numViews?: number;
+          extent?: unknown;
+          tags?: string[];
+        }[];
+      };
 
       if (data.error) {
         return NextResponse.json(
@@ -222,7 +234,7 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const results = (data.results || []).map((item: any) => ({
+      const results = (data.results || []).map((item) => ({
         id: item.id,
         title: item.title,
         url: item.url,
@@ -241,11 +253,11 @@ export async function GET(request: NextRequest) {
           },
         },
       );
-    } catch (err: any) {
-      if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
         return NextResponse.json({ error: 'ArcGIS search timed out' }, { status: 504 });
       }
-      return NextResponse.json({ error: err.message || 'Search failed' }, { status: 500 });
+      return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Search failed' }, { status: 500 });
     }
   }
 
@@ -309,7 +321,7 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const geojson = await res.json();
+      const geojson = await res.json() as { error?: { message?: string } };
 
       if (geojson.error) {
         return NextResponse.json(
@@ -323,15 +335,16 @@ export async function GET(request: NextRequest) {
           'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
         },
       });
-    } catch (err: any) {
-      if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
         return NextResponse.json({ error: 'Feature Service query timed out' }, { status: 504 });
       }
       // A target that resolved into a reserved range is refused, not a 500.
-      if (String(err.message).startsWith('safeFetch: blocked')) {
+      if (message.startsWith('safeFetch: blocked')) {
         return NextResponse.json({ error: 'Forbidden target' }, { status: 403 });
       }
-      return NextResponse.json({ error: err.message || 'Query failed' }, { status: 500 });
+      return NextResponse.json({ error: message || 'Query failed' }, { status: 500 });
     }
   }
 

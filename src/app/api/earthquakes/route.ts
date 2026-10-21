@@ -1,5 +1,21 @@
 
 import { NextResponse } from 'next/server';
+import type { EarthquakeRow } from '@/lib/map-data';
+
+interface UsgsFeature {
+  id?: string;
+  geometry?: { coordinates?: number[] };
+  properties?: {
+    mag?: number;
+    place?: string;
+    time?: number;
+    url?: string;
+    tsunami?: number;
+    type?: string;
+    felt?: number;
+    alert?: string | null;
+  };
+}
 
 /**
  * OSIRIS — Earthquake Data API
@@ -18,10 +34,10 @@ export async function GET() {
       return NextResponse.json({ earthquakes: [], error: 'USGS unavailable' });
     }
 
-    const data = await res.json();
+    const data = await res.json() as { features?: UsgsFeature[] };
     const features = data.features || [];
 
-    const earthquakes = features.map((f: any) => {
+    const earthquakes: EarthquakeRow[] = features.map((f) => {
       const coords = f.geometry?.coordinates || [0, 0, 0];
       const props = f.properties || {};
       return {

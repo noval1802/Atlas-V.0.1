@@ -31,7 +31,16 @@ export async function GET(req: Request) {
           headers: { 'Accept': 'application/json' },
         });
         if (circlRes.ok) {
-          const data = await circlRes.json();
+          const data = await circlRes.json() as {
+            id?: string;
+            summary?: string;
+            cvss?: number | null;
+            cvss_vector?: string | null;
+            references?: string[];
+            Published?: string | null;
+            Modified?: string | null;
+            cwe?: string | null;
+          };
           return NextResponse.json({
             id: data.id || cve.toUpperCase(),
             description: data.summary || 'No description available.',
@@ -55,11 +64,28 @@ export async function GET(req: Request) {
       });
     }
 
-    const data = await res.json();
+    const data = await res.json() as {
+      containers?: {
+        cna?: {
+          descriptions?: { lang?: string; value?: string }[];
+          metrics?: {
+            cvssV3_1?: { baseScore?: number | null; vectorString?: string | null; baseSeverity?: string | null };
+            cvssV3_0?: { baseScore?: number | null; vectorString?: string | null; baseSeverity?: string | null };
+            cvssV31?: { baseScore?: number | null; vectorString?: string | null; baseSeverity?: string | null };
+            cvssV2_0?: { baseScore?: number | null; vectorString?: string | null };
+            cvssV2?: { baseScore?: number | null; vectorString?: string | null };
+          }[];
+          problemTypes?: { descriptions?: { cweId?: string; description?: string }[] }[];
+          references?: { url?: string }[];
+          affected?: { vendor?: string; product?: string; versions?: { version?: string }[] }[];
+        };
+      };
+      cveMetadata?: { cveId?: string; datePublished?: string; dateUpdated?: string };
+    };
 
     // Parse the CVE 5.0 JSON format from MITRE
     const cna = data.containers?.cna;
-    const description = cna?.descriptions?.find((d: any) => d.lang === 'en')?.value
+    const description = cna?.descriptions?.find((d) => d.lang === 'en')?.value
       || cna?.descriptions?.[0]?.value
       || 'No description available.';
 
@@ -95,13 +121,13 @@ export async function GET(req: Request) {
     }
 
     // Extract references
-    const references = (cna?.references || []).slice(0, 5).map((r: any) => r.url);
+    const references = (cna?.references || []).slice(0, 5).map((r) => r.url);
 
     // Extract affected products
-    const affected = (cna?.affected || []).slice(0, 5).map((a: any) => ({
+    const affected = (cna?.affected || []).slice(0, 5).map((a) => ({
       vendor: a.vendor || 'Unknown',
       product: a.product || 'Unknown',
-      versions: (a.versions || []).slice(0, 3).map((v: any) => v.version).filter(Boolean),
+      versions: (a.versions || []).slice(0, 3).map((v) => v.version).filter(Boolean),
     }));
 
     return NextResponse.json({

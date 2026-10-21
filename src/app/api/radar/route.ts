@@ -24,6 +24,15 @@ const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
   VE:[-66,8],VN:[106,16],YE:[48,15.5],ZM:[28,-14],ZW:[30,-20],
 };
 
+interface IodaEvent {
+  location?: string;
+  score?: number;
+  severity?: string;
+  start?: number;
+  duration?: number;
+  datasource?: string;
+}
+
 export async function GET() {
   try {
     const now = Math.floor(Date.now() / 1000);
@@ -43,16 +52,16 @@ export async function GET() {
       return NextResponse.json({ outages: [], total: 0, timestamp: new Date().toISOString(), source: 'IODA (offline)' });
     }
 
-    const json = await res.json();
+    const json = await res.json() as { data?: IodaEvent[] };
     const events = json.data || [];
 
     const outages = events
-      .filter((e: any) => {
+      .filter((e): e is IodaEvent & { location: string } => {
         // IODA uses "location" field like "country/RW"
         const code = e.location?.split('/')[1];
-        return code && COUNTRY_CENTROIDS[code];
+        return Boolean(code && COUNTRY_CENTROIDS[code]);
       })
-      .map((e: any, i: number) => {
+      .map((e, i: number) => {
         const code = e.location.split('/')[1];
         const [lng, lat] = COUNTRY_CENTROIDS[code];
         // Jitter so overlapping events don't stack

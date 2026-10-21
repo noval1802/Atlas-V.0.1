@@ -5,15 +5,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plane, Satellite, Sun, AlertTriangle, Camera,
   CloudLightning, Ship, Network, Database, Ghost,
-  Flame, Tv, Radio, Mountain, Anchor, Megaphone, SlidersHorizontal
+  Flame, Tv, Radio, Mountain, Anchor, Megaphone, SlidersHorizontal, Shield
 } from 'lucide-react';
 import StyleStudio from './StyleStudio';
+import type { ActiveLayers } from '@/lib/layer-feeds';
+import { mapDataList, type MapData } from '@/lib/map-data';
 import { TERRAIN_MIN_ZOOM, type TerrainStatus } from '@/lib/map-terrain';
 
 interface LayerPanelProps {
-  data: any;
-  activeLayers: any;
-  setActiveLayers: React.Dispatch<React.SetStateAction<any>>;
+  data: MapData;
+  activeLayers: ActiveLayers;
+  setActiveLayers: React.Dispatch<React.SetStateAction<ActiveLayers>>;
   isMobile?: boolean;
   theme?: 'core' | 'ghost';
   setTheme?: (theme: 'core' | 'ghost') => void;
@@ -29,7 +31,7 @@ interface LayerPanelProps {
 }
 
 interface LayerDef {
-  key: string;
+  key: keyof ActiveLayers;
   label: string;
   dataKey: string;
   description?: string;
@@ -37,9 +39,14 @@ interface LayerDef {
   catKey?: string;
   /** Capability that must be configured server-side for this layer to appear. */
   requires?: string;
-  /** Key of the layer this one modifies. Renders indented beneath it, and reads
-   *  as inert while that parent is off — it has nothing to act on. */
-  parent?: string;
+  /** Key of the layer this one modifies. Renders indented beneath it. */
+  parent?: keyof ActiveLayers;
+  /** The row stays usable while any of these layers is on. Defaults to the parent. */
+  enabledBy?: (keyof ActiveLayers)[];
+  /** Count only cameras whose source matches. */
+  source?: string;
+  /** Count cameras whose source is outside this list. */
+  excludeSources?: string[];
 }
 
 interface LayerGroupDef {
@@ -50,6 +57,14 @@ interface LayerGroupDef {
 }
 
 const LAYER_GROUPS: LayerGroupDef[] = [
+  {
+    label: 'KOTAMAOPS',
+    fullLabel: 'Kotamaops',
+    icon: Shield,
+    layers: [
+      { key: 'tni_ad', label: 'TNI AD', dataKey: 'kotamaops' },
+    ],
+  },
   {
     label: 'SDK',
     fullLabel: 'ATLAS SDK',
@@ -95,8 +110,10 @@ const LAYER_GROUPS: LayerGroupDef[] = [
     fullLabel: 'SURVEILLANCE',
     icon: Camera,
     layers: [
-      { key: 'cctv', label: 'CCTV Cameras', dataKey: 'cameras' },
-      { key: 'cctv_previews', label: 'Live Previews', dataKey: '', parent: 'cctv' },
+      { key: 'cctv', label: 'CCTV Cameras', dataKey: 'cameras', excludeSources: ['Jasa Marga', 'TPT CCTV'] },
+      { key: 'cctv_previews', label: 'Live Previews', dataKey: '', parent: 'cctv', enabledBy: ['cctv', 'cctv_jm', 'cctv_jakarta'] },
+      { key: 'cctv_jm', label: 'CCTV JM', dataKey: 'cameras', source: 'Jasa Marga' },
+      { key: 'cctv_jakarta', label: 'CCTV JAKARTA', dataKey: 'cameras', source: 'TPT CCTV' },
       { key: 'live_news', label: 'Live News Feeds', dataKey: 'live_feeds' },
     ],
   },
@@ -217,9 +234,9 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
     return () => window.removeEventListener('keydown', onKey);
   }, [pinnedGroup]);
 
-  const toggle = (key: string) => {
+  const toggle = (key: keyof ActiveLayers) => {
     if ((key === 'terrain_elevation' || key === 'terrain_3d') && !activeLayers[key]) on3DModeSelected?.();
-    setActiveLayers((prev: any) => ({ ...prev, [key]: !prev[key] }));
+    setActiveLayers(prev => ({ ...prev, [key]: !prev[key] }));
   };
   const terrainDetails = activeLayers.terrain_elevation ? (
     <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] p-2.5 text-[10px] text-white/60">
@@ -235,7 +252,7 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
   const toggleGroup = (layers: LayerDef[]) => {
     const anyOn = layers.some(l => activeLayers[l.key]);
     if (!anyOn && layers.some(l => l.key === 'terrain_elevation' || l.key === 'terrain_3d')) on3DModeSelected?.();
-    setActiveLayers((prev: any) => {
+    setActiveLayers(prev => {
       const next = { ...prev };
       for (const l of layers) next[l.key] = !anyOn;
       return next;
@@ -249,20 +266,30 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
     layers: g.layers.filter(l => !l.requires || capabilities[l.requires]),
   })).filter(g => g.layers.length > 0);
 
-  const getCount = (dk: string, catKey?: string): number | null => {
-    if (!dk) return null;
-    if (catKey && data.category_counts) {
-      return data.category_counts[catKey] || 0;
+  const getCount = (layer: LayerDef): number | null => {
+    if (!layer.dataKey) return null;
+    if (layer.catKey && data.category_counts) {
+      return data.category_counts[layer.catKey] || 0;
     }
     let total = 0;
     let found = false;
-    for (const k of dk.split(',')) {
-      if (data[k] && Array.isArray(data[k])) {
-        total += data[k].length;
+    for (const k of layer.dataKey.split(',')) {
+      const list = mapDataList(data, k);
+      if (list) {
         found = true;
+        total += list.filter((item: { source?: unknown }) => {
+          if (layer.source) return item?.source === layer.source;
+          if (layer.excludeSources?.length) return !layer.excludeSources.includes(String(item?.source ?? ''));
+          return true;
+        }).length;
       }
     }
     return found ? total : null;
+  };
+
+  const layerDormant = (layer: LayerDef) => {
+    const gates = layer.enabledBy ?? (layer.parent ? [layer.parent] : []);
+    return gates.length > 0 && gates.every(key => !activeLayers[key]);
   };
 
   /* ── MOBILE ── */
@@ -277,8 +304,8 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
             <div className="flex flex-col gap-1">
               {group.layers.map((layer) => {
                 const isLayerActive = activeLayers[layer.key];
-                const count = getCount(layer.dataKey, layer.catKey);
-                const dormant = !!layer.parent && !activeLayers[layer.parent];
+                const count = getCount(layer);
+                const dormant = layerDormant(layer);
                 return (
                   <button
                     key={layer.key}
@@ -465,8 +492,8 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
                     <div className="flex flex-col gap-0.5">
                       {group.layers.map((layer) => {
                         const isLayerActive = activeLayers[layer.key];
-                        const count = getCount(layer.dataKey, layer.catKey);
-                        const dormant = !!layer.parent && !activeLayers[layer.parent];
+                        const count = getCount(layer);
+                        const dormant = layerDormant(layer);
 
                         return (
                           <button

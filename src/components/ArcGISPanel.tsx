@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import type { ArcGisLayer } from '@/lib/dashboard-state';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Database,
@@ -40,18 +41,10 @@ interface ArcGISResult {
   tags: string[];
 }
 
-interface ImportedLayer {
-  id: string;
-  title: string;
-  url: string;
-  geojson: any;
-  color: string;
-  visible: boolean;
-  opacity: number;
-}
+type ImportedLayer = ArcGisLayer;
 
 export interface ArcGISPanelProps {
-  onImportLayer: (layer: { id: string; title: string; url: string; geojson: any; color?: string; opacity?: number }) => void;
+  onImportLayer: (layer: Omit<ArcGisLayer, 'color' | 'visible' | 'opacity'> & { color?: string; opacity?: number }) => void;
   onRemoveLayer: (id: string) => void;
   onUpdateLayer: (id: string, updates: Partial<{ color: string; visible: boolean; opacity: number }>) => void;
   importedLayers: ImportedLayer[];
@@ -133,8 +126,8 @@ export default function ArcGISPanel({
         const data = await res.json();
         setResults(data.results || []);
         setResultsFor(searchQuery);
-      } catch (err: any) {
-        setError(err.message || 'Search failed');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Search failed');
       } finally {
         setSearching(false);
       }
@@ -168,8 +161,8 @@ export default function ArcGISPanel({
         const usedColors = importedLayers.map(l => l.color);
         const availableColor = LAYER_COLORS.find(c => !usedColors.includes(c)) || LAYER_COLORS[importedLayers.length % LAYER_COLORS.length];
         onImportLayer({ id: result.id, title: result.title, url: result.url, geojson, color: availableColor, opacity: 0.8 });
-      } catch (err: any) {
-        setError(err.message || 'Import failed');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Import failed');
       } finally {
         setImportingId(null);
       }

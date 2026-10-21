@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadCameraCatalog, mergeCameraCatalog } from './camera-catalog';
+import { dropCamerasFromSource, loadCameraCatalog, mergeCameraCatalog } from './camera-catalog';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -42,6 +42,15 @@ describe('progressive camera catalogue', () => {
     stop();
     await vi.advanceTimersByTimeAsync(120_000);
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes cameras from the replaced token and keeps the other operators', () => {
+    const kept = dropCamerasFromSource([
+      { id: 'jm-1', source: 'Jasa Marga' },
+      { id: 'tpt-1', source: 'TPT CCTV' },
+      { id: 'uk-1', source: 'TfL' },
+    ], 'Jasa Marga');
+    expect(kept.map(camera => camera.id)).toEqual(['tpt-1', 'uk-1']);
   });
 
   it('updates duplicate camera IDs without duplicating dots', () => {

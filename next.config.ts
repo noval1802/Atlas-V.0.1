@@ -1,6 +1,23 @@
+import os from "os";
 import type { NextConfig } from "next";
 
+function lanDevOrigins(): string[] {
+  const origins: string[] = [];
+  for (const [name, entries] of Object.entries(os.networkInterfaces())) {
+    if (name === "lo" || name.startsWith("docker") || name.startsWith("br-") || name.startsWith("veth")) continue;
+    for (const entry of entries ?? []) {
+      if (entry.family === "IPv4" && !entry.internal) origins.push(entry.address);
+    }
+  }
+  return ["127.0.0.1", ...origins];
+}
+
+// Dev-only allowance so impeccable live mode can load.
+const __impeccableLiveDev =
+  process.env.NODE_ENV === "development" ? " http://localhost:8400" : "";
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: lanDevOrigins(),
   turbopack: {
     rules: {
       'maplibre-gl.mjs': {
@@ -18,7 +35,7 @@ const nextConfig: NextConfig = {
      everywhere except Vercel, so Docker and the platform both get what they
      expect. */
   output: process.env.VERCEL ? undefined : 'standalone',
-  serverExternalPackages: ['ws'],
+  serverExternalPackages: ['ws', '@prisma/client', 'prisma'],
   transpilePackages: ['react-map-gl', 'mapbox-gl', 'maplibre-gl'],
   // Type errors block the build again. They were suppressed while 17 stood
   // unfixed; those are cleared, so the gate can do its job — the AstraPanel
@@ -48,8 +65,10 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
-          { key: 'Content-Security-Policy', value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: data: blob:;" },
-          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+          { key: 'Content-Security-Policy', value: `default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: data: blob:${__impeccableLiveDev};` },
+          ...(process.env.NODE_ENV === "production"
+            ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]
+            : []),
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },

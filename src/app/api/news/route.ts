@@ -61,15 +61,14 @@ type Channel = Feed;
  *
  * Checked 2026-09-20: each answers, carries at least ten items, and its newest
  * item was under an hour old. Left out because they do not: Reuters (feed
- * retired), AP and Al Arabiya (403 to any reader), Xinhua and NHK (404),
- * France 24 (empty), Kyiv Independent (404 — its Telegram channel is above),
- * Jerusalem Post (items dated 2025).
+ * retired), AP, Al Arabiya, and Times of Israel (403 to any reader), Xinhua
+ * and NHK (404), France 24 (empty), Kyiv Independent (404 — its Telegram
+ * channel is above), Jerusalem Post (items dated 2025).
  */
 const WIRE_FEEDS: (Feed & { url: string })[] = [
   { handle: 'bbc',        url: 'https://feeds.bbci.co.uk/news/world/rss.xml',        name: 'BBC World',        lean: 'British public broadcaster',   bloc: 'western' },
   { handle: 'guardian',   url: 'https://www.theguardian.com/world/rss',              name: 'The Guardian',     lean: 'British newsroom',             bloc: 'western' },
   { handle: 'aljazeera',  url: 'https://www.aljazeera.com/xml/rss/all.xml',          name: 'Al Jazeera',       lean: 'Qatari broadcaster',           bloc: 'regional' },
-  { handle: 'timesofisrael', url: 'https://www.timesofisrael.com/feed/',             name: 'Times of Israel',  lean: 'Israeli newsroom',             bloc: 'regional' },
   { handle: 'tass',       url: 'https://tass.com/rss/v2.xml',                        name: 'TASS',             lean: 'Russian state agency',         bloc: 'russian' },
   { handle: 'anadolu',    url: 'https://www.aa.com.tr/en/rss/default?cat=world',     name: 'Anadolu Agency',   lean: 'Turkish state agency',         bloc: 'regional' },
   { handle: 'scmp',       url: 'https://www.scmp.com/rss/91/feed',                   name: 'SCMP',             lean: 'Hong Kong newsroom',           bloc: 'regional' },

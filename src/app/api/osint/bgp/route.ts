@@ -14,7 +14,20 @@ export async function GET(req: Request) {
   }
 
   try {
-    const results: any = { query, timestamp: new Date().toISOString() };
+    const results: {
+      query: string;
+      timestamp: string;
+      type?: string;
+      ip?: {
+        asn: { asn: number | string; name: string; description: string; country_code: string };
+        prefixes: never[];
+        ptr_record: string;
+        rir_allocation: string;
+      };
+      asn?: { asn: number; name: string; description: string; country_code: string };
+      prefixes?: { ipv4: never[]; ipv6: never[]; total_v4: number; total_v6: number };
+      peers?: { upstream: never[]; total: number };
+    } = { query, timestamp: new Date().toISOString() };
 
     const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(query);
     const isASN = /^(AS)?\d+$/i.test(query);
@@ -27,7 +40,15 @@ export async function GET(req: Request) {
         headers: { 'Accept': 'application/json' },
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as {
+          status?: string;
+          country?: string;
+          countryCode?: string;
+          org?: string;
+          isp?: string;
+          as?: string;
+          reverse?: string;
+        };
         if (data.status === 'success') {
           // Parse ASN from "AS15169 Google LLC"
           let asn = 'N/A', asOrg = data.org || data.isp || 'N/A', asCountry = data.countryCode || 'N/A';
@@ -45,7 +66,7 @@ export async function GET(req: Request) {
                 signal: AbortSignal.timeout(5000),
               });
               if (ripeRes.ok) {
-                const ripe = await ripeRes.json();
+                const ripe = await ripeRes.json() as { data?: { holder?: string } };
                 if (ripe?.data?.holder) asnDesc = ripe.data.holder;
               }
             } catch { /* RIPE optional */ }
@@ -74,7 +95,7 @@ export async function GET(req: Request) {
           signal: AbortSignal.timeout(8000),
         });
         if (ripeRes.ok) {
-          const ripe = await ripeRes.json();
+          const ripe = await ripeRes.json() as { data?: { holder?: string } };
           if (ripe?.data?.holder) {
             asnName = ripe.data.holder;
             asnDesc = ripe.data.holder;

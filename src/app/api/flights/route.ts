@@ -1,6 +1,79 @@
 
 import { NextResponse } from 'next/server';
 import { stealthFetch } from '@/lib/stealthFetch';
+import type { FlightRow } from '@/lib/map-data';
+
+interface AdsbAircraft {
+  t?: string;
+  flight?: string | null;
+  dbFlags?: number;
+  lat?: number | null;
+  lon?: number | null;
+  hex?: string | null;
+  alt_baro?: number | string | null;
+  gs?: number | null;
+  track?: number | null;
+  category_os?: number | null;
+  r?: string;
+  squawk?: string | null;
+  nac_p?: number;
+}
+
+interface ClassifiedFlight extends Omit<FlightRow, 'speed_knots'> {
+  callsign: string;
+  lat: number;
+  lng: number;
+  alt: number;
+  heading: number;
+  speed_knots: number | null;
+  model: string;
+  icao24: string;
+  registration: string;
+  squawk: string;
+  airline_code: string;
+  aircraft_category: 'heli' | 'plane';
+  category: 'commercial' | 'private' | 'jet' | 'military';
+  grounded: boolean;
+  nac_p?: number;
+  type: 'flight';
+}
+
+interface JammingPoint { lat: number; lng: number; nac_p: number; callsign: string }
+interface JammingCell { lat: number; lng: number; severity: number; count: number }
+
+interface FlightPayload {
+  commercial_flights: ClassifiedFlight[];
+  private_flights: ClassifiedFlight[];
+  private_jets: ClassifiedFlight[];
+  military_flights: ClassifiedFlight[];
+  gps_jamming: JammingCell[];
+  total: number;
+  source: string;
+  providers: {
+    adsbfi_mil: number;
+    adsbfi_regional: number;
+    opensky: number;
+    opensky_auth: boolean;
+    opensky_age_s: number | null;
+  };
+  timestamp: string;
+}
+
+type OpenSkyState = [
+  string | null,
+  string | null,
+  unknown, unknown, unknown,
+  number | null,
+  number | null,
+  number | null,
+  unknown,
+  number | null,
+  number | null,
+  unknown, unknown, unknown,
+  string | null,
+  unknown, unknown,
+  number | null,
+];
 
 export const maxDuration = 60;
 
@@ -129,13 +202,13 @@ const ADSBFI_GAP_MS = 1100;
 
 // adsb.fi serves /mil but returns 400 for /ladd, /pia and /squawk/{code},
 // so the global type feeds collapse to the military one.
-async function fetchAdsbFiRegion(lat: number, lon: number): Promise<any[]> {
+async function fetchAdsbFiRegion(lat: number, lon: number): Promise<AdsbAircraft[]> {
   try {
     const res = await stealthFetch(`${ADSBFI_BASE}/lat/${lat}/lon/${lon}/dist/${ADSB_MAX_DIST}`, {
       signal: AbortSignal.timeout(12000),
     });
     if (res.ok) {
-      const data = await res.json();
+      const data = await res.json() as { ac?: AdsbAircraft[] };
       return data.ac || [];
     }
     await res.body?.cancel();
@@ -143,7 +216,7 @@ async function fetchAdsbFiRegion(lat: number, lon: number): Promise<any[]> {
   return [];
 }
 
-function classifyFlight(f: any) {
+function classifyFlight(f: AdsbAircraft): ClassifiedFlight | null {
   const modelUpper = (f.t || '').toUpperCase();
   const flightStr = (f.flight || '').trim().toUpperCase();
   const dbFlags = (f.dbFlags || 0);
@@ -217,7 +290,7 @@ function classifyFlight(f: any) {
   };
 }
 
-let cachedData: any = null;
+let cachedData: FlightPayload | null = null;
 let lastFetchTime = 0;
 // 90s TTL keeps us well within the authenticated OpenSky budget (4000 credits/day,
 // 4 credits/call = 1000 calls/day ≈ one per 86s). The old 45s TTL at ~1920 calls/day
@@ -241,9 +314,9 @@ const openSkyInterval = () => (hasOpenSkyCreds() ? 90000 : 900000);
 // payload from adsb.fi alone in between would swing the map between ~10K
 // aircraft and a few hundred every 90s. Reusing the snapshot keeps the aircraft
 // on screen stable; only their age varies, which providers.opensky_age_s reports.
-let osSnapshot: any[] = [];
+let osSnapshot: AdsbAircraft[] = [];
 let osSnapshotTime = 0;
-let fetchPromise: Promise<any> | null = null;
+let fetchPromise: Promise<FlightPayload> | null = null;
 
 // Back off from OpenSky after a 429 so the daily quota can reset.
 // Re-poking a limited endpoint on every cache miss keeps the IP throttled.
@@ -273,7 +346,7 @@ async function getOpenSkyToken(): Promise<string | null> {
       }
     );
     if (!res.ok) { console.warn('[OSIRIS] OpenSky token failed:', res.status); return null; }
-    const data = await res.json();
+    const data = await res.json() as { access_token?: string; expires_in?: number };
     if (!data.access_token) {
       console.warn('[OSIRIS] OpenSky token response missing access_token');
       return null;
@@ -287,7 +360,7 @@ async function getOpenSkyToken(): Promise<string | null> {
   }
 }
 
-function ingestAc(raw: any[], into: any[], seen: Set<string>) {
+function ingestAc(raw: AdsbAircraft[], into: AdsbAircraft[], seen: Set<string>) {
   for (const ac of raw) {
     const hex = (ac.hex || '').toLowerCase().trim();
     if (hex && !seen.has(hex)) { seen.add(hex); into.push(ac); }
@@ -317,7 +390,7 @@ export async function GET() {
   const JAMMING_NACAP_THRESHOLD = 4;
 
   fetchPromise = (async () => {
-    const allRaw: any[] = [];
+    const allRaw: AdsbAircraft[] = [];
     const seenHex = new Set<string>();
     let source: string;
 
@@ -349,7 +422,7 @@ export async function GET() {
     if (milRes.status === 'fulfilled') {
       if (milRes.value.ok) {
         try {
-          const data = await milRes.value.json();
+          const data = await milRes.value.json() as { ac?: AdsbAircraft[] };
           ingestAc(data.ac || [], allRaw, seenHex);
         } catch (e) {
           console.warn('[OSIRIS] adsb.fi mil parse error:', e);
@@ -370,10 +443,10 @@ export async function GET() {
         await osRes.value.body?.cancel();
       } else if (osRes.value.ok) {
         try {
-          const data = await osRes.value.json();
+          const data = await osRes.value.json() as { states?: OpenSkyState[] };
           const states = data.states || [];
           if (states.length > 100) {
-            osSnapshot = states.map((s: any[]) => ({
+            osSnapshot = states.map((s) => ({
               hex: s[0],
               flight: s[1]?.trim(),
               lon: s[5],
@@ -427,11 +500,11 @@ export async function GET() {
     }
 
     // ── Classify ──────────────────────────────────────────────────────────────
-    const commercial: any[] = [];
-    const privateFl: any[] = [];
-    const jets: any[] = [];
-    const military: any[] = [];
-    const gpsJamming: any[] = [];
+    const commercial: ClassifiedFlight[] = [];
+    const privateFl: ClassifiedFlight[] = [];
+    const jets: ClassifiedFlight[] = [];
+    const military: ClassifiedFlight[] = [];
+    const gpsJamming: JammingPoint[] = [];
 
     for (const raw of allRaw) {
       const flight = classifyFlight(raw);
@@ -494,7 +567,7 @@ export async function GET() {
   }
 }
 
-function aggregateJamming(points: any[], threshold: number) {
+function aggregateJamming(points: JammingPoint[], threshold: number): JammingCell[] {
   if (points.length === 0) return [];
   const grid = new Map<string, { lat: number; lng: number; count: number; total_nac_p: number }>();
   const GRID_SIZE = 2;

@@ -21,3 +21,9 @@ We take the security of our project seriously. If you discover a security vulner
 3. Our team will acknowledge the receipt of your report and provide an estimated timeline for resolution.
 
 We appreciate your efforts in keeping ATLAS secure for everyone!
+
+## Internal baseline
+
+The root file is the disclosure and acceptable-use policy. It is not a security certification.
+
+Implementation rules, the manual checklist, open findings, and the feature review template live in `docs/security/`. A finished checklist does not mean the application is certified secure. Do not put secret values in those documents.

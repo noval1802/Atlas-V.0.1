@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { layoutTile, tileHeight, tilesOverlap, type TileGeometry } from '@/lib/map-tile-layout';
+import type { LiveFeedRow } from '@/lib/map-data';
 import type { Map as MlMap } from 'maplibre-gl';
 
 /**
@@ -218,7 +219,7 @@ function LiveNewsPreviews({ mapRef, active, feeds, onOpen }: {
   mapRef: React.RefObject<MlMap | null>;
   active: boolean;
   /** The live-news records the map layer is built from — see OsirisMap. */
-  feeds: Array<Record<string, unknown>> | undefined;
+  feeds: LiveFeedRow[] | undefined;
   onOpen: (feed: PreviewFeed) => void;
 }) {
   const [picked, setPicked] = useState<PreviewFeed[]>([]);

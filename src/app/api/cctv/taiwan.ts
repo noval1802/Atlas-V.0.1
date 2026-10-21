@@ -50,6 +50,14 @@ const YOUTUBE_CAMERAS: CctvCamera[] = [
   },
 ];
 
+interface ThbCamera {
+  gisy: string;
+  gisx: string;
+  html: string;
+  stakenumber?: string;
+  id?: string;
+}
+
 // ── Taiwan Highway Bureau (THB) — Dynamic fetch of 2,000+ cameras ──
 async function fetchTHBCameras(): Promise<CctvCamera[]> {
   try {
@@ -58,12 +66,12 @@ async function fetchTHBCameras(): Promise<CctvCamera[]> {
       { signal: AbortSignal.timeout(20000), headers: { 'Accept': 'application/json' } }
     );
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await res.json() as ThbCamera[];
     if (!Array.isArray(data)) return [];
 
     return data
-      .filter((c: any) => c.gisy && c.gisx && c.html)
-      .map((c: any) => {
+      .filter((c) => c.gisy && c.gisx && c.html)
+      .map((c) => {
         // Extract camera name from stakenumber (e.g. "台2線107K+000" → "Highway 2 — 107K+000")
         const stake = c.stakenumber || '';
         // Determine city from coordinates (rough bounding boxes for major cities)

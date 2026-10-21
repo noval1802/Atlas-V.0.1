@@ -65,7 +65,11 @@ export async function GET(req: Request) {
       headers: { Accept: 'application/json' },
     });
 
-    const data = await res.json().catch(() => null);
+    const data = await res.json().catch(() => null) as {
+      error?: string;
+      totalStealers?: number | string;
+      stealers?: unknown[];
+    } | null;
 
     if (!res.ok) {
       // Cavalier rejects malformed input with 400 {success:false,error:"…"},
@@ -93,8 +97,8 @@ export async function GET(req: Request) {
       { query, type, compromised, source: 'Hudson Rock Cavalier', ...data },
       { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } }
     );
-  } catch (err: any) {
-    const timedOut = err?.name === 'TimeoutError' || err?.name === 'AbortError';
+  } catch (err: unknown) {
+    const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
     return NextResponse.json(
       { error: timedOut ? 'Hudson Rock lookup timed out' : 'Hudson Rock lookup failed', query, type },
       { status: 504 }

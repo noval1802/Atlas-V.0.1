@@ -14,6 +14,16 @@ export const dynamic = 'force-dynamic';
 // report.aspx?eventtype=EQ&amp;eventid=… . That form resolves to a generic
 // page — GDACS reads the parameter as "amp;eventid" and serves no event — so
 // the entities have to be decoded before the URL is handed to a client.
+interface GdacsEvent {
+  id: string;
+  lat: number;
+  lng: number;
+  name: string;
+  url: string;
+  html: string;
+  type: string;
+}
+
 function decodeEntities(s: string): string {
   return s
     .replace(/&lt;/g, '<')
@@ -37,7 +47,7 @@ export async function GET() {
     const xml = await res.text();
     // Split by <item> instead of using regex to avoid ReDoS on large XML
     const rawItems = xml.split(/<item>/i).slice(1);
-    const allEvents: any[] = [];
+    const allEvents: GdacsEvent[] = [];
     let eventId = 0;
 
     for (const rawItem of rawItems) {

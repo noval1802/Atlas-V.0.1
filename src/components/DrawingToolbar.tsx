@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pentagon, Ruler, Trash2, Download, Copy, Check, Clock , Square, Circle, Spline} from 'lucide-react';
 import type { DrawMode, DrawProgress, DrawnShape } from '@/lib/draw';
+import type { MapData } from '@/lib/map-data';
 import { formatArea, formatDistance } from '@/lib/geo';
 import { selectInPolygon, MAX_ITEMS_PER_GROUP } from '@/lib/aoi';
 import { formatAgo as watchAgo, type WatchEvent } from '@/lib/watch';
@@ -24,7 +25,7 @@ interface DrawingToolbarProps {
   onSelectPolygon: (id: string | null) => void;
   onRenamePolygon: (id: string, name: string) => void;
   /** Live entity store, swept for whatever falls inside each polygon. */
-  data?: Record<string, any>;
+  data?: MapData;
   /** Centre the map on a selected object. */
   onLocateEntity?: (lat: number, lng: number) => void;
   /** AOIs currently armed as tripwires. */

@@ -51,9 +51,16 @@ function decodeEntities(s: string): string {
     .replace(/&#\d+;/g, '');
 }
 
-function digestMarkets(payload: any): Digest {
-  const markets = payload?.markets || {};
-  const space = payload?.spaceWeather;
+interface MarketQuote { change_percent?: unknown; price?: unknown }
+interface MarketsPayload {
+  markets?: { crypto?: Record<string, MarketQuote>; [section: string]: Record<string, MarketQuote> | undefined };
+  spaceWeather?: { kp_index?: unknown; storm_level?: string };
+}
+
+function digestMarkets(payload: unknown): Digest {
+  const body = (payload !== null && typeof payload === 'object' ? payload : {}) as MarketsPayload;
+  const markets = body.markets || {};
+  const space = body.spaceWeather;
   const facts: string[] = [];
   const highlights: string[] = [];
 
@@ -62,7 +69,7 @@ function digestMarkets(payload: any): Digest {
   for (const section of Object.keys(markets)) {
     const group = markets[section];
     if (!group || typeof group !== 'object' || Array.isArray(group)) continue;
-    for (const [name, d] of Object.entries<any>(group)) {
+    for (const [name, d] of Object.entries(group)) {
       const pct = num(d?.change_percent);
       if (pct === null) continue;
       tickers.push({ name, pct, price: num(d?.price) });
@@ -205,12 +212,36 @@ function headlineContext(reports: DigestReport[]): string {
  * Facts are stated with their figures so the heuristic path stays useful
  * when no Gemini key is configured.
  */
-function digestChain(payload: any): Digest {
-  const b = payload?.brief || payload || {};
+interface ChainExploit {
+  name: string;
+  chain?: string;
+  amount_usd?: unknown;
+  technique?: string;
+  bridge_hack?: boolean;
+}
+interface ChainCve { id: string; cvss?: number | null }
+interface ChainWallet { asset?: string }
+interface ChainBrief {
+  totals?: {
+    exploit_losses_usd?: unknown;
+    exploit_count?: number;
+    critical_cves?: unknown;
+    cve_count?: number;
+    sanctioned_wallet_count?: number;
+  };
+  exploits?: ChainExploit[];
+  cves?: ChainCve[];
+  sanctioned_wallets?: ChainWallet[];
+  window_days?: number;
+}
+
+function digestChain(payload: unknown): Digest {
+  const raw = (payload !== null && typeof payload === 'object' ? payload : {}) as ChainBrief & { brief?: ChainBrief };
+  const b = raw.brief || raw;
   const t = b.totals || {};
-  const exploits: any[] = Array.isArray(b.exploits) ? b.exploits : [];
-  const cves: any[] = Array.isArray(b.cves) ? b.cves : [];
-  const wallets: any[] = Array.isArray(b.sanctioned_wallets) ? b.sanctioned_wallets : [];
+  const exploits = Array.isArray(b.exploits) ? b.exploits : [];
+  const cves = Array.isArray(b.cves) ? b.cves : [];
+  const wallets = Array.isArray(b.sanctioned_wallets) ? b.sanctioned_wallets : [];
 
   const facts: string[] = [];
   const highlights: string[] = [];
@@ -227,7 +258,7 @@ function digestChain(payload: any): Digest {
       highlights.push(biggest.name);
     }
     // Which attack techniques actually dominate the window.
-    const byTech = new Map<string, number>();
+    const byTech = new Map<string | undefined, number>();
     for (const e of exploits) byTech.set(e.technique, (byTech.get(e.technique) || 0) + 1);
     const top = [...byTech.entries()].sort((a, b2) => b2[1] - a[1])[0];
     if (top && top[1] > 1) facts.push(`Most common technique: ${top[0]} (${top[1]} incidents).`);
@@ -248,7 +279,7 @@ function digestChain(payload: any): Digest {
   }
 
   if (wallets.length) {
-    const byAsset = new Map<string, number>();
+    const byAsset = new Map<string | undefined, number>();
     for (const w of wallets) byAsset.set(w.asset, (byAsset.get(w.asset) || 0) + 1);
     const spread = [...byAsset.entries()].map(([a, n]) => `${n} ${a}`).join(', ');
     facts.push(`${t.sanctioned_wallet_count ?? wallets.length} OFAC-designated wallets in scope (${spread}).`);
@@ -313,9 +344,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
-  let body: { mode?: Mode; payload?: any };
+  let body: { mode?: Mode; payload?: unknown };
   try {
-    body = await request.json();
+    body = await request.json() as { mode?: Mode; payload?: unknown };
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }

@@ -115,7 +115,7 @@ export interface WalletIntel {
 
 /* ── fetch helpers ───────────────────────────────────────────── */
 
-async function getJson(url: string, timeoutMs = 15000, init?: RequestInit): Promise<any> {
+async function getJson(url: string, timeoutMs = 15000, init?: RequestInit): Promise<unknown> {
   const res = await fetch(url, {
     ...init,
     signal: AbortSignal.timeout(timeoutMs),
@@ -125,12 +125,17 @@ async function getJson(url: string, timeoutMs = 15000, init?: RequestInit): Prom
   return res.json();
 }
 
-async function rpc(url: string, method: string, params: any[], timeoutMs = 15000): Promise<any> {
+interface RpcEnvelope {
+  error?: { message?: string };
+  result?: unknown;
+}
+
+async function rpc(url: string, method: string, params: unknown[], timeoutMs = 15000): Promise<unknown> {
   const body = await getJson(url, timeoutMs, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  });
+  }) as RpcEnvelope;
   if (body.error) throw new Error(`${method}: ${body.error.message || 'RPC error'}`);
   return body.result;
 }
@@ -153,7 +158,7 @@ async function fetchPrice(chain: Chain): Promise<number | null> {
     const d = await getJson(
       `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`,
       10000
-    );
+    ) as Record<string, { usd?: number } | undefined>;
     const usd: Partial<Record<Chain, number>> = {};
     for (const c of Object.keys(CHAIN_META) as Chain[]) {
       const v = d?.[CHAIN_META[c].coingecko]?.usd;
@@ -172,6 +177,52 @@ async function fetchPrice(chain: Chain): Promise<number | null> {
 
 const TX_PAGE = 50;
 
+interface BtcOutput {
+  value?: number | string;
+  scriptpubkey_address?: string;
+}
+interface BtcInput {
+  prevout?: BtcOutput;
+}
+interface BtcTx {
+  txid: string;
+  status?: { block_time?: number };
+  vin?: BtcInput[];
+  vout?: BtcOutput[];
+  fee?: number | string;
+}
+interface EthTx {
+  hash: string;
+  timestamp?: string | null;
+  from?: { hash?: string };
+  to?: { hash?: string };
+  value?: string | number;
+  fee?: { value?: string | number };
+  status?: string;
+  result?: string;
+}
+interface EthTokenBalance {
+  token?: { decimals?: string | number; symbol?: string; name?: string };
+  value?: string | number;
+}
+interface SolSignature {
+  signature: string;
+  blockTime?: number | null;
+  err?: unknown;
+}
+interface SolTokenAccount {
+  account?: {
+    data?: {
+      parsed?: {
+        info?: {
+          mint?: string;
+          tokenAmount?: { uiAmount?: number | null };
+        };
+      };
+    };
+  };
+}
+
 interface RawWallet {
   balance: number;
   tx_count: number;
@@ -188,9 +239,11 @@ interface RawWallet {
 
 async function collectBitcoin(address: string): Promise<RawWallet> {
   const base = 'https://mempool.space/api';
-  const info = await getJson(`${base}/address/${encodeURIComponent(address)}`);
+  const info = await getJson(`${base}/address/${encodeURIComponent(address)}`) as {
+    chain_stats?: { funded_txo_sum?: number; spent_txo_sum?: number; tx_count?: number };
+  };
   const cs = info.chain_stats || {};
-  const sats = (n: number) => (Number(n) || 0) / 1e8;
+  const sats = (n: number | string | undefined) => (Number(n) || 0) / 1e8;
 
   const totalIn = sats(cs.funded_txo_sum);
   const totalOut = sats(cs.spent_txo_sum);
@@ -199,14 +252,14 @@ async function collectBitcoin(address: string): Promise<RawWallet> {
   let transactions: TxSummary[] = [];
   try {
     const txs = await getJson(`${base}/address/${encodeURIComponent(address)}/txs`, 20000);
-    transactions = (Array.isArray(txs) ? txs : []).map((t: any): TxSummary => {
+    transactions = (Array.isArray(txs) ? txs as BtcTx[] : []).map((t): TxSummary => {
       // Sum this address's side of the ledger on both legs of the tx.
       const inFrom = (t.vin || []).reduce(
-        (s: number, v: any) => s + (v?.prevout?.scriptpubkey_address === address ? Number(v.prevout.value) || 0 : 0),
+        (s: number, v: BtcInput) => s + (v?.prevout?.scriptpubkey_address === address ? Number(v.prevout.value) || 0 : 0),
         0
       );
       const outTo = (t.vout || []).reduce(
-        (s: number, v: any) => s + (v?.scriptpubkey_address === address ? Number(v.value) || 0 : 0),
+        (s: number, v: BtcOutput) => s + (v?.scriptpubkey_address === address ? Number(v.value) || 0 : 0),
         0
       );
       const spent = sats(inFrom);
@@ -217,11 +270,11 @@ async function collectBitcoin(address: string): Promise<RawWallet> {
       // Counterparty = the largest party on the opposite leg.
       const pool =
         direction === 'out'
-          ? (t.vout || []).filter((v: any) => v?.scriptpubkey_address && v.scriptpubkey_address !== address)
+          ? (t.vout || []).filter((v) => v?.scriptpubkey_address && v.scriptpubkey_address !== address)
           : (t.vin || [])
-              .map((v: any) => v?.prevout)
-              .filter((p: any) => p?.scriptpubkey_address && p.scriptpubkey_address !== address);
-      const top = pool.sort((a: any, b: any) => (Number(b?.value) || 0) - (Number(a?.value) || 0))[0];
+              .map((v) => v?.prevout)
+              .filter((p) => p?.scriptpubkey_address && p.scriptpubkey_address !== address);
+      const top = pool.sort((a, b) => (Number(b?.value) || 0) - (Number(a?.value) || 0))[0];
 
       return {
         hash: t.txid,
@@ -253,7 +306,14 @@ async function collectBitcoin(address: string): Promise<RawWallet> {
 
 async function collectEthereum(address: string): Promise<RawWallet> {
   const base = 'https://eth.blockscout.com/api/v2';
-  const info = await getJson(`${base}/addresses/${encodeURIComponent(address)}`);
+  const info = await getJson(`${base}/addresses/${encodeURIComponent(address)}`) as {
+    coin_balance?: string | number;
+    ens_domain_name?: string;
+    is_contract?: boolean;
+    is_verified?: boolean;
+    creation_transaction_hash?: string;
+    has_beacon_chain_withdrawals?: boolean;
+  };
   const balance = Number(info.coin_balance || 0) / 1e18;
 
   const labels: string[] = [];
@@ -274,11 +334,11 @@ async function collectEthereum(address: string): Promise<RawWallet> {
   let transactions: TxSummary[] = [];
   let txCount = 0;
   try {
-    const txs = await getJson(`${base}/addresses/${encodeURIComponent(address)}/transactions`, 25000);
+    const txs = await getJson(`${base}/addresses/${encodeURIComponent(address)}/transactions`, 25000) as { items?: EthTx[] };
     const items = Array.isArray(txs.items) ? txs.items : [];
     txCount = items.length;
     const lower = address.toLowerCase();
-    transactions = items.map((t: any): TxSummary => {
+    transactions = items.map((t): TxSummary => {
       const from = (t.from?.hash || '').toLowerCase();
       const to = (t.to?.hash || '').toLowerCase();
       const direction: TxSummary['direction'] =
@@ -300,9 +360,9 @@ async function collectEthereum(address: string): Promise<RawWallet> {
   let tokens: RawWallet['tokens'] = [];
   try {
     const tb = await getJson(`${base}/addresses/${encodeURIComponent(address)}/token-balances`, 15000);
-    tokens = (Array.isArray(tb) ? tb : [])
+    tokens = (Array.isArray(tb) ? tb as EthTokenBalance[] : [])
       .slice(0, 25)
-      .map((t: any) => {
+      .map((t) => {
         const dec = Number(t.token?.decimals);
         const raw = Number(t.value);
         return {
@@ -343,14 +403,14 @@ async function collectEthereum(address: string): Promise<RawWallet> {
 
 async function collectSolana(address: string): Promise<RawWallet> {
   const url = 'https://api.mainnet-beta.solana.com';
-  const lamports = await rpc(url, 'getBalance', [address]);
+  const lamports = await rpc(url, 'getBalance', [address]) as { value?: number | string };
   const balance = (Number(lamports?.value) || 0) / 1e9;
 
   const partial: string[] = [];
   let transactions: TxSummary[] = [];
   try {
     const sigs = await rpc(url, 'getSignaturesForAddress', [address, { limit: 50 }], 20000);
-    transactions = (Array.isArray(sigs) ? sigs : []).map((s: any): TxSummary => ({
+    transactions = (Array.isArray(sigs) ? sigs as SolSignature[] : []).map((s): TxSummary => ({
       hash: s.signature,
       time: s.blockTime ? new Date(s.blockTime * 1000).toISOString() : null,
       // Signature listings carry no transfer legs; resolving direction and
@@ -372,10 +432,10 @@ async function collectSolana(address: string): Promise<RawWallet> {
       'getTokenAccountsByOwner',
       [address, { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, { encoding: 'jsonParsed' }],
       20000
-    );
+    ) as { value?: SolTokenAccount[] };
     tokens = (accs?.value || [])
       .slice(0, 25)
-      .map((a: any) => {
+      .map((a) => {
         const info = a?.account?.data?.parsed?.info;
         return {
           symbol: (info?.mint || '').slice(0, 6) || '???',
@@ -383,7 +443,7 @@ async function collectSolana(address: string): Promise<RawWallet> {
           amount: info?.tokenAmount?.uiAmount ?? null,
         };
       })
-      .filter((t: any) => t.amount === null || t.amount > 0);
+      .filter((t) => t.amount === null || t.amount > 0);
   } catch {
     partial.push('token accounts unavailable');
   }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, memo } from 'react';
-import { Loader2, Sparkles, Bug, Flame, ShieldAlert, ExternalLink } from 'lucide-react';
+import { Loader2, Sparkles, Bug, Flame, ShieldAlert, ExternalLink, type LucideIcon } from 'lucide-react';
+import type { CveItem, DailyBrief, Exploit, SanctionedWallet } from '@/lib/chainFeeds';
 
 /**
  * OSIRIS — Daily chain-threat brief.
@@ -27,7 +28,7 @@ const usd = (n: number | null | undefined) => {
 };
 const shortAddr = (a: string) => (a && a.length > 20 ? `${a.slice(0, 10)}…${a.slice(-8)}` : a);
 
-function Head({ title, icon: Icon, color, right }: { title: string; icon: any; color: string; right?: string }) {
+function Head({ title, icon: Icon, color, right }: { title: string; icon: LucideIcon; color: string; right?: string }) {
   return (
     <div className="flex items-center gap-2 mt-3 mb-1.5 first:mt-0">
       <Icon className="w-3.5 h-3.5" style={{ color }} />
@@ -39,7 +40,7 @@ function Head({ title, icon: Icon, color, right }: { title: string; icon: any; c
 }
 
 function ChainBriefInner() {
-  const [brief, setBrief] = useState<any>(null);
+  const [brief, setBrief] = useState<DailyBrief | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [days, setDays] = useState(30);
@@ -59,8 +60,9 @@ function ChainBriefInner() {
       if (!res.ok) throw new Error(data.error || 'Brief unavailable');
       setBrief(data);
       setLastRefresh(new Date());
-    } catch (e: any) {
-      setError(e.message || 'Failed to load brief');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message || 'Failed to load brief');
     } finally {
       setLoading(false);
     }
@@ -169,7 +171,7 @@ function ChainBriefInner() {
           {brief.exploits.length === 0 && (
             <div className="text-[10px] font-mono text-[var(--text-muted)] py-1">None in window.</div>
           )}
-          {brief.exploits.slice(0, 12).map((e: any, i: number) => (
+          {brief.exploits.slice(0, 12).map((e: Exploit, i: number) => (
             <div key={i} className="py-1.5 border-b border-[var(--border-secondary)]/20 last:border-0">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-mono font-bold text-[#FF3D3D] flex-1 break-all">{e.name}</span>
@@ -188,7 +190,7 @@ function ChainBriefInner() {
           {brief.cves.length === 0 && (
             <div className="text-[10px] font-mono text-[var(--text-muted)] py-1">None published in window.</div>
           )}
-          {brief.cves.slice(0, 10).map((c: any, i: number) => {
+          {brief.cves.slice(0, 10).map((c: CveItem, i: number) => {
             const col = SEV_COLOR[String(c.severity || '').toLowerCase()] || '#9B978E';
             return (
               <div key={i} className="py-1.5 border-b border-[var(--border-secondary)]/20 last:border-0">
@@ -208,7 +210,7 @@ function ChainBriefInner() {
           })}
 
           <Head title="OFAC DESIGNATED WALLETS" icon={ShieldAlert} color="#FFD700" right={`${t?.sanctioned_wallet_count ?? 0} total`} />
-          {brief.sanctioned_wallets.slice(0, 10).map((w: any, i: number) => (
+          {brief.sanctioned_wallets.slice(0, 10).map((w: SanctionedWallet, i: number) => (
             <div key={i} className="flex items-center gap-2 py-1 text-[10px] font-mono">
               <span className="w-[34px] font-bold text-[#FFD700]">{w.asset}</span>
               <span className="flex-1 break-all text-[var(--text-primary)]">{shortAddr(w.address)}</span>

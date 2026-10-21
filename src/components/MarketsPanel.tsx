@@ -10,23 +10,14 @@ import {
   DollarSign, ArrowUpDown, AlertTriangle,
 } from 'lucide-react';
 import AiOverview from './AiOverview';
+import type { SpaceWeather } from '@/lib/dashboard-state';
+import { marketSection, type MapData, type MarketQuote, type MarketsSnapshot } from '@/lib/map-data';
 
 // Canvas charting has no business in the server bundle, and it only mounts
 // once a ticker is actually opened.
 const MarketChart = dynamic(() => import('./MarketChart'), { ssr: false });
 
-interface Quote {
-  name: string;
-  symbol: string;
-  price: number;
-  change_percent: number;
-  up: boolean;
-  spark?: number[];
-  currency?: string;
-  market_open?: boolean;
-}
-
-interface MarketsPanelProps { data: any; spaceWeather?: any; }
+interface MarketsPanelProps { data: MapData; spaceWeather?: SpaceWeather | null; }
 
 const SECTIONS = [
   { key: 'indices', label: 'INDICES', icon: LineChart },
@@ -75,7 +66,7 @@ function Sparkline({ points, up }: { points: number[]; up: boolean }) {
   );
 }
 
-function Ticker({ quote, active, onSelect }: { quote: Quote; active: boolean; onSelect: () => void }) {
+function Ticker({ quote, active, onSelect }: { quote: MarketQuote; active: boolean; onSelect: () => void }) {
   const d = quote;
   return (
     <button
@@ -132,7 +123,7 @@ export default function MarketsPanel({ data, spaceWeather }: MarketsPanelProps) 
   /** The instrument whose chart is open, if any. */
   const [selected, setSelected] = useState<{ symbol: string; name: string } | null>(null);
   // Memoised so the derived lists below don't recompute on every render.
-  const markets = useMemo(() => data.markets || {}, [data.markets]);
+  const markets = useMemo<MarketsSnapshot>(() => data.markets ?? {}, [data.markets]);
   const age = useFeedAge(markets.timestamp);
 
   // Ensure portal only renders on client
@@ -153,8 +144,8 @@ export default function MarketsPanel({ data, spaceWeather }: MarketsPanelProps) 
   }, [maximized, selected]);
 
   /** Every instrument across every section — the basis for the breadth line. */
-  const allQuotes = useMemo<Quote[]>(
-    () => SECTIONS.flatMap(s => Object.values<Quote>(markets[s.key] || {})).filter(q => Number.isFinite(q?.change_percent)),
+  const allQuotes = useMemo<MarketQuote[]>(
+    () => SECTIONS.flatMap(s => Object.values(marketSection(markets, s.key))).filter(q => Number.isFinite(q?.change_percent)),
     [markets],
   );
 
@@ -165,8 +156,8 @@ export default function MarketsPanel({ data, spaceWeather }: MarketsPanelProps) 
     return { up, down: allQuotes.length - up, total: allQuotes.length, top: sorted[0], worst: sorted[sorted.length - 1] };
   }, [allQuotes]);
 
-  const rows = useMemo<Quote[]>(() => {
-    const list = Object.values<Quote>(markets[activeSection] || {});
+  const rows = useMemo<MarketQuote[]>(() => {
+    const list = Object.values(marketSection(markets, activeSection));
     return sortByMove ? [...list].sort((a, b) => b.change_percent - a.change_percent) : list;
   }, [markets, activeSection, sortByMove]);
 
@@ -211,7 +202,7 @@ export default function MarketsPanel({ data, spaceWeather }: MarketsPanelProps) 
           {spaceWeather.kp_index == null ? 'No reading' : `Kp ${spaceWeather.kp_index} — ${spaceWeather.storm_level}`}
         </span>
       </div>
-      {spaceWeather.solar_flares?.length > 0 && (
+      {spaceWeather.solar_flares && spaceWeather.solar_flares.length > 0 && (
         <div className="mt-1 text-[9px] font-mono text-[var(--text-muted)]">
           Latest flare: {spaceWeather.solar_flares[0].class}
         </div>
@@ -223,7 +214,7 @@ export default function MarketsPanel({ data, spaceWeather }: MarketsPanelProps) 
 
   const scmBlock = markets.scm_alerts && markets.scm_alerts.length > 0 && (
     <div className="space-y-1">
-      {markets.scm_alerts.map((alert: string, i: number) => (
+      {markets.scm_alerts.map((alert, i) => (
         <div key={i} className="px-2 py-1.5 rounded border border-[#FF9500] bg-[#FF9500]/10 text-[#FF9500] text-[10px] font-mono leading-tight shadow-[0_0_8px_rgba(255,149,0,0.15)]">
           {alert}
         </div>
@@ -244,7 +235,7 @@ export default function MarketsPanel({ data, spaceWeather }: MarketsPanelProps) 
     <div className="flex gap-0.5 overflow-x-auto styled-scrollbar">
       {SECTIONS.map(s => {
         const Icon = s.icon;
-        const count = Object.keys(markets[s.key] || {}).length;
+        const count = Object.keys(marketSection(markets, s.key)).length;
         return (
           <button key={s.key} onClick={() => setActiveSection(s.key)}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-[10px] font-mono tracking-wider whitespace-nowrap transition-all ${activeSection === s.key ? 'bg-[var(--hover-accent)] text-[var(--gold-primary)] border border-[var(--border-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)] border border-transparent'}`}>

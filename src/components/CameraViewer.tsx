@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink, RefreshCw, MapPin, Camera, CameraOff, Maximize2, PlayCircle } from 'lucide-react';
 import Hls from 'hls.js';
 import { isHostedOffPlatform, liveFeedAtSource, localEmbed, needsResolution, offPlatformView } from '@/lib/camera-feed';
+import type { WatchedCamera } from '@/lib/dashboard-state';
 
 interface CameraViewerProps {
-  camera: any | null;
+  camera: WatchedCamera | null;
   onClose: () => void;
   onLocate?: (lat: number, lng: number) => void;
 }
@@ -56,7 +57,7 @@ export default function CameraViewer({ camera, onClose, onLocate }: CameraViewer
   // Snapshot cameras are checked too, in the background: the picture shows
   // immediately and is withdrawn only if the source says the camera is gone.
   const resolveKey: string | null =
-    (needsResolution(camera) ? camera.external_url : null) ?? liveFeedAtSource(camera);
+    (camera && needsResolution(camera) ? camera.external_url : null) ?? liveFeedAtSource(camera);
   const [resolution, setResolution] = useState<{ key: string; embed: string | null; offline: boolean; kind?: string } | null>(null);
   const resolvedEmbed = directEmbed ?? (resolution && resolution.key === resolveKey ? resolution.embed : null);
   const resolving = Boolean(resolveKey) && resolution?.key !== resolveKey;
@@ -407,7 +408,7 @@ export default function CameraViewer({ camera, onClose, onLocate }: CameraViewer
             </div>
             {/* Animated data stream bar */}
             <div className="h-[2px] w-full bg-[var(--border-primary)] overflow-hidden relative">
-              <div className="absolute top-0 bottom-0 left-0 bg-[var(--gold-primary)] shadow-[0_0_8px_var(--gold-primary)] w-1/3 animate-pulse" style={{ animation: 'progress-glow-slide 2s cubic-bezier(0.4, 0, 0.2, 1) infinite' }} />
+              <div className="motion-progress-sweep absolute top-0 bottom-0 left-0 bg-[var(--gold-primary)] shadow-[0_0_8px_var(--gold-primary)] w-1/3" />
             </div>
           </div>
         </div>

@@ -76,7 +76,7 @@ let cache: { at: number; days: number; brief: DailyBrief } | null = null;
 
 /* ── collectors ──────────────────────────────────────────────── */
 
-async function getJson(url: string, timeoutMs = 20000): Promise<any> {
+async function getJson(url: string, timeoutMs = 20000): Promise<unknown> {
   // Outbound connections here intermittently hit UND_ERR_CONNECT_TIMEOUT on a
   // long-lived server even while the network is healthy. One retry on a fresh
   // connection clears it; without it a blip blanks a whole section.
@@ -97,15 +97,28 @@ async function getJson(url: string, timeoutMs = 20000): Promise<any> {
   throw lastError instanceof Error ? lastError : new Error('request failed');
 }
 
+interface LlamaHack {
+  date?: number;
+  name?: string;
+  amount?: number;
+  chain?: string | string[];
+  classification?: string;
+  technique?: string;
+  targetType?: string;
+  bridgeHack?: boolean;
+  returnedFunds?: number;
+  source?: string;
+}
+
 async function collectExploits(days: number): Promise<{ items: Exploit[]; degraded: string[] }> {
   try {
-    const raw = await getJson('https://api.llama.fi/hacks', 25000);
-    const list: any[] = Array.isArray(raw) ? raw : raw?.hacks || [];
+    const raw = await getJson('https://api.llama.fi/hacks', 25000) as LlamaHack[] | { hacks?: LlamaHack[] };
+    const list: LlamaHack[] = Array.isArray(raw) ? raw : raw?.hacks || [];
     const cutoff = Date.now() - days * 864e5;
 
     const items = list
       // DefiLlama dates are unix seconds.
-      .filter(h => typeof h?.date === 'number' && h.date * 1000 >= cutoff)
+      .filter((h): h is LlamaHack & { date: number } => typeof h?.date === 'number' && h.date * 1000 >= cutoff)
       .sort((a, b) => b.date - a.date)
       .map((h): Exploit => ({
         name: String(h.name || 'Unnamed incident'),
@@ -129,6 +142,22 @@ async function collectExploits(days: number): Promise<{ items: Exploit[]; degrad
 /** Terms that surface crypto-relevant CVEs in NVD's full-text index. */
 const CVE_KEYWORDS = ['blockchain', 'cryptocurrency', 'wallet', 'smart contract'];
 
+interface NvdDescription { lang?: string; value?: string }
+interface NvdMetric {
+  cvssData?: { baseScore?: number; baseSeverity?: string };
+  baseSeverity?: string;
+}
+interface NvdCve {
+  id?: string;
+  published?: string;
+  descriptions?: NvdDescription[];
+  metrics?: {
+    cvssMetricV31?: NvdMetric[];
+    cvssMetricV30?: NvdMetric[];
+    cvssMetricV2?: NvdMetric[];
+  };
+}
+
 async function collectCves(days: number): Promise<{ items: CveItem[]; degraded: string[] }> {
   const iso = (d: Date) => `${d.toISOString().slice(0, 19)}.000`;
   // NVD caps a single query at a 120-day publication window.
@@ -144,7 +173,7 @@ async function collectCves(days: number): Promise<{ items: CveItem[]; degraded: 
       const url =
         `https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=${encodeURIComponent(kw)}` +
         `&pubStartDate=${encodeURIComponent(start)}&pubEndDate=${encodeURIComponent(end)}&resultsPerPage=40`;
-      const d = await getJson(url, 25000);
+      const d = await getJson(url, 25000) as { vulnerabilities?: { cve?: NvdCve }[] };
 
       for (const v of d?.vulnerabilities || []) {
         const c = v?.cve;
@@ -156,7 +185,7 @@ async function collectCves(days: number): Promise<{ items: CveItem[]; degraded: 
           published: c.published || '',
           cvss: typeof m?.cvssData?.baseScore === 'number' ? m.cvssData.baseScore : null,
           severity: m?.cvssData?.baseSeverity || m?.baseSeverity || null,
-          description: ((c.descriptions || []).find((x: any) => x.lang === 'en')?.value || '').slice(0, 400),
+          description: ((c.descriptions || []).find((x) => x.lang === 'en')?.value || '').slice(0, 400),
           matched: kw,
           url: `https://nvd.nist.gov/vuln/detail/${c.id}`,
         });

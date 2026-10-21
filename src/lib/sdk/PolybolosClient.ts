@@ -20,10 +20,12 @@ import {
   Classification,
 } from './types';
 import { LatticeAdapter } from './LatticeAdapter';
+import type { EarthquakeRow, FireRow, FlightRow, MapData, RadiationRow, SatellitePoint, ShipRow } from '@/lib/map-data';
+import type { CatalogCamera } from '@/lib/camera-catalog';
 
 // ── OSIRIS Feed → Entity Translators ───────────────────────────────
 
-function translateFlights(flights: any[], subtype: string): PolybolosEntity[] {
+function translateFlights(flights: FlightRow[], subtype: string): PolybolosEntity[] {
   if (!flights?.length) return [];
   const colorMap: Record<string, string> = {
     commercial: '#00E5FF', private: '#00E676', jets: '#FF69B4', military: '#FF3D3D',
@@ -32,12 +34,12 @@ function translateFlights(flights: any[], subtype: string): PolybolosEntity[] {
     commercial: ThreatLevel.NONE, private: ThreatLevel.NONE,
     jets: ThreatLevel.LOW, military: ThreatLevel.ELEVATED,
   };
-  return flights.map((f: any) => ({
+  return flights.map((f) => ({
     id: `osiris-air-${f.icao24 || f.callsign || Math.random().toString(36).slice(2)}`,
     name: f.callsign?.trim() || 'UNKNOWN',
     domain: Domain.AIR,
     entityType: EntityType.TRACK,
-    position: { lat: f.lat, lng: f.lng, alt: f.alt, heading: f.heading, speed: f.speed_knots },
+    position: { lat: f.lat as number, lng: f.lng as number, alt: f.alt, heading: f.heading, speed: f.speed_knots },
     threat: threatMap[subtype] || ThreatLevel.NONE,
     classification: Classification.UNCLASSIFIED,
     source: { provider: 'osiris', feed: `flights-${subtype}`, originalId: f.icao24, confidence: 0.9 },
@@ -47,14 +49,14 @@ function translateFlights(flights: any[], subtype: string): PolybolosEntity[] {
   }));
 }
 
-function translateMaritime(ships: any[]): PolybolosEntity[] {
+function translateMaritime(ships: ShipRow[]): PolybolosEntity[] {
   if (!ships?.length) return [];
-  return ships.map((s: any) => ({
+  return ships.map((s) => ({
     id: `osiris-sea-${s.mmsi || s.id || Math.random().toString(36).slice(2)}`,
     name: s.name || `MMSI-${s.mmsi}`,
     domain: Domain.SEA,
     entityType: EntityType.TRACK,
-    position: { lat: s.lat, lng: s.lng, heading: s.heading, speed: s.speed },
+    position: { lat: s.lat as number, lng: s.lng as number, heading: s.heading, speed: s.speed },
     threat: s.type === 'military' ? ThreatLevel.ELEVATED : ThreatLevel.NONE,
     classification: Classification.UNCLASSIFIED,
     source: { provider: 'osiris', feed: 'maritime-ais', originalId: s.mmsi?.toString(), confidence: 0.85 },
@@ -67,26 +69,28 @@ function translateMaritime(ships: any[]): PolybolosEntity[] {
   }));
 }
 
-function translateEarthquakes(events: any[]): PolybolosEntity[] {
+function translateEarthquakes(events: EarthquakeRow[]): PolybolosEntity[] {
   if (!events?.length) return [];
-  return events.map((eq: any) => ({
+  return events.map((eq) => {
+    const magnitude = eq.magnitude ?? 0;
+    return {
     id: `osiris-event-eq-${eq.id || Math.random().toString(36).slice(2)}`,
     name: `M${eq.magnitude} ${eq.place || 'Earthquake'}`,
     domain: Domain.LAND,
     entityType: EntityType.EVENT,
-    position: { lat: eq.lat, lng: eq.lng },
-    threat: eq.magnitude >= 6 ? ThreatLevel.CRITICAL : eq.magnitude >= 5 ? ThreatLevel.HIGH : eq.magnitude >= 4 ? ThreatLevel.ELEVATED : ThreatLevel.LOW,
+    position: { lat: eq.lat as number, lng: eq.lng as number },
+    threat: magnitude >= 6 ? ThreatLevel.CRITICAL : magnitude >= 5 ? ThreatLevel.HIGH : magnitude >= 4 ? ThreatLevel.ELEVATED : ThreatLevel.LOW,
     classification: Classification.UNCLASSIFIED,
     source: { provider: 'osiris', feed: 'usgs-earthquakes', originalId: eq.id, confidence: 0.99 },
     timestamp: new Date().toISOString(),
     properties: { magnitude: eq.magnitude, depth: eq.depth, place: eq.place },
-    display: { color: eq.magnitude >= 6 ? '#FF1744' : '#FF9500', icon: 'dot-red', layerType: 'circle' as const, glow: eq.magnitude >= 5 },
-  }));
+    display: { color: magnitude >= 6 ? '#FF1744' : '#FF9500', icon: 'dot-red', layerType: 'circle' as const, glow: magnitude >= 5 },
+  }; });
 }
 
-function translateSatellites(sats: any[]): PolybolosEntity[] {
+function translateSatellites(sats: SatellitePoint[]): PolybolosEntity[] {
   if (!sats?.length) return [];
-  return sats.map((s: any) => ({
+  return sats.map((s) => ({
     id: `osiris-space-${s.noradId || Math.random().toString(36).slice(2)}`,
     name: s.name || 'UNKNOWN SAT',
     domain: Domain.SPACE,
@@ -101,14 +105,14 @@ function translateSatellites(sats: any[]): PolybolosEntity[] {
   }));
 }
 
-function translateFires(fires: any[]): PolybolosEntity[] {
+function translateFires(fires: FireRow[]): PolybolosEntity[] {
   if (!fires?.length) return [];
-  return fires.map((f: any, i: number) => ({
+  return fires.map((f, i) => ({
     id: `osiris-event-fire-${i}`,
     name: 'Active Fire',
     domain: Domain.LAND,
     entityType: EntityType.EVENT,
-    position: { lat: f.lat, lng: f.lng },
+    position: { lat: f.lat as number, lng: f.lng as number },
     threat: ThreatLevel.ELEVATED,
     classification: Classification.UNCLASSIFIED,
     source: { provider: 'osiris', feed: 'nasa-firms', confidence: 0.9 },
@@ -118,31 +122,31 @@ function translateFires(fires: any[]): PolybolosEntity[] {
   }));
 }
 
-function translateCCTV(cameras: any[]): PolybolosEntity[] {
+function translateCCTV(cameras: CatalogCamera[]): PolybolosEntity[] {
   if (!cameras?.length) return [];
-  return cameras.map((c: any) => ({
+  return cameras.map((c) => ({
     id: `osiris-sensor-cctv-${c.id || Math.random().toString(36).slice(2)}`,
     name: c.name || 'Camera',
     domain: Domain.LAND,
     entityType: EntityType.SENSOR,
-    position: { lat: c.lat, lng: c.lng },
+    position: { lat: c.lat as number, lng: c.lng as number },
     threat: ThreatLevel.NONE,
     classification: Classification.UNCLASSIFIED,
-    source: { provider: 'osiris', feed: 'cctv-network', originalId: c.id, confidence: 1.0 },
+    source: { provider: 'osiris', feed: 'cctv-network', originalId: c.id == null ? undefined : String(c.id), confidence: 1.0 },
     timestamp: new Date().toISOString(),
     properties: { city: c.city, country: c.country, source: c.source, feed_url: c.feed_url, stream_url: c.stream_url },
     display: { color: '#39FF14', icon: 'dot-cctv', layerType: 'circle' as const },
   }));
 }
 
-function translateRadiation(stations: any[]): PolybolosEntity[] {
+function translateRadiation(stations: RadiationRow[]): PolybolosEntity[] {
   if (!stations?.length) return [];
-  return stations.map((r: any) => ({
+  return stations.map((r) => ({
     id: `osiris-sensor-rad-${r.name || Math.random().toString(36).slice(2)}`,
     name: r.name || 'Radiation Monitor',
     domain: Domain.LAND,
     entityType: EntityType.SENSOR,
-    position: { lat: r.lat, lng: r.lng },
+    position: { lat: r.lat as number, lng: r.lng as number },
     threat: r.status === 'DANGER' ? ThreatLevel.CRITICAL : r.status === 'WARNING' ? ThreatLevel.HIGH : ThreatLevel.LOW,
     classification: Classification.UNCLASSIFIED,
     source: { provider: 'osiris', feed: 'radiation-network', confidence: 0.95 },
@@ -223,14 +227,14 @@ export class PolybolosClient {
    * Ingest raw OSIRIS data and translate it into Polybolos entities.
    * This is the primary method called by page.tsx to feed data into the SDK.
    */
-  ingestOsirisData(data: Record<string, any>): void {
+  ingestOsirisData(data: MapData): void {
     const entities: PolybolosEntity[] = [];
 
     // Air domain
-    entities.push(...translateFlights(data.commercial_flights, 'commercial'));
-    entities.push(...translateFlights(data.private_flights, 'private'));
-    entities.push(...translateFlights(data.private_jets, 'jets'));
-    entities.push(...translateFlights(data.military_flights, 'military'));
+    entities.push(...translateFlights(data.commercial_flights ?? [], 'commercial'));
+    entities.push(...translateFlights(data.private_flights ?? [], 'private'));
+    entities.push(...translateFlights(data.private_jets ?? [], 'jets'));
+    entities.push(...translateFlights(data.military_flights ?? [], 'military'));
 
     // Sea domain
     entities.push(...translateMaritime(data.maritime_ships || []));

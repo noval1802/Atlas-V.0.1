@@ -20,12 +20,9 @@ type Snapshot = { stats: Stats; timestamp: string; at: number };
 const EMPTY: Stats = { flights: 0, sats: 0, cctv: 0, weather: 0, nuclear: 0, incidents: 0 };
 
 /* One computation serves everyone. Each one pulls six of this app's own feeds —
-   CCTV alone is ~5MB — and parses them only to count. The per-fetch
-   `revalidate` hints never helped: Next's data cache refuses anything over 2MB,
-   so the two largest feeds were refetched in full on every call, and
-   Cloudflare does not cache /api responses either. Every arriving visitor paid
-   for all six, and under production load the endpoint took 15-19s to return
-   ~100 bytes. Now there is at most one computation per TTL, concurrent callers
+   CCTV alone is ~14MB — and parses them only to count. Next's data cache
+   refuses anything over 2MB, so those fetches are `no-store`. The snapshot
+   below is the cache: at most one computation per TTL, concurrent callers
    share it, and a stale snapshot answers instantly while a fresh one is
    computed behind it. */
 const TTL_MS = 30_000;
@@ -42,12 +39,12 @@ export function clearStatsSnapshot() {
 async function computeStats(origin: string): Promise<Partial<Stats>> {
   // Fetch all internal APIs in parallel (they have their own Cache-Control TTLs)
   const [flightsRes, satsRes, cctvRes, weatherRes, infraRes, gdeltRes] = await Promise.allSettled([
-    fetch(`${origin}/api/flights`, { signal: AbortSignal.timeout(20000), next: { revalidate: 45 } }),
-    fetch(`${origin}/api/satellites`, { signal: AbortSignal.timeout(20000), next: { revalidate: 3600 } }),
-    fetch(`${origin}/api/cctv`, { signal: AbortSignal.timeout(20000), next: { revalidate: 3600 } }),
-    fetch(`${origin}/api/weather`, { signal: AbortSignal.timeout(20000), next: { revalidate: 300 } }),
-    fetch(`${origin}/api/infrastructure`, { signal: AbortSignal.timeout(20000), next: { revalidate: 86400 } }),
-    fetch(`${origin}/api/gdelt`, { signal: AbortSignal.timeout(20000), next: { revalidate: 300 } })
+    fetch(`${origin}/api/flights`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
+    fetch(`${origin}/api/satellites`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
+    fetch(`${origin}/api/cctv`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
+    fetch(`${origin}/api/weather`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
+    fetch(`${origin}/api/infrastructure`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
+    fetch(`${origin}/api/gdelt`, { signal: AbortSignal.timeout(20000), cache: 'no-store' })
   ]);
 
   const fresh: Partial<Stats> = {};

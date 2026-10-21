@@ -11,10 +11,17 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:live": "RUN_LIVE_TESTS=1 vitest run"
+    "test:live": "RUN_LIVE_TESTS=1 vitest run",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "node prisma/seed.mjs"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@prisma/client": "^6.19.2",
     "@vercel/analytics": "^2.0.1",
     "framer-motion": "^12.38.0",
     "google-libphonenumber": "^3.2.44",
@@ -22,7 +29,7 @@
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^1.14.0",
     "maplibre-gl": "6.7.0",
-    "next": "16.3.4",
+    "next": "^16.3.8",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-force-graph-2d": "^1.29.1",
@@ -42,8 +49,10 @@
     "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "prisma": "^6.19.2",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^2.1.9"
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
   }
 }

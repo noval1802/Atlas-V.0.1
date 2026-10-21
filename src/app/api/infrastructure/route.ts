@@ -113,7 +113,9 @@ export async function GET() {
     // Fetch recent earthquakes (M4.5+ in the past 24 hours) from USGS
     const res = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson', { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
-      const eqData = await res.json();
+      const eqData = await res.json() as {
+        features?: { geometry: { coordinates: [number, number, number?] }; properties: { mag: number } }[];
+      };
       const earthquakes = eqData.features || [];
 
       // Fast distance approximation (km)
@@ -125,13 +127,13 @@ export async function GET() {
 
       dynamicFacilities = NUCLEAR_FACILITIES.map(facility => {
         // Check if any quake is within 150km
-        const nearbyQuakes = earthquakes.filter((eq: any) => {
+        const nearbyQuakes = earthquakes.filter((eq) => {
           const [eqLng, eqLat] = eq.geometry.coordinates;
           return getDistanceKm(facility.lat, facility.lng, eqLat, eqLng) < 150;
         });
 
         if (nearbyQuakes.length > 0) {
-          const maxMag = Math.max(...nearbyQuakes.map((eq: any) => eq.properties.mag));
+          const maxMag = Math.max(...nearbyQuakes.map((eq) => eq.properties.mag));
           return {
             ...facility,
             status: `SEISMIC RISK (M${maxMag.toFixed(1)})`,

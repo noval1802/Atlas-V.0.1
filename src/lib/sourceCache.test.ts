@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { cachedSource, clearSourceCache } from './sourceCache';
+import { cachedSource, clearSourceCache, forgetSource } from './sourceCache';
 
 type Cam = { id: string };
 const cam = (id: string): Cam => ({ id });
@@ -68,6 +68,28 @@ describe('cachedSource', () => {
   it('returns empty when the first fetch fails with nothing cached', async () => {
     const load = cachedSource<Cam>('t6', async () => { throw new Error('down'); });
     expect(await load()).toEqual([]);
+  });
+
+  it('does not hit a dead upstream again during the failure cooldown', async () => {
+    let calls = 0;
+    const load = cachedSource<Cam>('t6b', async () => {
+      calls += 1;
+      throw new Error('down');
+    }, 60_000);
+    expect(await load()).toEqual([]);
+    expect(await load()).toEqual([]);
+    expect(calls).toBe(1);
+  });
+
+  it('does not let a forgotten fetch write the old list back', async () => {
+    let release: (rows: Cam[]) => void = () => {};
+    const load = cachedSource<Cam>('forget', () => new Promise(resolve => { release = resolve; }));
+    const pending = load();
+    forgetSource('forget');
+    release([cam('old')]);
+    await pending;
+    const again = cachedSource<Cam>('forget', async () => [cam('new')]);
+    expect(await again()).toEqual([cam('new')]);
   });
 
   it('keeps separate keys independent', async () => {

@@ -22,6 +22,8 @@ interface Entry<T> {
 }
 
 const store = new Map<string, Entry<unknown>>();
+/** Bumped by forgetSource so an in-flight fetch cannot write the old list back. */
+const generation = new Map<string, number>();
 
 export const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -50,33 +52,53 @@ export function cachedSource<T>(
   key: string,
   fetcher: () => Promise<T[]>,
   ttlMs: number = DEFAULT_TTL_MS,
+  rememberEmpty = true,
 ): () => Promise<T[]> {
   return async () => {
     const now = Date.now();
     const entry = store.get(key) as Entry<T> | undefined;
+    const seen = generation.get(key) ?? 0;
+    const current = () => (generation.get(key) ?? 0) === seen;
 
     if (entry && now < entry.expiresAt && entry.data.length > 0) return entry.data;
     if (entry?.inflight) return entry.inflight;
+    /* A first fetch that failed stored an empty list with a short expiry.
+       Returning it here is the cooldown. Without it, data.length === 0 made
+       every page view look like a miss and the dead upstream was hit again. */
+    if (entry && entry.data.length === 0 && now < entry.expiresAt) return entry.data;
 
     const inflight = (async () => {
       try {
         const data = await fetcher();
+        if (!current()) return data;
         // An empty result is treated as a failed refresh: keep whatever we had.
         if (data.length === 0 && entry?.data.length) {
           store.set(key, { data: entry.data, expiresAt: now + ttlMs, inflight: null });
           return entry.data;
         }
+        // A place lookup uses this to mean "ask again". An empty camera index
+        // still stays for the TTL so a dead feed is not hit on every page view.
+        if (data.length === 0 && !rememberEmpty) {
+          store.set(key, { data: [], expiresAt: 0, inflight: null });
+          return data;
+        }
         store.set(key, { data, expiresAt: now + ttlMs, inflight: null });
         return data;
       } catch (e) {
+        if (!current()) return [];
         if (entry?.data.length) {
           console.warn(`[OSIRIS] ${key} refresh failed — serving ${entry.data.length} cached cameras`);
           // Retry sooner than a full TTL, but don't hammer the failing upstream.
           store.set(key, { data: entry.data, expiresAt: now + 60_000, inflight: null });
           return entry.data;
         }
-        console.warn(`[OSIRIS] ${key} fetch failed with no cache to fall back on:`, e);
-        store.set(key, { data: [], expiresAt: now + 60_000, inflight: null });
+        const detail = e instanceof Error ? e.message : String(e);
+        console.warn(`[OSIRIS] ${key} fetch failed with no cache to fall back on: ${detail}`);
+        store.set(key, {
+          data: [],
+          expiresAt: rememberEmpty ? now + 60_000 : 0,
+          inflight: null,
+        });
         return [];
       }
     })();
@@ -126,7 +148,14 @@ export function seedSource<T>(key: string, data: T[], ttlMs: number = DEFAULT_TT
   evictIfNeeded();
 }
 
+/** Drop one index so the next read fetches it again. */
+export function forgetSource(key: string): void {
+  generation.set(key, (generation.get(key) ?? 0) + 1);
+  store.delete(key);
+}
+
 /** Test seam — drops all cached indexes. */
 export function clearSourceCache(): void {
   store.clear();
+  generation.clear();
 }

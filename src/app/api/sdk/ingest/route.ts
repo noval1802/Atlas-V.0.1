@@ -13,9 +13,41 @@ import { NextRequest, NextResponse } from 'next/server';
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
+interface SdkEntity {
+  id: string;
+  name: string;
+  domain: string;
+  entityType: string;
+  position: { lat: number; lng: number; alt?: number; heading?: number; speed?: number };
+  threat: string;
+  classification: string;
+  source: { provider: string; feed: string; originalId: string; confidence: number };
+  timestamp: string;
+  properties: Record<string, unknown>;
+  display: { color?: string; icon?: string; layerType?: string; glow?: boolean; scale?: number };
+}
+interface SdkIngestEntity {
+  id?: string;
+  name?: string;
+  domain?: string;
+  entityType?: string;
+  position?: { lat?: number; lng?: number; alt?: number; heading?: number; speed?: number };
+  threat?: string;
+  classification?: string;
+  confidence?: number;
+  timestamp?: string;
+  properties?: Record<string, unknown>;
+  display?: SdkEntity['display'];
+}
+interface SdkIngestBody {
+  source?: string;
+  apiKey?: string;
+  entities?: SdkIngestEntity[];
+}
+
 // Share the entity store with the stream endpoint
 const globalForSDK = globalThis as unknown as {
-  sdkEntityStore: Map<string, any>;
+  sdkEntityStore: Map<string, SdkEntity>;
   sdkLastUpdate: number;
   sdkIngestLog: Array<{ source: string; count: number; timestamp: string }>;
 };
@@ -34,7 +66,7 @@ const VALID_KEYS = SDK_KEY ? new Set([SDK_KEY]) : null;
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json() as SdkIngestBody;
 
     // Validate structure
     if (!body.source || !body.apiKey || !Array.isArray(body.entities)) {

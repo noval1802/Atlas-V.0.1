@@ -10,8 +10,12 @@ export async function GET() {
       throw new Error(`CoinGecko responded with ${res.status}`);
     }
 
-    const data = await res.json();
-    const prices: any[] = [];
+    const data = await res.json() as {
+      bitcoin?: { usd?: number };
+      ethereum?: { usd?: number };
+      solana?: { usd?: number };
+    };
+    const prices: { symbol: string; price: number }[] = [];
     
     if (data.bitcoin?.usd) prices.push({ symbol: 'BTC', price: data.bitcoin.usd });
     if (data.ethereum?.usd) prices.push({ symbol: 'ETH', price: data.ethereum.usd });

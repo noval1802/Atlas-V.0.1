@@ -1,6 +1,48 @@
 import { NextResponse } from 'next/server';
 
 // Sentinel-1 SAR Satellite — STAC Catalog via Element84 Earth Search + Copernicus fallback
+
+interface StacProps {
+  datetime?: string;
+  platform?: string;
+  orbitDirection?: string;
+  polarisation?: string;
+  productType?: string;
+  'sar:instrument_mode'?: string;
+  'sat:orbit_state'?: string;
+  'sar:polarizations'?: string;
+  'sar:resolution_range'?: number | null;
+  'sat:relative_orbit'?: number | null;
+  'eo:cloud_cover'?: number | null;
+}
+interface StacFeature {
+  id?: string;
+  properties?: StacProps;
+  bbox?: number[];
+  assets?: { thumbnail?: { href?: string }; preview?: { href?: string } };
+  geometry?: { type?: string };
+}
+interface StacSearch {
+  features?: StacFeature[];
+  numberMatched?: number;
+}
+interface Scene {
+  id?: string;
+  datetime?: string;
+  platform: string;
+  orbit?: string;
+  polarization?: string;
+  mode?: string;
+  resolution: number | null;
+  pass_direction: number | null;
+  cloud_cover: number | null;
+  bbox?: number[];
+  thumbnail: string | null;
+  preview: string | null;
+  geometry_type?: string;
+  area_km2: number | null;
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const lat = parseFloat(searchParams.get('lat') || '0');
@@ -18,7 +60,7 @@ export async function GET(req: Request) {
     const from = new Date(now.getTime() - days * 86400000);
     const datetime = `${from.toISOString().split('.')[0]}Z/${now.toISOString().split('.')[0]}Z`;
 
-    let scenes: any[] = [];
+    let scenes: Scene[] = [];
     let source = '';
     let total = 0;
 
@@ -37,7 +79,7 @@ export async function GET(req: Request) {
         }),
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as StacSearch;
         scenes = (data.features || []).map(formatScene);
         total = data.numberMatched || scenes.length;
         source = 'element84';
@@ -60,7 +102,7 @@ export async function GET(req: Request) {
           }),
         });
         if (res.ok) {
-          const data = await res.json();
+          const data = await res.json() as StacSearch;
           scenes = (data.features || []).map(formatScene);
           total = data.numberMatched || scenes.length;
           source = 'element84-s2';
@@ -83,7 +125,7 @@ export async function GET(req: Request) {
           }),
         });
         if (fallbackRes.ok) {
-          const data = await fallbackRes.json();
+          const data = await fallbackRes.json() as StacSearch;
           scenes = (data.features || []).map(formatScene);
           total = data.numberMatched || scenes.length;
           source = 'copernicus';
@@ -106,7 +148,7 @@ export async function GET(req: Request) {
   }
 }
 
-function formatScene(feature: any) {
+function formatScene(feature: StacFeature): Scene {
   const props = feature.properties || {};
   return {
     id: feature.id,

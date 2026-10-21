@@ -3,7 +3,7 @@ import { gunzipSync } from 'node:zlib';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildPayload, clearPayload, getPayload, readSnapshot, writeSnapshot } from './cctv-snapshot';
+import { buildPayload, clearPayload, dropSnapshotRegion, getPayload, readSnapshot, writeSnapshot } from './cctv-snapshot';
 
 let directory: string;
 
@@ -37,6 +37,19 @@ describe('camera catalogue snapshot', () => {
     await writeSnapshot({ uk: [{ id: 'a' }] });
     await writeFile(process.env.OSIRIS_CCTV_SNAPSHOT!, '{"version":1,"regions":{"uk":[{"id"');
     expect(await readSnapshot()).toBeNull();
+  });
+
+  it('removes one region and leaves the cameras fetched with other tokens', async () => {
+    await writeSnapshot({
+      tpt: [{ id: 'old-jakarta' }],
+      jasamarga: [{ id: 'old-jm' }],
+      uk: [{ id: 'keep' }],
+    });
+    await dropSnapshotRegion('jasamarga');
+    const restored = await readSnapshot();
+    expect(restored?.regions.jasamarga).toBeUndefined();
+    expect(restored?.regions.tpt).toEqual([{ id: 'old-jakarta' }]);
+    expect(restored?.regions.uk).toEqual([{ id: 'keep' }]);
   });
 
   it('rejects a catalogue written by a different format version', async () => {

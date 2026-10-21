@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OpsRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR_PUSDALOPS
+  OPERATOR_KODAM
+  ANALYST
+  PIMPINAN
+}
+
+enum OpsStatus {
+  KONDUSIF
+  WASPADA
+  SIAGA
+}
+
+/// Status akun operasional. Pengguna yang sudah ada tetap ACTIVE.
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  DISABLED
+}
+
+/// Akun yang masuk lewat formulir. Peran OPERATOR_KODAM wajib terikat satu Kotamaops.
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  username     String    @unique
+  passwordHash   String
+  role           OpsRole
+  active         Boolean        @default(true)
+  email          String?        @unique
+  organization   String         @default("")
+  position       String         @default("")
+  accountStatus  AccountStatus  @default(ACTIVE)
+  sessionVersion Int            @default(0)
+  kotamaopsId    String?
+  kotamaops      Kotamaops?     @relation(fields: [kotamaopsId], references: [id])
+  lastLoginAt    DateTime?
+  revisions      SituationRevision[]
+  passwordResets PasswordReset[]
+  auditActions   AuthAudit[]    @relation("AuditActor")
+  auditTargets   AuthAudit[]    @relation("AuditTarget")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([role, active])
+  @@index([kotamaopsId])
+  @@index([accountStatus])
+}
+
+/// Master satuan. Angka situasi tidak disimpan di sini supaya pembaruan operator tidak menimpa identitas wilayah.
+model Kotamaops {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  region    String
+  location  String
+  latitude  Float
+  longitude Float
+  situation Situation?
+  users     User[]
+  revisions SituationRevision[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+/// Satu baris terkini per Kotamaops. Dasbor operator membaca dan mengubah tabel ini.
+model Situation {
+  id            String    @id @default(cuid())
+  kotamaopsId   String    @unique
+  kotamaops     Kotamaops @relation(fields: [kotamaopsId], references: [id], onDelete: Cascade)
+  status        OpsStatus
+  personnel     Int
+  deployed      Int
+  incidentCount Int
+  note          String    @default("")
+  updatedByName String    @default("")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+/// Riwayat setiap simpanan. Dasbor tidak menghitung angka dari tabel ini.
+model SituationRevision {
+  id            String    @id @default(cuid())
+  kotamaopsId   String
+  kotamaops     Kotamaops @relation(fields: [kotamaopsId], references: [id], onDelete: Cascade)
+  editorId      String?
+  editor        User?     @relation(fields: [editorId], references: [id], onDelete: SetNull)
+  status        OpsStatus
+  personnel     Int
+  deployed      Int
+  incidentCount Int
+  note          String
+  createdAt     DateTime  @default(now())
+
+  @@index([kotamaopsId, createdAt])
+}
+
+/// Token reset disimpan sebagai hash SHA-256. Nilai mentah hanya dikirim lewat surel.
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Jejak autentikasi. Jangan menulis kata sandi, token, atau cookie ke kolom detail.
+model AuthAudit {
+  id        String   @id @default(cuid())
+  action    String
+  result    String
+  actorId   String?
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  targetId  String?
+  target    User?    @relation("AuditTarget", fields: [targetId], references: [id], onDelete: SetNull)
+  ip        String   @default("")
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+}

@@ -259,10 +259,9 @@ function Tile({ cam: camera, onOpen }: { cam: PreviewCamera; onOpen: (cam: Previ
         {!loaded && (
           <div className="absolute inset-0 overflow-hidden bg-black">
             <div
-              className="absolute inset-x-0 h-8"
+              className="motion-scan-link absolute inset-x-0 h-8"
               style={{
                 background: `linear-gradient(to bottom, transparent, ${cam(18)}, transparent)`,
-                animation: 'scan-line-sweep 1.8s ease-in-out infinite',
               }}
             />
             <div className="absolute inset-0 flex items-center justify-center font-mono text-[7px] tracking-[0.25em] text-white/30">
@@ -332,7 +331,9 @@ function CctvPreviews({ mapRef, active, onOpen }: {
 
     let feats;
     try {
-      feats = map.queryRenderedFeatures({ layers: ['cctv-dots'] });
+      const layers = ['cctv-dots', 'cctv-jm-dots', 'cctv-jakarta-dots'].filter(id => map.getLayer(id));
+      if (!layers.length) return;
+      feats = map.queryRenderedFeatures({ layers });
     } catch {
       return; // layer not added yet
     }
@@ -415,7 +416,7 @@ function CctvPreviews({ mapRef, active, onOpen }: {
        rendering settles, and `sourcedata` catches the camera list refreshing
        under a stationary map. */
     const onSourceData = (e: { sourceId?: string; isSourceLoaded?: boolean }) => {
-      if (e.sourceId === 'cctv' && e.isSourceLoaded) recompute();
+      if ((e.sourceId === 'cctv' || e.sourceId === 'cctv-jm' || e.sourceId === 'cctv-jakarta') && e.isSourceLoaded) recompute();
     };
 
     recompute();

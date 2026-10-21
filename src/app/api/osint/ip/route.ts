@@ -23,7 +23,28 @@ export async function GET(req: Request) {
   }
 
   try {
-    const results: any = { ip, timestamp: new Date().toISOString() };
+    const results: {
+      ip: string;
+      timestamp: string;
+      geo?: {
+        country?: string;
+        country_code?: string;
+        region?: string;
+        city?: string;
+        lat?: number;
+        lon?: number;
+        timezone?: string;
+        isp?: string;
+        org?: string;
+        as_number?: string;
+        as_name?: string;
+        is_mobile?: boolean;
+        is_proxy?: boolean;
+        is_hosting?: boolean;
+      };
+      reputation?: { is_proxy: boolean; is_hosting: boolean; is_mobile: boolean; risk_level: string };
+      sanctions_match?: { source: string; hits: { matched_value: string; entries: SanctionEntry[] }[] } | null;
+    } = { ip, timestamp: new Date().toISOString() };
 
     // 1. ip-api.com — geolocation (free, no key)
     try {
@@ -31,7 +52,23 @@ export async function GET(req: Request) {
         signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
-        const geo = await res.json();
+        const geo = await res.json() as {
+          status?: string;
+          country?: string;
+          countryCode?: string;
+          regionName?: string;
+          city?: string;
+          lat?: number;
+          lon?: number;
+          timezone?: string;
+          isp?: string;
+          org?: string;
+          as?: string;
+          asname?: string;
+          mobile?: boolean;
+          proxy?: boolean;
+          hosting?: boolean;
+        };
         if (geo.status === 'success') {
           results.geo = {
             country: geo.country,

@@ -79,6 +79,19 @@ export function contentsToCSV(shape: DrawnShape, report: AoiReport): string {
 export const STORAGE_KEY = 'osiris.aoi.shapes.v1';
 
 /** Only what is needed to rebuild a shape; derived values are recomputed. */
+/** Loose storage row — older builds and pasted JSON are checked field by field. */
+interface LooseStoredShape {
+  id?: unknown;
+  name?: unknown;
+  kind?: DrawnShape['kind'];
+  geojson?: { geometry?: { type?: string; coordinates?: unknown } };
+  areaKm2?: unknown;
+  perimeterKm?: unknown;
+  color?: unknown;
+  createdAt?: unknown;
+  meta?: DrawnShape['meta'];
+}
+
 interface StoredShape {
   id: string; name: string; kind: DrawnShape['kind'];
   geojson: DrawnShape['geojson'];
@@ -115,7 +128,7 @@ export function deserializeShapes(raw: string | null): DrawnShape[] {
   if (!Array.isArray(parsed)) return [];
 
   const out: DrawnShape[] = [];
-  for (const s of parsed as any[]) {
+  for (const s of parsed as LooseStoredShape[]) {
     if (!s || typeof s !== 'object') continue;
     const geom = s.geojson?.geometry;
     if (!geom || (geom.type !== 'Polygon' && geom.type !== 'LineString')) continue;
@@ -126,7 +139,7 @@ export function deserializeShapes(raw: string | null): DrawnShape[] {
       id: s.id,
       name: s.name,
       kind: s.kind ?? 'polygon',
-      geojson: s.geojson,
+      geojson: s.geojson as DrawnShape['geojson'],
       areaKm2: Number(s.areaKm2) || 0,
       perimeterKm: Number(s.perimeterKm) || 0,
       color: typeof s.color === 'string' ? s.color : '#00E5FF',
