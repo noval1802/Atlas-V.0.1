@@ -45,8 +45,9 @@ const DrawHud = dynamic(() => import('@/components/DrawHud'), { ssr: false });
 // not the toolbar has loaded yet.
 import { toShape, queryRing, type DrawMode, type DrawnShape, type DrawProgress, type DrawResult } from '@/lib/draw';
 import { selectInPolygon } from '@/lib/aoi';
-import { KOTAMAOPS_POINTS } from '@/lib/kotamaops-points';
-import { pickLandingCity } from '@/lib/landing-cities';
+import type { KotamaopsPoint } from '@/lib/kotamaops-points';
+import { PortalMenu } from '@/components/ops/portal-menu';
+import { NKRI_CENTER, nkriZoom } from '@/lib/nkri-view';
 import { diffSweep, appendEvents, type WatchBaseline, type WatchEvent } from '@/lib/watch';
 import { STORAGE_KEY, serializeShapes, deserializeShapes, shapesToGeoJSON, downloadFile } from '@/lib/aoi-export';
 const TokenPanel = dynamic(() => import('@/components/TokenPanel'));
@@ -97,8 +98,8 @@ const SPLASH_PROGRESS = ['25%', '50%', '78%', '100%'];
 const HUD_EASE = [0.22, 1, 0.36, 1] as const;
 const hudIn = (delay: number) => ({ duration: 0.7, ease: HUD_EASE, delay });
 
-export default function Dashboard() {
-  const dataRef = useRef<MapData>({ kotamaops: KOTAMAOPS_POINTS });
+export default function Dashboard({ kotamaops, role, userName }: { kotamaops: KotamaopsPoint[]; role: string; userName: string }) {
+  const dataRef = useRef<MapData>({ kotamaops });
   const [dataVersion, setDataVersion] = useState(0);
   const data = dataRef.current;
 
@@ -119,9 +120,6 @@ export default function Dashboard() {
   const revealed = !showSplash;
   /* True once the splash has finished fading out, not merely started to. */
   const [splashGone, setSplashGone] = useState(false);
-  /* Where the viewer is, by IP. Asked for at once; the camera flies there
-     once the splash has gone. */
-  const [homeLocation, setHomeLocation] = useState<{ lat: number; lng: number } | null>(null);
   const autoLocateCancelled = useRef(false);
 
   const [activeCamera, setActiveCamera] = useState<WatchedCamera | null>(null);
@@ -314,16 +312,16 @@ export default function Dashboard() {
     return () => clearTimeout(t);
   }, [splashStage]);
 
-  /* Fly from the globe down to the viewer's city once the splash has gone.
+  /* Fly from the globe down to the whole of NKRI once the splash has gone.
      Starting as it began to fade meant a busy first load (the satellite
      catalogue is ~19k objects) could hold the fade until the camera was
      nearly at street level, and the globe was never seen. */
   useEffect(() => {
-    if (!splashGone || !homeLocation || autoLocateCancelled.current) return;
-    setFlyToLocation({ ...homeLocation, zoom: 8, duration: 3500, ts: Date.now() });
-  }, [splashGone, homeLocation]);
+    if (!splashGone || autoLocateCancelled.current) return;
+    setFlyToLocation({ ...NKRI_CENTER, zoom: nkriZoom(window.innerWidth), duration: 3500, ts: Date.now() });
+  }, [splashGone]);
 
-  // On mount: restore layers, probe optional feeds, and geolocate by IP
+  // On mount: restore layers and probe optional feeds
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -341,48 +339,18 @@ export default function Dashboard() {
       .then(p => { if (p) setCapabilities(c => ({ ...c, cloudflare: !!p.configured })); })
       .catch(() => { /* leave the layer hidden */ });
 
-    // Once the user interacts, a late IP-location response must not steal the
-    // camera back. The request is also cancelled when this page unmounts.
-    const geoController = new AbortController();
+    // Once the user interacts, the post-splash fly-in to NKRI must not steal the camera back.
     const cancelAutoLocate = () => { autoLocateCancelled.current = true; };
     window.addEventListener('pointerdown', cancelAutoLocate, { once: true });
     window.addEventListener('keydown', cancelAutoLocate, { once: true });
-    /* Asked for at once rather than after a fixed 3 s wait, so the answer is
-       in hand when the splash lifts; the effect above does the flying. When
-       the visitor's city can't be found (no public address, every provider
-       failed, or no answer within 6 s) the fly-in still happens, to a random
-       well-covered city, rather than stopping on the globe. */
-    let located = false;
-    const landSomewhere = () => {
-      if (located || geoController.signal.aborted) return;
-      located = true;
-      const city = pickLandingCity();
-      setHomeLocation({ lat: city.lat, lng: city.lng });
-    };
-    const geoGiveUp = setTimeout(landSomewhere, 6000);
-    fetch('/api/geo', { signal: geoController.signal })
-      .then(r => r.json())
-      .then(geo => {
-        if (located || geoController.signal.aborted) return;
-        if (geo.status === 'success' &&
-            Number.isFinite(geo.lat) && Number.isFinite(geo.lon) && Math.abs(geo.lat) <= 90 && Math.abs(geo.lon) <= 180) {
-          located = true;
-          setHomeLocation({ lat: geo.lat, lng: geo.lon });
-        } else {
-          landSomewhere();
-        }
-      })
-      .catch(landSomewhere);
 
     return () => {
-      clearTimeout(geoGiveUp);
-      geoController.abort();
       window.removeEventListener('pointerdown', cancelAutoLocate);
       window.removeEventListener('keydown', cancelAutoLocate);
     };
   }, []);
 
-  // URL state: persist active layers only (lat/lon comes from IP geolocation on each load)
+  // URL state: persist active layers only (every load opens on NKRI)
   const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -417,7 +385,7 @@ export default function Dashboard() {
       if (e.key === 'c') setShowScmPanel(p => !p);
       if (e.key === 'i') setShowIntel(p => !p);
       if (e.key === 's') { setShowDesktopSearch(p => !p); setShowIntel(false); setShowMarkets(false); setShowAlerts(false); setShowSpaceCam(false); }
-      if (e.key === 'r' && !e.ctrlKey && !e.metaKey) setFlyToLocation({ lat: 20, lng: 0, zoom: 2.5, ts: Date.now() });
+      if (e.key === 'r' && !e.ctrlKey && !e.metaKey) setFlyToLocation({ ...NKRI_CENTER, zoom: nkriZoom(window.innerWidth), ts: Date.now() });
       if (e.key === 'g') {
         setActiveLayers(prev => ({ ...prev, terrain_elevation: false, terrain_3d: false }));
         setMapProjection(p => p === 'globe' ? 'mercator' : 'globe');
@@ -1286,6 +1254,8 @@ export default function Dashboard() {
         <TokenPanel />
 
         <SupportMenu />
+
+        <PortalMenu role={role} name={userName} />
       </motion.div>
 
       {/* ── MOBILE: Compact top status ── */}
@@ -1293,6 +1263,7 @@ export default function Dashboard() {
           place would put the support badge underneath the destination field. */}
       {isMobile && !showDirections && !navSession && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={hudIn(0.35)} className="absolute top-3 right-3 z-[200] pointer-events-auto flex flex-col items-end gap-1.5">
+          <PortalMenu role={role} name={userName} />
           <div className="flex items-center gap-2">
             <CctvTokenButton compact onSaved={replaceTokenCameras} />
             <TokenPanel />

@@ -212,15 +212,6 @@ html:has(.privacy-root) body {
   overflow: visible;
 }
 
-/* Center the sign-in card while it fits. Once it is taller than the
-   viewport, start at the top so the first field and the last control
-   both remain reachable. */
-.ops-auth-main {
-  min-height: 100vh;
-  min-height: 100dvh;
-  justify-content: safe center;
-}
-
 @media (prefers-reduced-motion: reduce) {
   html:has(.docs-root),
   html:has(.docs-root) body { scroll-behavior: auto; }
@@ -2593,4 +2584,79 @@ input[type="range"]::-moz-range-thumb {
   border: 1px solid rgba(var(--gold-rgb), 0.12);
   border-radius: 4px;
   padding: 1px 5px;
+}
+
+/* ── Ops pages (/operator, /pengguna): motion ── */
+html:has(.ops-scroll) { scroll-behavior: smooth; }
+@keyframes ops-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ops-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ops-scroll :is(a, button, input, select, textarea, tr, li, article, label) {
+  transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease, opacity 180ms ease,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 180ms ease;
+}
+.ops-scroll button:not(:disabled):active { transform: scale(0.97); }
+.ops-scroll :is(input, select, textarea):focus { border-color: var(--gold-primary); box-shadow: 0 0 0 3px rgba(var(--gold-rgb), 0.15); }
+/* --i = urutan elemen dalam daftar, untuk efek muncul bertahap */
+.ops-rise { animation: ops-rise 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.ops-fade { animation: ops-fade 260ms ease both; }
+.ops-lift:hover { transform: translateY(-2px); box-shadow: 0 6px 18px -8px rgba(var(--gold-rgb), 0.35); }
+@media (prefers-reduced-motion: reduce) {
+  html:has(.ops-scroll) { scroll-behavior: auto; }
+  .ops-scroll *, .ops-scroll *::before, .ops-scroll *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
+  .ops-scroll button:not(:disabled):active, .ops-lift:hover { transform: none; }
+}
+
+/* ── Sign-in pages (AuthFrame): sea chart of NKRI ── */
+.auth-root {
+  --auth-sea: #071624;
+  --auth-deep: #0c2236;
+  --auth-sand: #eae3cf;
+  --auth-mist: #8e9baa;
+  --auth-line: rgba(142, 155, 170, 0.38);
+  --auth-signal: #ff5a4f;
+  background: var(--auth-sea);
+  color: var(--auth-sand);
+  font-family: var(--font-auth), ui-sans-serif, system-ui, sans-serif;
+}
+.auth-wordmark { font-weight: 800; font-stretch: 125%; letter-spacing: 0.02em; }
+.auth-display { font-weight: 800; font-stretch: 125%; line-height: 0.95; letter-spacing: -0.01em; }
+.auth-title { font-weight: 700; font-stretch: 110%; letter-spacing: -0.005em; }
+.auth-clock { font-weight: 600; font-stretch: 112%; font-variant-numeric: tabular-nums; }
+.auth-logo {
+  background: var(--gold-primary);
+  mask: url(/eye-of-horus.svg) center / contain no-repeat;
+  -webkit-mask: url(/eye-of-horus.svg) center / contain no-repeat;
+}
+.auth-panel { background: var(--auth-deep); box-shadow: inset 1px 0 0 rgba(var(--gold-rgb), 0.35); }
+@media (max-width: 1023px) { .auth-panel { box-shadow: inset 0 1px 0 rgba(var(--gold-rgb), 0.35); } }
+.auth-graticule line { stroke: rgba(142, 155, 170, 0.1); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.auth-graticule .auth-equator { stroke: rgba(142, 155, 170, 0.22); stroke-dasharray: 2 6; }
+.auth-neighbour { fill: rgba(142, 155, 170, 0.07); stroke: rgba(142, 155, 170, 0.28); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
+.auth-islands path {
+  fill: rgba(var(--gold-rgb), 0.16);
+  stroke: var(--gold-primary);
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  /* The one orchestrated moment: the archipelago draws itself west to east. */
+  animation: auth-draw 1.5s cubic-bezier(0.3, 0.7, 0.2, 1) both, auth-fill 0.9s ease-out both;
+  animation-delay: calc(var(--i, 0) * 7ms), calc(0.9s + var(--i, 0) * 4ms);
+}
+.auth-meridian { stroke: rgba(var(--gold-rgb), 0.55); stroke-width: 1; stroke-dasharray: 3 5; vector-effect: non-scaling-stroke; }
+.auth-clocks { animation: ops-fade 0.6s ease-out 1.4s both; }
+@keyframes auth-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes auth-fill { from { fill-opacity: 0; } to { fill-opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .auth-islands path, .auth-clocks { animation: none; }
 }

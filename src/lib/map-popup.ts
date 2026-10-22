@@ -220,6 +220,7 @@ export interface FacilityPopup extends Record<string, unknown> {
 
 export interface KotamaopsPopup extends Record<string, unknown> {
   logo?: string;
+  matra?: string;
   code?: string;
   name?: string;
   region?: string;

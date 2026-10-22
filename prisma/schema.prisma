@@ -16,6 +16,13 @@ enum OpsRole {
   PIMPINAN
 }
 
+/// Matra pemilik Kotamaops. Peta memberi tiap matra satu toggle layer.
+enum Matra {
+  AD
+  AL
+  AU
+}
+
 enum OpsStatus {
   KONDUSIF
   WASPADA
@@ -67,11 +74,16 @@ model Kotamaops {
   location  String
   latitude  Float
   longitude Float
+  matra     Matra     @default(AD)
+  /// Path lambang di /public, mis. /kodam/jaya.png. Kosong = perisai bawaan.
+  logo      String    @default("")
   situation Situation?
   users     User[]
   revisions SituationRevision[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([matra])
 }
 
 /// Satu baris terkini per Kotamaops. Dasbor operator membaca dan mengubah tabel ini.

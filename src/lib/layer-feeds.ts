@@ -35,6 +35,8 @@ export interface ActiveLayers {
   sdk_naval: boolean;
   /** Absent on the original map page. The monitoring dashboard sets this. */
   tni_ad?: boolean;
+  tni_al?: boolean;
+  tni_au?: boolean;
   terrain_3d: boolean;
   terrain_elevation: boolean;
   malware: boolean;
@@ -57,42 +59,42 @@ export const DEFAULT_ACTIVE_LAYERS: ActiveLayers = {
   private: false,
   jets: false,
   military: false,
-  maritime: true,
-  // On from the start: the orbiting fleet around the globe is the first
-  // thing the splash lifts onto.
-  satellites: true,
+  maritime: false,
+  satellites: false,
   sat_comms: false,
   sat_military: false,
   sat_navigation: false,
   sat_earth: false,
   sat_science: false,
   balloons: false,
-  cctv: true,
+  cctv: false,
   /* Jasa Marga toll cameras, switched separately from the public CCTV catalogue. */
-  cctv_jm: true,
+  cctv_jm: false,
   /* Jakarta TPT cameras, switched separately from the public CCTV catalogue. */
-  cctv_jakarta: true,
+  cctv_jakarta: false,
   /* The live preview tiles over the camera dots — see CctvPreviews. */
-  cctv_previews: true,
-  live_news: true,
-  earthquakes: true,
+  cctv_previews: false,
+  live_news: false,
+  earthquakes: false,
   fires: false,
   weather: false,
   radiation: false,
   infrastructure: false,
-  global_incidents: true,
+  global_incidents: false,
   /* Live Alerts reports pinned to the place they name — see alert-places.
      Off until asked for, like the other threat layers: the map opens with
      what a reader has chosen to see, and the feed reads the same without it. */
   alert_pins: false,
   war_alerts: false,
-  day_night: true,
-  cables: true,
-  sdk_sea: true,
-  sdk_air: true,
-  sdk_naval: true,
-  /* Kotamaops headquarters from the ATLAS coordinate list. */
+  day_night: false,
+  cables: false,
+  sdk_sea: false,
+  sdk_air: false,
+  sdk_naval: false,
+  /* Peta operasi dibuka hanya dengan Kotamaops per matra; layer lain dinyalakan sendiri oleh pengguna. */
   tni_ad: true,
+  tni_al: true,
+  tni_au: true,
   terrain_3d: false,
   terrain_elevation: false,
   malware: false,

@@ -10,6 +10,7 @@ import {
 import StyleStudio from './StyleStudio';
 import type { ActiveLayers } from '@/lib/layer-feeds';
 import { mapDataList, type MapData } from '@/lib/map-data';
+import type { Matra } from '@/lib/kotamaops-points';
 import { TERRAIN_MIN_ZOOM, type TerrainStatus } from '@/lib/map-terrain';
 
 interface LayerPanelProps {
@@ -37,6 +38,8 @@ interface LayerDef {
   description?: string;
   /** Reads a bucket out of data.category_counts instead of a top-level array. */
   catKey?: string;
+  /** Counts only the Kotamaops of this matra. */
+  matra?: Matra;
   /** Capability that must be configured server-side for this layer to appear. */
   requires?: string;
   /** Key of the layer this one modifies. Renders indented beneath it. */
@@ -62,7 +65,9 @@ const LAYER_GROUPS: LayerGroupDef[] = [
     fullLabel: 'Kotamaops',
     icon: Shield,
     layers: [
-      { key: 'tni_ad', label: 'TNI AD', dataKey: 'kotamaops' },
+      { key: 'tni_ad', label: 'TNI AD', dataKey: 'kotamaops', matra: 'AD' },
+      { key: 'tni_al', label: 'TNI AL', dataKey: 'kotamaops', matra: 'AL' },
+      { key: 'tni_au', label: 'TNI AU', dataKey: 'kotamaops', matra: 'AU' },
     ],
   },
   {
@@ -268,6 +273,7 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
 
   const getCount = (layer: LayerDef): number | null => {
     if (!layer.dataKey) return null;
+    if (layer.matra) return (data.kotamaops ?? []).filter((point) => point.matra === layer.matra).length;
     if (layer.catKey && data.category_counts) {
       return data.category_counts[layer.catKey] || 0;
     }
@@ -458,9 +464,10 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
                     animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
                     exit={{ opacity: 0, x: -4, filter: 'blur(2px)' }}
                     transition={{ duration: 0.18, ease: 'easeOut' }}
-                    className="absolute left-[52px] top-1/2 -translate-y-1/2 min-w-[220px] rounded-xl p-3 z-[100] pointer-events-auto"
+                    className="absolute left-[52px] -top-2 min-w-[220px] rounded-xl p-3 z-[100] pointer-events-auto"
                     style={{
-                      background: 'rgba(0,0,0,0.6)',
+                      /* Opaque enough that the HUD title behind the top groups does not bleed through. */
+                      background: 'rgba(0,0,0,0.88)',
                       backdropFilter: 'blur(40px) saturate(1.5)',
                       WebkitBackdropFilter: 'blur(40px) saturate(1.5)',
                       border: '1px solid rgba(255,255,255,0.06)',

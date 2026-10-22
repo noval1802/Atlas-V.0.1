@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { authButton, authField } from "@/components/ops/auth-frame";
+import { authButton, authField, authLink } from "@/components/ops/auth-frame";
 
 export function ForgotForm() {
   const [error, setError] = useState("");
@@ -48,7 +48,7 @@ export function ForgotForm() {
         <input id="email" name="email" type="email" autoComplete="email" required className={authField} />
       </label>
       {error && (
-        <p role="alert" className="text-sm text-rose-200">
+        <p role="alert" className="ops-fade rounded-md border-l-[3px] border-[var(--auth-signal)] bg-[rgba(255,90,79,0.1)] px-3.5 py-2.5 text-sm text-[#ffd9d6]">
           {error}
         </p>
       )}
@@ -61,7 +61,7 @@ export function ForgotForm() {
         {busy ? "Memeriksa..." : "Kirim tautan reset"}
       </button>
       <p className="text-sm">
-        <Link className="text-[var(--cyan-primary)] underline-offset-2 hover:underline" href="/masuk">
+        <Link className={authLink} href="/masuk">
           Kembali ke masuk
         </Link>
       </p>

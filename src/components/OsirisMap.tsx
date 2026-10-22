@@ -16,7 +16,8 @@ import LiveNewsPreviews, { type PreviewFeed } from '@/components/LiveNewsPreview
 import { attachTerrain, type TerrainStatus } from '@/lib/map-terrain';
 import { isJasaMargaCamera, isTptCamera } from '@/lib/cctv-layers';
 import type { CatalogCamera } from '@/lib/camera-catalog';
-import { KOTAMAOPS_POINTS, kotamaopsFeatures, kotamaopsIconId, kotamaopsLogo } from '@/lib/kotamaops-points';
+import { MATRA_LAYER, kotamaopsFeatures, kotamaopsIconId, safeKotamaopsLogo } from '@/lib/kotamaops-points';
+import { NKRI_CENTER } from '@/lib/nkri-view';
 import { KARHUTLA_LAPSIT_AT, formatKarhutlaAmount, formatPersonel, karhutlaReport } from '@/lib/karhutla-lapsit';
 import { KOTAMAOPS_FLAME_CODES, KOTAMAOPS_FLAME_FRAMES, KOTAMAOPS_FLAME_FRAME_MS, KOTAMAOPS_FLAME_HEIGHT, KOTAMAOPS_FLAME_WIDTH, drawKotamaopsFlame, kotamaopsFlameImageId, nextKotamaopsFlameFrame } from '@/lib/kotamaops-flame';
 import type { ArcGisMapLayer, MapEntity } from '@/lib/dashboard-state';
@@ -157,6 +158,11 @@ interface AlertPinFeature {
 }
 
 function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightClick, onViewStateChange, onReady, flyToLocation, alertPinIds = null, projection = 'globe', terrainEnabled = false, terrainRetry = 0, terrainFocus = 0, onTerrainStatusChange, mapStyle = 'dark', sweepData, scanTargets = [], demoMode = false, theme = 'core', drawnPolygons = [], arcgisLayers = [], drawMode = null, onDrawComplete, onDrawProgress, onDrawCancel, drawCommand = null, onMapCenter, route = null, userLocation = null, followUser = false, onFollowInterrupt, navigating = false, aircraftAirports = {} }: OsirisMapProps) {
+  /* The logo resolver lives in the map-init effect; it reads the latest Kotamaops from here. */
+  const kotamaopsRef = useRef(data.kotamaops ?? []);
+  useEffect(() => {
+    kotamaopsRef.current = data.kotamaops ?? [];
+  }, [data.kotamaops]);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -304,15 +310,11 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
     const container = containerRef.current;
     maplibregl.setWorkerUrl(`/vendor/maplibre/${maplibregl.getVersion()}/maplibre-gl-worker.mjs`);
-    /* Open on the whole globe, turned to the viewer's side of it. The UTC
-       offset is a free, instant stand-in for longitude (15° an hour), so the
-       fly-in to their city after the splash is a dive, not a spin round the
-       planet. This used to open on Bulgaria at zoom 6.5 for everyone. */
-    const facingLng = Math.max(-180, Math.min(180, -new Date().getTimezoneOffset() / 4));
+    /* Open on the whole globe turned to Indonesia, so the post-splash fly-in to NKRI is a dive, not a spin. */
     const baseOptions = {
       container,
       style: styleUrl,
-      center: [facingLng, 20] as [number, number], zoom: 1.8, minZoom: 1.5, maxZoom: 18,
+      center: [NKRI_CENTER.lng, NKRI_CENTER.lat] as [number, number], zoom: 1.8, minZoom: 1.5, maxZoom: 18,
       /* The basemap is CARTO's, drawn from OpenStreetMap, and the places on it
          are searched and named through OpenStreetMap too. Both have to be
          credited on the map itself; this was switched off, which is half of
@@ -918,8 +920,8 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       }
       const logoLoads = new Set<string>();
       const ensureKotamaopsLogo = async (id: string) => {
-        const point = KOTAMAOPS_POINTS.find((item) => kotamaopsIconId(item.code) === id);
-        const logo = point ? kotamaopsLogo(point.code) : "";
+        const point = kotamaopsRef.current.find((item) => kotamaopsIconId(item.code) === id);
+        const logo = point ? safeKotamaopsLogo(point.logo) : "";
         if (!point || !logo || map.hasImage(id) || logoLoads.has(id)) return;
         logoLoads.add(id);
         try {
@@ -932,7 +934,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         }
       };
       map.setMissingStyleImageResolver((id) => ensureKotamaopsLogo(id));
-      for (const point of KOTAMAOPS_POINTS) void ensureKotamaopsLogo(kotamaopsIconId(point.code));
+      for (const point of kotamaopsRef.current) void ensureKotamaopsLogo(kotamaopsIconId(point.code));
       map.addLayer({ id: 'kotamaops-glow', type: 'circle', source: 'kotamaops', paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 8, 6, 14, 10, 18],
         'circle-color': '#D4AF37', 'circle-opacity': 0.18, 'circle-blur': 0.8,
@@ -1733,7 +1735,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       const p = clickedProperties<KotamaopsPopup>(e);
       const coords = pointCoordinates(e.features?.[0]?.geometry);
       if (!p || !coords) return;
-      const logo = /^\/kodam\/[a-z0-9-]+\.png$/.test(String(p.logo || '')) ? String(p.logo) : '';
+      const logo = safeKotamaopsLogo(String(p.logo || ''));
       const report = karhutlaReport(String(p.code || ''));
       const karhutlaLine = (label: string, value: string, color: string) =>
         `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;white-space:nowrap;"><span style="color:#5C5A54;letter-spacing:0.06em;flex:none;">${label}</span><span style="color:${color};font-weight:700;text-align:right;">${htmlEsc(value)}</span></div>`;
@@ -1748,7 +1750,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
           ${logo ? `<img src="${logo}" alt="" width="44" height="44" style="width:44px;height:44px;object-fit:contain;flex:none;" />` : ''}
           <div>
-            <div style="color:#D4AF37;font-size:10px;letter-spacing:0.16em;margin-bottom:4px;">TNI AD</div>
+            <div style="color:#D4AF37;font-size:10px;letter-spacing:0.16em;margin-bottom:4px;">TNI ${htmlEsc(p.matra || 'AD')}</div>
             <div style="color:#F3E6B8;font-size:14px;font-weight:700;margin-bottom:2px;">${htmlEsc(p.name || 'Kotamaops')}</div>
             <div style="color:#5C5A54;font-size:9px;letter-spacing:0.08em;">${htmlEsc(p.code || '')}</div>
           </div>
@@ -2311,8 +2313,8 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
   useEffect(() => {
     if (!mapReady) return;
-    setGeo('kotamaops', kotamaopsFeatures(!!activeLayers.tni_ad));
-  }, [mapReady, activeLayers.tni_ad, setGeo]);
+    setGeo('kotamaops', kotamaopsFeatures(data.kotamaops ?? [], (matra) => !!activeLayers[MATRA_LAYER[matra]]));
+  }, [mapReady, data.kotamaops, activeLayers.tni_ad, activeLayers.tni_al, activeLayers.tni_au, setGeo]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -2699,7 +2701,11 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
   useEffect(() => {
     if (!mapReady || !mapRef.current || !flyToLocation) return;
     const map = mapRef.current;
-    map.flyTo({ center: [flyToLocation.lng, flyToLocation.lat], zoom: flyToLocation.zoom ?? 8, duration: flyToLocation.duration ?? 2000 });
+    const target = { center: [flyToLocation.lng, flyToLocation.lat] as [number, number], zoom: flyToLocation.zoom ?? 8, duration: flyToLocation.duration ?? 2000 };
+    const here = map.getCenter();
+    /* flyTo on the globe throws (singular matrix) when the centre does not move, e.g. NKRI → NKRI; zoom in place instead. */
+    if (Math.abs(here.lng - target.center[0]) < 1e-6 && Math.abs(here.lat - target.center[1]) < 1e-6) map.easeTo(target);
+    else map.flyTo(target);
     const alertId = flyToLocation.alertId;
     if (!alertId) return;
     const open = () => openAlertPinRef.current?.(alertId);

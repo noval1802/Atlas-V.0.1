@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { authButton } from "@/components/ops/auth-frame";
+import { authButton, authLink } from "@/components/ops/auth-frame";
 import { PasswordField } from "@/components/ops/password-field";
 
 export function ResetForm() {
@@ -48,9 +48,9 @@ export function ResetForm() {
 
   if (!token) {
     return (
-      <p role="alert" className="text-sm text-rose-200">
+      <p role="alert" className="ops-fade rounded-md border-l-[3px] border-[var(--auth-signal)] bg-[rgba(255,90,79,0.1)] px-3.5 py-2.5 text-sm text-[#ffd9d6]">
         Tautan reset tidak lengkap.{" "}
-        <Link className="text-[var(--cyan-primary)] underline-offset-2 hover:underline" href="/lupa-sandi">
+        <Link className={authLink} href="/lupa-sandi">
           Minta tautan baru
         </Link>
       </p>
@@ -73,7 +73,7 @@ export function ResetForm() {
       <PasswordField name="password" label="Kata sandi baru" autoComplete="new-password" />
       <PasswordField name="confirmPassword" label="Konfirmasi kata sandi baru" autoComplete="new-password" />
       {error && (
-        <p role="alert" className="text-sm text-rose-200">
+        <p role="alert" className="ops-fade rounded-md border-l-[3px] border-[var(--auth-signal)] bg-[rgba(255,90,79,0.1)] px-3.5 py-2.5 text-sm text-[#ffd9d6]">
           {error}
         </p>
       )}

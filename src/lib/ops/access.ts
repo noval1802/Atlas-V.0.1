@@ -67,6 +67,18 @@ export function homeForRole(role: string): string {
   return "/peta";
 }
 
+export type PortalLink = { href: "/peta" | "/operator" | "/pengguna"; label: string };
+
+/** Halaman yang boleh dibuka peran ini, untuk menu portal. Sama dengan pagar di halaman dan deniedPage. */
+export function portalLinks(role: string): PortalLink[] {
+  const links: PortalLink[] = [
+    { href: "/peta", label: "Peta situasi" },
+    { href: "/operator", label: canWriteSituation(role) ? "Dasbor operator" : "Dasbor situasi" },
+  ];
+  if (canManageUsers(role)) links.push({ href: "/pengguna", label: "Manajemen pengguna" });
+  return links;
+}
+
 /** Non-admins who open user management are sent to their own home. Null means the page is allowed. */
 export function deniedPage(pathname: string, role: string): string | null {
   if (pathname === "/pengguna" || pathname.startsWith("/pengguna/")) {

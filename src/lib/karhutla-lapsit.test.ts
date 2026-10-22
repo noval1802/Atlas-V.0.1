@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { KOTAMAOPS_POINTS } from "./kotamaops-points";
+
+const seedCodes = [...readFileSync(new URL("../../prisma/seed.mjs", import.meta.url), "utf8").matchAll(/^ {2}\["([^"]+)"/gm)].map(([, code]) => code);
 import {
   formatKarhutlaAmount,
   formatPersonel,
@@ -26,7 +28,7 @@ describe("karhutla lapsit", () => {
   it("balances every counted report and leaves unaffected commands out", () => {
     expect(karhutlaReports()).toHaveLength(14);
     for (const report of karhutlaReports()) {
-      expect(KOTAMAOPS_POINTS.some((point) => point.code === report.code)).toBe(true);
+      expect(seedCodes).toContain(report.code);
       if (report.awalTitik !== null && report.padamTitik !== null && report.prosesTitik !== null) {
         expect(report.padamTitik + report.prosesTitik).toBe(report.awalTitik);
         expect(report.padamHa + report.prosesHa).toBeCloseTo(report.awalHa, 2);

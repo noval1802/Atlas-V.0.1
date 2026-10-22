@@ -35,6 +35,13 @@ describe('split CCTV layer query', () => {
     expect(off).toContain(CCTV_JAKARTA_OFF);
   });
 
+  it('drops the off markers while CCTV itself is off, and still reloads to the same state', () => {
+    const state = { cctv: false, cctv_previews: false, cctv_jm: false, cctv_jakarta: false, flights: false, tni_ad: true };
+    const saved = serializeLayers(state);
+    expect(saved).toBe('tni_ad');
+    expect(applyLayerQuery(state, saved)).toEqual(state);
+  });
+
   it('recognises the two separated sources', () => {
     expect(isJasaMargaCamera({ source: 'Jasa Marga' })).toBe(true);
     expect(isJasaMargaCamera({ source: 'TPT CCTV' })).toBe(false);

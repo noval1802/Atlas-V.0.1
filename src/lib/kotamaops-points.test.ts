@@ -1,62 +1,65 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { KOTAMAOPS_LOGOS, KOTAMAOPS_POINTS, kotamaopsFeatures, kotamaopsIconId, kotamaopsLogo } from "./kotamaops-points";
+import { kotamaopsFeatures, kotamaopsIconId, safeKotamaopsLogo, type KotamaopsPoint } from "./kotamaops-points";
 
-describe("kotamaops points", () => {
-  it("lists the 22 ATLAS headquarters inside Indonesia", () => {
-    expect(KOTAMAOPS_POINTS).toHaveLength(22);
-    const codes = KOTAMAOPS_POINTS.map((point) => point.code);
-    expect(new Set(codes).size).toBe(22);
-    expect(codes).toEqual(expect.arrayContaining(["JAYA", "KODAERAL V", "XII/TPR"]));
-    for (const point of KOTAMAOPS_POINTS) {
-      expect(point.lat).toBeGreaterThanOrEqual(-12);
-      expect(point.lat).toBeLessThanOrEqual(7);
-      expect(point.lng).toBeGreaterThanOrEqual(94);
-      expect(point.lng).toBeLessThanOrEqual(142);
-      expect(point.name.length).toBeGreaterThan(0);
-      expect(point.location.length).toBeGreaterThan(0);
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+/** Baris seed: [kode, nama, wilayah, lokasi, lintang, bujur, status, personel, dikerahkan, kejadian, matra]. */
+const seedRows = [...readFileSync(path.join(root, "prisma/seed.mjs"), "utf8").matchAll(/^ {2}\["([^"]+)", [^\n]*?, (-?[\d.]+), (-?[\d.]+), "[A-Z]+", [^\n]*"(AD|AL|AU)"\],$/gm)].map(
+  ([, code, lat, lng, matra]) => ({ code, lat: Number(lat), lng: Number(lng), matra }),
+);
+
+const point = (code: string, matra: KotamaopsPoint["matra"], logo = ""): KotamaopsPoint => ({
+  code,
+  name: code,
+  region: "R",
+  location: "L",
+  lat: -6.2,
+  lng: 106.82,
+  matra,
+  logo,
+});
+
+describe("kotamaops seed", () => {
+  it("seeds the 22 headquarters inside Indonesia, Kodaeral V under TNI AL", () => {
+    expect(seedRows).toHaveLength(22);
+    expect(new Set(seedRows.map((row) => row.code)).size).toBe(22);
+    for (const row of seedRows) {
+      expect(row.lat).toBeGreaterThanOrEqual(-12);
+      expect(row.lat).toBeLessThanOrEqual(7);
+      expect(row.lng).toBeGreaterThanOrEqual(94);
+      expect(row.lng).toBeLessThanOrEqual(142);
+    }
+    expect(seedRows.find((row) => row.code === "KODAERAL V")?.matra).toBe("AL");
+    expect(seedRows.filter((row) => row.matra === "AD")).toHaveLength(21);
+  });
+
+  it("has a crest file for every seeded unit", () => {
+    for (const row of seedRows) {
+      const logo = `/kodam/${kotamaopsIconId(row.code).replace(/^kotamaops-/, "")}.png`;
+      expect(existsSync(path.join(root, "public", logo.slice(1)))).toBe(true);
     }
   });
+});
 
-  it("keeps the stored ATLAS coordinates for Kodam Jaya and Kodaeral V", () => {
-    expect(KOTAMAOPS_POINTS.find((point) => point.code === "JAYA")).toMatchObject({
-      location: "Jakarta",
-      lat: -6.2,
-      lng: 106.82,
-    });
-    expect(KOTAMAOPS_POINTS.find((point) => point.code === "KODAERAL V")).toMatchObject({
-      location: "Surabaya",
-      lat: -7.213222,
-      lng: 112.724934,
-    });
-  });
-
-  it("draws a point only while TNI AD is on", () => {
-    expect(kotamaopsFeatures(false)).toEqual([]);
-    const features = kotamaopsFeatures(true);
-    expect(features).toHaveLength(22);
-    expect(features[0]).toMatchObject({
-      type: "Feature",
+describe("kotamaopsFeatures", () => {
+  it("draws only the matra whose layer is on", () => {
+    const points = [point("JAYA", "AD", "/kodam/jaya.png"), point("KODAERAL V", "AL", "/kodam/kodaeral-v.png"), point("KOOPSUD I", "AU")];
+    expect(kotamaopsFeatures(points, () => false)).toEqual([]);
+    const al = kotamaopsFeatures(points, (matra) => matra === "AL");
+    expect(al).toHaveLength(1);
+    expect(al[0]).toMatchObject({
       geometry: { type: "Point", coordinates: [106.82, -6.2] },
-      properties: { code: "JAYA", name: "Kodam Jaya", icon: "kotamaops-jaya", logo: "/kodam/jaya.png" },
+      properties: { code: "KODAERAL V", matra: "AL", icon: "kotamaops-kodaeral-v", logo: "/kodam/kodaeral-v.png" },
     });
+    expect(kotamaopsFeatures(points, () => true).find((f) => f.properties.code === "KOOPSUD I")?.properties.icon).toBe("kotamaops-shield");
   });
 
-  it("points every unit at its own crest file", () => {
-    const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../public");
-    const codes = KOTAMAOPS_POINTS.map((point) => point.code).sort();
-    expect(Object.keys(KOTAMAOPS_LOGOS).sort()).toEqual(codes);
-    expect(kotamaopsIconId("I/BB")).toBe("kotamaops-i-bb");
-    expect(kotamaopsIconId("KODAERAL V")).toBe("kotamaops-kodaeral-v");
-    for (const point of KOTAMAOPS_POINTS) {
-      const logo = kotamaopsLogo(point.code);
-      expect(logo).toMatch(/^\/kodam\/[a-z0-9-]+\.png$/);
-      expect(existsSync(path.join(publicDir, logo.slice(1)))).toBe(true);
-      const feature = kotamaopsFeatures(true).find((item) => item.properties.code === point.code);
-      expect(feature?.properties.icon).toBe(kotamaopsIconId(point.code));
-      expect(feature?.properties.logo).toBe(logo);
-    }
+  it("refuses crest paths outside /kodam/", () => {
+    expect(safeKotamaopsLogo("/kodam/i-bb.png")).toBe("/kodam/i-bb.png");
+    expect(safeKotamaopsLogo("https://evil.example/x.png")).toBe("");
+    expect(safeKotamaopsLogo('/kodam/x.png" onerror="alert(1)')).toBe("");
+    expect(kotamaopsFeatures([point("X", "AD", "javascript:alert(1)")], () => true)[0].properties.icon).toBe("kotamaops-shield");
   });
 });
