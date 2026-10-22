@@ -14,6 +14,7 @@ import {
   parseSituation,
   parseUserPatch,
   portalLabel,
+  portalLinks,
   registrationRole,
   seesAllKotamaops,
   situationWhere,
@@ -139,6 +140,18 @@ describe("ops access", () => {
       confirmPassword: "kata-sandi-kuat",
     });
     expect(result).toMatchObject({ ok: false, error: "Email tidak valid." });
+  });
+
+  it("lists only the portal pages each role may open", () => {
+    const hrefs = (role: string) => portalLinks(role).map((link) => link.href);
+    expect(hrefs("SUPER_ADMIN")).toEqual(["/peta", "/operator", "/pengguna"]);
+    expect(hrefs("ADMIN")).toEqual(["/peta", "/operator", "/pengguna"]);
+    for (const role of ["OPERATOR_PUSDALOPS", "OPERATOR_KODAM", "ANALYST", "PIMPINAN"]) {
+      expect(hrefs(role)).toEqual(["/peta", "/operator"]);
+      expect(deniedPage("/pengguna", role)).not.toBeNull();
+    }
+    expect(portalLinks("OPERATOR_KODAM")[1].label).toBe("Dasbor operator");
+    expect(portalLinks("ANALYST")[1].label).toBe("Dasbor situasi");
   });
 
   it("maps portals without replacing the stored roles", () => {

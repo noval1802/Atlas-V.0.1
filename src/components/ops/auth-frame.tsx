@@ -1,82 +1,74 @@
-import type { ReactNode } from "react";
-import { ParticleBackground } from "./ParticleBackground";
+import type { CSSProperties, ReactNode } from "react";
+import { Archivo } from "next/font/google";
+import { NEIGHBOUR_COAST, NKRI_ISLANDS, NKRI_VIEW } from "./nkri-outline";
+import { ZoneClocks } from "./zone-clocks";
+
+/* Self-hosted at build time, so the sign-in pages also render on a closed network. */
+const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-auth", display: "swap" });
 
 export const authField =
-  "mt-1 w-full rounded border border-[var(--control-border)] bg-[#071422]/80 px-3 py-2 text-sm text-white outline-none focus:border-[var(--cyan-primary)]";
+  "mt-1 block min-h-12 w-full rounded-md border border-[var(--auth-line)] bg-[var(--auth-sea)] px-3.5 text-[15px] text-[var(--auth-sand)] placeholder:text-[var(--auth-mist)] outline-none transition-[border-color,box-shadow] focus:border-[var(--gold-primary)] focus:shadow-[0_0_0_3px_rgba(var(--gold-rgb),0.18)]";
 
 export const authButton =
-  "w-full rounded bg-[#e8eef5] px-3 py-2 text-sm font-bold text-[#06101c] disabled:opacity-60";
+  "min-h-12 w-full rounded-md bg-[var(--gold-primary)] px-4 text-[15px] font-semibold text-[#1a1404] transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-primary)] disabled:cursor-wait disabled:opacity-70";
 
-export function AuthFrame({
-  title,
-  subtitle,
-  children,
-  backdrop = "map",
-}: {
-  title: string;
-  subtitle: string;
-  children: ReactNode;
-  backdrop?: "map" | "particles";
-}) {
-  const particles = backdrop === "particles";
+export const authLink = "text-[var(--gold-primary)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-primary)]";
+
+/** Zone meridians of WIB, WITA and WIT, placed on the chart by longitude. */
+const ZONES = [
+  { lng: 105, zone: "WIB", offset: 7 },
+  { lng: 120, zone: "WITA", offset: 8 },
+  { lng: 135, zone: "WIT", offset: 9 },
+] as const;
+
+const xOf = (lng: number) => (lng - NKRI_VIEW.lon0) * NKRI_VIEW.scale;
+const yOf = (lat: number) => (NKRI_VIEW.lat0 - lat) * NKRI_VIEW.scale;
+
+export function AuthFrame({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
-    <div className={`ops-scroll relative min-h-screen text-[#e8eef5] ${particles ? "bg-[#030712]" : "bg-[#06101c]"}`}>
-      {particles ? (
-        <ParticleBackground />
-      ) : (
-        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-          <IndonesiaBackdrop />
+    <div className={`${archivo.variable} auth-root ops-scroll min-h-screen lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(400px,30rem)]`}>
+      <section aria-label="Peta Operasi, Pusat Pengendalian Operasi TNI" className="relative flex flex-col overflow-hidden px-6 pb-6 pt-6 sm:px-10 lg:min-h-screen lg:px-14 lg:pb-12 lg:pt-12">
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="auth-logo h-9 w-11 shrink-0" />
+          <span className="auth-wordmark text-lg text-[var(--auth-sand)]">ATLAS</span>
         </div>
-      )}
-      <main className="ops-auth-main relative z-10 mx-auto flex w-full max-w-lg flex-col px-4 py-8">
-        <div className="rounded-xl border border-white/15 bg-[#071422]/90 p-5 shadow-2xl backdrop-blur-sm sm:p-6">
-          <div className="mb-5 flex items-center gap-3">
-            <div
-              role="img"
-              aria-label="ATLAS — Advanced Tactical Location & Analytics System"
-              className="h-11 w-11 shrink-0 bg-contain bg-center bg-no-repeat"
-              style={{ backgroundImage: "url(/eye-of-horus.svg)" }}
-            />
-            <div>
-              <p className="font-[family-name:var(--font-hud)] text-[10px] font-bold tracking-[0.28em] text-[var(--cyan-primary)]">ATLAS</p>
-              <p className="text-sm text-white/80">Sistem monitoring</p>
-            </div>
-          </div>
-          <h1 className="text-2xl font-semibold text-white">{title}</h1>
-          <p className="mt-1 text-sm text-white/70">{subtitle}</p>
-          <div className="mt-5">{children}</div>
+
+        <div className="mt-8 lg:mt-14">
+          <p className="auth-display text-[clamp(2.25rem,6vw,5.25rem)] text-[var(--auth-sand)]">Peta Operasi</p>
+          <p className="mt-3 max-w-md text-base text-[var(--auth-mist)] lg:text-lg">Pusat Pengendalian Operasi TNI</p>
+        </div>
+
+        <figure className="relative mb-16 mt-6 w-full lg:mt-auto" style={{ aspectRatio: `${NKRI_VIEW.width} / ${NKRI_VIEW.height}` }}>
+          <svg viewBox={`0 0 ${NKRI_VIEW.width} ${NKRI_VIEW.height}`} className="absolute inset-0 h-full w-full" aria-hidden="true">
+            <g className="auth-graticule">
+              {[95, 100, 105, 110, 115, 120, 125, 130, 135, 140].map((lng) => (
+                <line key={lng} x1={xOf(lng)} x2={xOf(lng)} y1={0} y2={NKRI_VIEW.height} />
+              ))}
+              {[5, 0, -5, -10].map((lat) => (
+                <line key={lat} x1={0} x2={NKRI_VIEW.width} y1={yOf(lat)} y2={yOf(lat)} className={lat === 0 ? "auth-equator" : undefined} />
+              ))}
+            </g>
+            <path d={NEIGHBOUR_COAST} className="auth-neighbour" />
+            <g className="auth-islands">
+              {NKRI_ISLANDS.map((island, index) => (
+                <path key={index} d={island.d} pathLength={1} style={{ "--i": index } as CSSProperties} />
+              ))}
+            </g>
+            {ZONES.map((zone) => (
+              <line key={zone.zone} x1={xOf(zone.lng)} x2={xOf(zone.lng)} y1={0} y2={NKRI_VIEW.height} className="auth-meridian" />
+            ))}
+          </svg>
+          <ZoneClocks zones={ZONES.map((zone) => ({ ...zone, left: `${(xOf(zone.lng) / NKRI_VIEW.width) * 100}%` }))} />
+        </figure>
+      </section>
+
+      <main className="auth-panel relative flex flex-col justify-center px-6 py-10 sm:px-10 lg:min-h-screen lg:px-12">
+        <div className="mx-auto w-full max-w-sm">
+          <h1 className="auth-title text-3xl text-[var(--auth-sand)]">{title}</h1>
+          <p className="mt-2 text-[15px] leading-relaxed text-[var(--auth-mist)]">{subtitle}</p>
+          <div className="mt-8">{children}</div>
         </div>
       </main>
     </div>
-  );
-}
-
-function IndonesiaBackdrop() {
-  return (
-    <svg className="h-full w-full" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <pattern id="osiris-auth-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,229,255,0.09)" strokeWidth="1" />
-        </pattern>
-      </defs>
-      <rect width="640" height="360" fill="#071422" />
-      <rect width="640" height="360" fill="url(#osiris-auth-grid)" />
-      <g fill="rgba(186,214,230,0.18)" stroke="rgba(0,229,255,0.38)" strokeWidth="1.2">
-        <path d="M86 70c-18 28-22 78-8 128 10 36 28 62 40 58 8-28 4-70-6-110 14-22 18-48 6-70-10-6-22-8-32-6z" />
-        <path d="M168 232c36-10 92-6 148 8 18 4 16 18-8 22-48 8-110 6-140-6-14-6-16-16 0-24z" />
-        <path d="M214 78c28-18 78-16 108 8 22 18 20 48-4 70-28 24-70 28-104 10-20-12-24-40 0-88z" />
-        <path d="M392 118c18-24 28-20 36 4 10 28 4 62-16 84-16 16-28 8-30-12-2-28 0-52 10-76z" />
-        <path d="M430 168c16 8 22 28 10 46-8 12-20 10-24-4-4-16 2-32 14-42z" />
-        <path d="M500 150c34-16 78-8 96 18 14 20 8 40-16 52-30 16-70 8-90-16-12-16-8-40 10-54z" />
-      </g>
-      <g fill="rgba(232,238,245,0.55)" fontSize="11" fontFamily="ui-monospace, monospace">
-        <text x="18" y="28">6°N</text>
-        <text x="18" y="168">0°</text>
-        <text x="18" y="292">8°S</text>
-        <text x="86" y="344">95°E</text>
-        <text x="286" y="344">115°E</text>
-        <text x="500" y="344">135°E</text>
-      </g>
-    </svg>
   );
 }

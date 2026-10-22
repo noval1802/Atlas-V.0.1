@@ -37,12 +37,16 @@ export function applyLayerQuery<T extends object>(current: T, listed: string): T
   return next as T;
 }
 
-/** Persist each split explicitly, including the off marker, so a reload does not turn it back on. */
+/**
+ * Persist each split explicitly so a reload does not turn it back on. The off marker is only
+ * needed while CCTV is on; with CCTV off, applyLayerQuery already reads a missing split as off.
+ */
 export function serializeLayers(state: object): string {
   const offByKey = new Map(CAMERA_SPLITS.map(split => [split.key, split.off]));
+  const cctvOn = (state as Record<string, unknown>).cctv === true;
   const names = Object.entries(state).flatMap(([key, on]) => {
     const off = offByKey.get(key as typeof CAMERA_SPLITS[number]['key']);
-    if (off) return on === true ? [key] : [off];
+    if (off) return on === true ? [key] : cctvOn ? [off] : [];
     return on === true ? [key] : [];
   });
   return names.join(',');

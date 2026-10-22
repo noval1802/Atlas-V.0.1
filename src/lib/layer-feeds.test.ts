@@ -76,14 +76,15 @@ describe('onceFeeds', () => {
     expect(onceFeeds(layers, new Set(['gdelt_events'])).some(feed => feed.key === 'gdelt_events')).toBe(false);
   });
 
-  it('loads the feeds the map opens with, except weather already taken by Live Alerts', () => {
-    expect(onceFeeds(DEFAULT_ACTIVE_LAYERS, new Set(['weather'])).map(feed => feed.key)).toEqual([
-      'satellites',
-      'maritime',
-      'live_news',
-      'gdelt',
-      'cables',
-    ]);
+  it('opens the operations map with only the Kotamaops layers, so no feed loads until asked for', () => {
+    const on = (Object.keys(DEFAULT_ACTIVE_LAYERS) as (keyof ActiveLayers)[]).filter(key => DEFAULT_ACTIVE_LAYERS[key]);
+    expect(on).toEqual(['tni_ad', 'tni_al', 'tni_au']);
+    expect(onceFeeds(DEFAULT_ACTIVE_LAYERS, new Set())).toEqual([]);
+  });
+
+  it('skips weather once Live Alerts has already fetched it', () => {
+    const layers = { ...withEveryLayer(false), weather: true, maritime: true };
+    expect(onceFeeds(layers, new Set(['weather'])).map(feed => feed.key)).toEqual(['maritime']);
   });
 
   it('leaves cameras, earthquakes, malware, and Kotamaops to their own loaders', () => {
@@ -96,7 +97,8 @@ describe('onceFeeds', () => {
 
 describe('pollFeeds', () => {
   it('repeats only the layers that stay on', () => {
-    expect(pollFeeds(DEFAULT_ACTIVE_LAYERS)).toEqual([
+    expect(pollFeeds(DEFAULT_ACTIVE_LAYERS)).toEqual([]);
+    expect(pollFeeds({ ...withEveryLayer(false), maritime: true })).toEqual([
       { key: 'maritime', url: '/api/maritime', transform: 'maritime', everyMs: LAYER_POLL_MS, schedule: 'maritime', refreshFetchedKey: undefined },
     ]);
   });

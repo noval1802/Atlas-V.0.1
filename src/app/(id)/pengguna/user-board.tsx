@@ -18,6 +18,15 @@ const statusLabel: Record<string, string> = {
   DISABLED: "Nonaktif",
 };
 
+const statusTone: Record<string, string> = {
+  PENDING: "border-amber-300/40 text-amber-200",
+  ACTIVE: "border-emerald-300/40 text-emerald-200",
+  REJECTED: "border-rose-300/40 text-rose-200",
+  DISABLED: "border-white/20 text-white/60",
+};
+
+const roleLabel: Record<string, string> = Object.fromEntries(roleOptions);
+
 type Unit = { id: string; code: string; name: string };
 type AccountStatus = "PENDING" | "ACTIVE" | "REJECTED" | "DISABLED";
 export type UserRow = {
@@ -112,11 +121,6 @@ export function UserBoard({
     setInfo(`${data.username} disimpan.`);
   }
 
-  async function logout() {
-    await fetch("/api/ops/logout", { method: "POST" });
-    window.location.assign("/masuk");
-  }
-
   function change(id: string, patch: Partial<UserRow>) {
     setUsers((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
@@ -125,58 +129,90 @@ export function UserBoard({
   const rest = users.filter((row) => row.accountStatus !== "PENDING");
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <button type="button" onClick={logout} className="rounded border border-white/15 px-3 py-2 text-xs font-bold">
-          KELUAR
-        </button>
-        <p role="status" aria-atomic="true" className="sr-only">{info}</p>
-        <p role="alert" aria-atomic="true" className="sr-only">{error}</p>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <p role="status" aria-atomic="true" className="sr-only">{info}</p>
+      <p role="alert" aria-atomic="true" className="sr-only">{error}</p>
+      <div className="space-y-6">
+        {(error || info) && (
+          <p key={error || info} className={`ops-fade rounded border px-3 py-2 text-sm ${error ? "border-rose-300/40 text-rose-200" : "border-[var(--gold-primary)]/40 text-[var(--gold-primary)]"}`}>
+            {error || info}
+          </p>
+        )}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">
+            Menunggu persetujuan <span className="text-white/50">({waiting.length})</span>
+          </h2>
+          {waiting.length === 0 && <p className="rounded-xl border border-dashed border-white/10 p-4 text-sm text-white/60">Tidak ada akun yang menunggu.</p>}
+          {waiting.map((row, index) => (
+            <UserCard key={row.id} index={index} actorRole={actorRole} row={row} kotamaops={kotamaops} open onToggle={() => {}} onChange={change} onSave={save} />
+          ))}
+        </section>
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold">
+            Akun terdaftar <span className="text-white/50">({rest.length})</span>
+          </h2>
+          {rest.map((row, index) => (
+            <UserCard
+              key={row.id}
+              index={index}
+              actorRole={actorRole}
+              row={row}
+              kotamaops={kotamaops}
+              open={openId === row.id}
+              onToggle={() => setOpenId((current) => (current === row.id ? "" : row.id))}
+              onChange={change}
+              onSave={save}
+            />
+          ))}
+        </section>
       </div>
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Menunggu persetujuan ({waiting.length})</h2>
-        {waiting.length === 0 && <p className="text-sm text-white/60">Tidak ada akun yang menunggu.</p>}
-        {waiting.map((row) => (
-          <UserCard key={row.id} actorRole={actorRole} row={row} kotamaops={kotamaops} open onToggle={() => setOpenId(row.id)} onChange={change} onSave={save} />
-        ))}
-      </section>
-      <form onSubmit={create} className="grid gap-3 rounded-xl border border-white/10 p-4 sm:grid-cols-2">
-        <h2 className="sm:col-span-2 text-sm font-semibold">Pengguna baru oleh admin</h2>
-        <input name="name" required placeholder="Nama" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2" />
-        <input name="username" required placeholder="nama.pengguna" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2" />
-        <input name="password" required type="password" placeholder="Kata sandi, minimal 10" autoComplete="new-password" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2" />
-        <select name="role" defaultValue="OPERATOR_KODAM" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2">
-          {roleChoices(actorRole).map(([role, label]) => (
-            <option key={role} value={role}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select name="kotamaopsId" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 sm:col-span-2">
-          <option value="">Tanpa Kotamaops</option>
-          {kotamaops.map((unit) => (
-            <option key={unit.id} value={unit.id}>
-              {unit.code} · {unit.name}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="rounded bg-[var(--gold-primary)] px-3 py-2 text-sm font-bold text-black sm:col-span-2">
-          Buat pengguna
-        </button>
-      </form>
-      {error && <p className="text-sm text-rose-300">{error}</p>}
-      {info && <p className="text-sm text-[var(--gold-primary)]">{info}</p>}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Akun lain</h2>
-        {rest.map((row) => (
-          <UserCard key={row.id} actorRole={actorRole} row={row} kotamaops={kotamaops} open={openId === row.id} onToggle={() => setOpenId(row.id)} onChange={change} onSave={save} />
-        ))}
-      </section>
+      <aside className="space-y-3 lg:sticky lg:top-6 lg:self-start">
+        <form onSubmit={create} className="ops-rise grid gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <h2 className="text-sm font-semibold">Pengguna baru</h2>
+          <label className="grid gap-1 text-xs text-white/60">
+            Nama
+            <input name="name" required className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 text-sm text-white" />
+          </label>
+          <label className="grid gap-1 text-xs text-white/60">
+            Nama pengguna
+            <input name="username" required placeholder="nama.pengguna" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 text-sm text-white" />
+          </label>
+          <label className="grid gap-1 text-xs text-white/60">
+            Kata sandi
+            <input name="password" required type="password" placeholder="Minimal 10 karakter" autoComplete="new-password" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 text-sm text-white" />
+          </label>
+          <label className="grid gap-1 text-xs text-white/60">
+            Peran
+            <select name="role" defaultValue="OPERATOR_KODAM" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 text-sm text-white">
+              {roleChoices(actorRole).map(([role, label]) => (
+                <option key={role} value={role}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-white/60">
+            Kotamaops
+            <select name="kotamaopsId" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 text-sm text-white">
+              <option value="">Tanpa Kotamaops</option>
+              {kotamaops.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.code} · {unit.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className="rounded bg-[var(--gold-primary)] px-3 py-2 text-sm font-bold text-black">
+            Buat pengguna
+          </button>
+        </form>
+      </aside>
     </div>
   );
 }
 
 function UserCard({
+  index,
   actorRole,
   row,
   kotamaops,
@@ -185,6 +221,7 @@ function UserCard({
   onChange,
   onSave,
 }: {
+  index: number;
   actorRole: string;
   row: UserRow;
   kotamaops: Unit[];
@@ -195,15 +232,30 @@ function UserCard({
 }) {
   const lockSuperAdmin = row.role === "SUPER_ADMIN" && actorRole !== "SUPER_ADMIN";
   return (
-    <article className="rounded-xl border border-white/10 p-4">
-      <button type="button" onClick={onToggle} className="w-full text-left" aria-expanded={open}>
-        <span className="text-sm font-semibold">{row.name}</span>
-        <span className="mt-1 block text-xs text-white/55">
-          {row.username} · {row.email || "—"} · {row.organization || "—"} · {row.position || "—"} · {stamp(row.createdAt)} WIB · {statusLabel[row.accountStatus] ?? row.accountStatus}
+    <article style={{ "--i": Math.min(index, 10) } as React.CSSProperties} className={`ops-rise rounded-xl border p-4 ${open ? "border-white/20 bg-white/[0.03]" : "border-white/10"}`}>
+      <button type="button" onClick={onToggle} className="flex w-full flex-wrap items-start justify-between gap-2 text-left" aria-expanded={open}>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold">{row.name}</span>
+          <span className="mt-1 block break-words text-xs text-white/55">
+            @{row.username}
+            {row.email ? ` · ${row.email}` : ""}
+            {row.organization ? ` · ${row.organization}` : ""}
+            {row.position ? ` · ${row.position}` : ""}
+          </span>
+          <span className="mt-1 block text-[11px] text-white/40">
+            Dibuat {stamp(row.createdAt)} WIB{row.lastLoginAt ? ` · masuk terakhir ${stamp(row.lastLoginAt)} WIB` : ""}
+          </span>
+        </span>
+        <span className="flex flex-wrap gap-1.5 text-[10px] font-bold tracking-wider">
+          <span className="rounded border border-white/15 px-2 py-1 text-white/70">
+            {roleLabel[row.role] ?? row.role}
+            {row.kotamaops ? ` · ${row.kotamaops.code}` : ""}
+          </span>
+          <span className={`rounded border px-2 py-1 ${statusTone[row.accountStatus] ?? "border-white/20"}`}>{statusLabel[row.accountStatus] ?? row.accountStatus}</span>
         </span>
       </button>
       {open && (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="ops-fade mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2">
           <input value={row.name} onChange={(event) => onChange(row.id, { name: event.target.value })} aria-label={`Nama ${row.username}`} className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2" />
           <select value={row.role} disabled={lockSuperAdmin} onChange={(event) => onChange(row.id, { role: event.target.value })} aria-label={`Peran ${row.username}`} className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 disabled:opacity-60">
             {roleChoices(actorRole, row.role).map(([role, label]) => (
@@ -217,7 +269,7 @@ function UserCard({
             disabled={row.role !== "OPERATOR_KODAM"}
             onChange={(event) => onChange(row.id, { kotamaopsId: event.target.value || null })}
             aria-label={`Kotamaops ${row.username}`}
-            className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2"
+            className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 disabled:opacity-40"
           >
             <option value="">Pilih Kotamaops</option>
             {kotamaops.map((unit) => (

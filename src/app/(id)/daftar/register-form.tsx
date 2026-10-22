@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { authButton, authField } from "@/components/ops/auth-frame";
+import { authButton, authField, authLink } from "@/components/ops/auth-frame";
 import { PasswordField } from "@/components/ops/password-field";
 
 const USERNAME = /^[a-z0-9][a-z0-9._-]{2,31}$/;
@@ -72,7 +72,7 @@ export function RegisterForm() {
     return (
       <div className="space-y-4" role="status">
         <p className="text-sm text-white">{message}</p>
-        <p className="text-sm text-white/70">Anda belum masuk. Dasbor operasional terbuka setelah Admin menyetujui akun.</p>
+        <p className="text-sm text-[var(--auth-mist)]">Anda belum masuk. Dasbor operasional terbuka setelah Admin menyetujui akun.</p>
         <Link className={`${authButton} inline-block text-center`} href="/masuk">
           Kembali ke masuk
         </Link>
@@ -105,7 +105,7 @@ export function RegisterForm() {
       <PasswordField name="password" label="Kata sandi" autoComplete="new-password" />
       <PasswordField name="confirmPassword" label="Konfirmasi kata sandi" autoComplete="new-password" />
       {error && (
-        <p role="alert" className="text-sm text-rose-200">
+        <p role="alert" className="ops-fade rounded-md border-l-[3px] border-[var(--auth-signal)] bg-[rgba(255,90,79,0.1)] px-3.5 py-2.5 text-sm text-[#ffd9d6]">
           {error}
         </p>
       )}
@@ -113,7 +113,7 @@ export function RegisterForm() {
         {busy ? "Mengirim..." : "Daftar"}
       </button>
       <p className="text-sm">
-        <Link className="text-[var(--cyan-primary)] underline-offset-2 hover:underline" href="/masuk">
+        <Link className={authLink} href="/masuk">
           Sudah punya akun
         </Link>
       </p>

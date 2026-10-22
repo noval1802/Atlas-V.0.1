@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { authButton, authField } from "@/components/ops/auth-frame";
+import { authButton, authField, authLink } from "@/components/ops/auth-frame";
 import { acceptedNext } from "@/lib/ops/access";
 import { PasswordField } from "@/components/ops/password-field";
 
@@ -49,8 +49,8 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} aria-busy={busy} className="space-y-4" noValidate={false}>
-      <label className="block text-sm" htmlFor="username">
+    <form onSubmit={onSubmit} aria-busy={busy} className="space-y-5" noValidate={false}>
+      <label className="block text-sm text-[var(--auth-sand)]" htmlFor="username">
         Nama pengguna
         <input
           id="username"
@@ -63,12 +63,12 @@ export function LoginForm() {
         />
       </label>
       <PasswordField name="password" label="Kata sandi" autoComplete="current-password" minLength={1} />
-      <label className="flex items-center gap-2 text-sm">
-        <input name="remember" type="checkbox" className="h-4 w-4 accent-[var(--cyan-primary)]" />
+      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-[var(--auth-sand)]">
+        <input name="remember" type="checkbox" className="h-[18px] w-[18px] accent-[var(--gold-primary)]" />
         Ingat saya di perangkat ini
       </label>
       {error && (
-        <p role="alert" className="text-sm text-rose-200">
+        <p role="alert" className="ops-fade rounded-md border-l-[3px] border-[var(--auth-signal)] bg-[rgba(255,90,79,0.1)] px-3.5 py-2.5 text-sm text-[#ffd9d6]">
           {error}
         </p>
       )}
@@ -76,12 +76,15 @@ export function LoginForm() {
         {busy ? "Memeriksa..." : "Masuk"}
       </button>
       <p className="flex flex-wrap justify-between gap-2 text-sm">
-        <Link className="text-[var(--cyan-primary)] underline-offset-2 hover:underline" href="/lupa-sandi">
+        <Link className={authLink} href="/lupa-sandi">
           Lupa kata sandi
         </Link>
-        <Link className="text-white/80 underline-offset-2 hover:underline" href="/daftar">
+        <Link className="text-[var(--auth-sand)] underline-offset-4 hover:underline" href="/daftar">
           Daftar akun
         </Link>
+      </p>
+      <p className="border-t border-[var(--auth-line)] pt-4 text-xs leading-relaxed text-[var(--auth-mist)]">
+        Hanya untuk pengguna berwenang. Setiap upaya masuk dicatat.
       </p>
     </form>
   );
