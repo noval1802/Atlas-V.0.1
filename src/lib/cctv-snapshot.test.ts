@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { gunzipSync } from 'node:zlib';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildPayload, clearPayload, dropSnapshotRegion, getPayload, readSnapshot, writeSnapshot } from './cctv-snapshot';
@@ -19,6 +19,18 @@ afterEach(async () => {
 });
 
 describe('camera catalogue snapshot', () => {
+  it("writes nothing when the snapshot is 'off'", async () => {
+    process.env.OSIRIS_CCTV_SNAPSHOT = 'off';
+    const cwd = process.cwd();
+    process.chdir(directory);
+    try {
+      await writeSnapshot({ uk: [{ id: 'JamCams_1' }] });
+      await expect(readFile(join(directory, 'off'), 'utf8')).rejects.toThrow();
+    } finally {
+      process.chdir(cwd);
+    }
+  });
+
   it('round-trips a catalogue through disk, creating the directory', async () => {
     await writeSnapshot({ uk: [{ id: 'JamCams_1', source: 'TfL' }], japan: [{ id: 'jp-1' }] });
 

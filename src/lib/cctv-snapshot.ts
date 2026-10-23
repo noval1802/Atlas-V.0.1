@@ -66,6 +66,8 @@ export async function dropSnapshotRegion(region: string): Promise<void> {
  * half-written catalogue that the next boot would refuse to parse.
  */
 export async function writeSnapshot(regions: RegionCameras): Promise<void> {
+  // 'off' disables writes as well as reads; otherwise it is taken as a path and an "off" file lands in the cwd.
+  if (process.env.OSIRIS_CCTV_SNAPSHOT === 'off') return;
   const path = snapshotPath();
   const payload: SnapshotFile = { version: SNAPSHOT_VERSION, builtAt: Date.now(), regions };
   await mkdir(dirname(path), { recursive: true });
