@@ -23,7 +23,12 @@ export async function POST(request: Request) {
   }
   const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
-  if (!rateLimit(`login-ip:${ip || "unknown"}`, 30, WINDOW_MS).ok || !rateLimit(`login:${ip || "unknown"}:${username}`, 8, WINDOW_MS).ok) {
+  // The per-account bucket ignores the IP, so spoofing or rotating addresses buys no extra guesses.
+  if (
+    !rateLimit(`login-ip:${ip || "unknown"}`, 30, WINDOW_MS).ok ||
+    !rateLimit(`login:${ip || "unknown"}:${username}`, 8, WINDOW_MS).ok ||
+    !rateLimit(`login-user:${username}`, 20, WINDOW_MS).ok
+  ) {
     await writeAudit({ action: "login_failure", result: "rate_limited", ip, detail: usernameError(username) ? "format" : username.slice(0, 32) });
     return NextResponse.json({ error: "Terlalu banyak percobaan. Coba lagi nanti." }, { status: 429 });
   }

@@ -8,13 +8,14 @@ export function mailboxError(value: string): string | null {
   return null;
 }
 
-export function resetOrigin(request: Request): string | null {
+/**
+ * Origin for the reset link: OPS_PUBLIC_URL only. The Host header is never used,
+ * because a forged Host would mail the victim a real link to the attacker's site.
+ * Without a valid public URL no reset mail is sent at all.
+ */
+export function resetOrigin(): string | null {
   const configured = process.env.OPS_PUBLIC_URL?.trim().replace(/\/$/, "") ?? "";
-  if (configured && /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(configured)) return configured;
-  const host = request.headers.get("host")?.trim() ?? "";
-  if (!/^[a-z0-9.-]+(?::\d+)?$/i.test(host)) return null;
-  const proto = request.headers.get("x-forwarded-proto") === "https" ? "https" : "http";
-  return `${proto}://${host}`;
+  return /^https?:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(configured) ? configured : null;
 }
 
 export function resetMessage(link: string): { subject: string; text: string } {

@@ -17,7 +17,7 @@ vi.mock("@/lib/ops/db", () => ({
 }));
 
 vi.mock("@/lib/ops/audit", () => ({
-  requestIp: () => "203.0.113.10",
+  requestIp: (request: Request) => request.headers.get("x-real-ip") ?? "203.0.113.10",
   writeAudit: async (entry: Record<string, unknown>) => {
     state.audits.push(entry);
   },
@@ -30,8 +30,8 @@ vi.mock("@/lib/ops/password", () => ({
 
 import { POST } from "./route";
 
-function login(body: Record<string, unknown>) {
-  return POST(new Request("http://osiris.local/api/ops/login", { method: "POST", body: JSON.stringify(body) }));
+function login(body: Record<string, unknown>, headers: Record<string, string> = {}) {
+  return POST(new Request("http://osiris.local/api/ops/login", { method: "POST", body: JSON.stringify(body), headers }));
 }
 
 describe("POST /api/ops/login", () => {
@@ -105,5 +105,16 @@ describe("POST /api/ops/login", () => {
       status = response.status;
     }
     expect(status).toBe(429);
+  });
+
+  it("caps guesses per account even when every attempt claims a new address", async () => {
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 21; attempt += 1) {
+      const ip = `203.0.113.${attempt + 1}`;
+      const response = await login({ username: "operator", password: "salah-sekali" }, { "x-real-ip": ip, "x-forwarded-for": ip });
+      statuses.push(response.status);
+    }
+    expect(statuses.slice(0, 20)).toEqual(Array(20).fill(401));
+    expect(statuses[20]).toBe(429);
   });
 });

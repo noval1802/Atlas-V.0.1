@@ -254,7 +254,10 @@ function UserCard({
           <span className={`rounded border px-2 py-1 ${statusTone[row.accountStatus] ?? "border-white/20"}`}>{statusLabel[row.accountStatus] ?? row.accountStatus}</span>
         </span>
       </button>
-      {open && (
+      {open && lockSuperAdmin && (
+        <p className="ops-fade mt-4 border-t border-white/10 pt-4 text-sm text-white/60">Hanya super admin yang dapat mengubah akun super admin.</p>
+      )}
+      {open && !lockSuperAdmin && (
         <div className="ops-fade mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2">
           <input value={row.name} onChange={(event) => onChange(row.id, { name: event.target.value })} aria-label={`Nama ${row.username}`} className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2" />
           <select value={row.role} disabled={lockSuperAdmin} onChange={(event) => onChange(row.id, { role: event.target.value })} aria-label={`Peran ${row.username}`} className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 disabled:opacity-60">

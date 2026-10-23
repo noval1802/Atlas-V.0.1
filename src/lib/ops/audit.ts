@@ -7,8 +7,11 @@ export function scrubDetail(value: string): string {
 }
 
 export function requestIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
-  const candidate = forwarded || request.headers.get("x-real-ip")?.trim() || "";
+  // X-Real-IP is overwritten by our nginx with the socket peer, and the rightmost
+  // X-Forwarded-For hop is what the nearest proxy saw. The leftmost hop is written
+  // by the client, so trusting it let one caller rotate through endless rate-limit buckets.
+  const chain = (request.headers.get("x-forwarded-for") ?? "").split(",").map((hop) => hop.trim()).filter(Boolean);
+  const candidate = request.headers.get("x-real-ip")?.trim() || chain[chain.length - 1] || "";
   if (!/^[0-9a-fA-F:.]+$/.test(candidate) || candidate.length > 64) return "";
   return candidate;
 }

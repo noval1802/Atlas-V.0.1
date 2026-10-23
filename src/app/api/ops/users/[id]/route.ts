@@ -23,6 +23,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params;
   const existing = await opsDb().user.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Pengguna tidak ditemukan." }, { status: 404 });
+  // A password reset or status change on a super admin is a takeover, not only a role change.
+  if (existing.role === "SUPER_ADMIN" && actor.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Hanya super admin yang dapat mengubah akun super admin." }, { status: 403 });
+  }
   const parsed = parseUserPatch(await request.json().catch(() => null));
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const role = parsed.value.role ?? existing.role;

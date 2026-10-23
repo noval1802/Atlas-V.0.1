@@ -241,17 +241,30 @@ describe("user administration routes", () => {
     expect(JSON.stringify(state.audits)).not.toContain(PASSWORD);
   });
 
-  it("lets an admin edit a super admin without changing that role", async () => {
+  it("refuses any admin change to a super admin account, including a password takeover", async () => {
     state.actor = state.users[2];
-    const response = await patch("root-2", { role: "SUPER_ADMIN", name: "Nama baru" });
-    expect(response.status).toBe(200);
-    expect(state.users.find((user) => user.id === "root-2")).toMatchObject({ role: "SUPER_ADMIN", name: "Nama baru", sessionVersion: 0 });
+    for (const body of [
+      { role: "SUPER_ADMIN", name: "Nama baru" },
+      { role: "SUPER_ADMIN", name: "Penjaga Dua", password: "Sandi-Pengambil-Alih-1" },
+      { role: "SUPER_ADMIN", name: "Penjaga Dua", accountStatus: "DISABLED" },
+    ]) {
+      expect((await patch("root-2", body)).status).toBe(403);
+    }
+    expect(state.users.find((user) => user.id === "root-2")).toMatchObject({ name: "Penjaga Dua", passwordHash: "scrypt$tersimpan", sessionVersion: 0, accountStatus: "ACTIVE" });
+    expect(state.writes).toBe(0);
     expect(state.audits).toEqual([]);
+  });
+
+  it("lets a super admin reset another super admin's password", async () => {
+    state.actor = state.users[0];
+    const response = await patch("root-2", { role: "SUPER_ADMIN", name: "Penjaga Dua", password: "Sandi-Baru-Super-1" });
+    expect(response.status).toBe(200);
+    expect(state.users.find((user) => user.id === "root-2")?.sessionVersion).toBe(1);
   });
 
   it("does not disable the last active super admin", async () => {
     state.users = state.users.filter((user) => user.id !== "root-2");
-    state.actor = state.users.find((user) => user.id === "admin-1") ?? null;
+    state.actor = state.users.find((user) => user.id === "root-1") ?? null;
     const response = await patch("root-1", { role: "SUPER_ADMIN", name: "Penjaga", accountStatus: "DISABLED" });
     expect(response.status).toBe(400);
     expect(state.users.find((user) => user.id === "root-1")).toMatchObject({ role: "SUPER_ADMIN", active: true, accountStatus: "ACTIVE" });

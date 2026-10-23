@@ -11,4 +11,12 @@ describe("auth rate limit", () => {
     expect(rateLimit("login:test", 3, 1000, now + 3).ok).toBe(false);
     expect(rateLimit("login:test", 3, 1000, now + 2000).ok).toBe(true);
   });
+
+  it("keeps a blocked bucket when a flood of other keys arrives", () => {
+    resetRateLimits();
+    const now = 1_000_000;
+    for (let attempt = 0; attempt < 3; attempt += 1) rateLimit("login-user:target", 3, 60_000, now);
+    for (let junk = 0; junk < 6000; junk += 1) rateLimit(`login-user:junk-${junk}`, 3, 60_000, now);
+    expect(rateLimit("login-user:target", 3, 60_000, now + 1).ok).toBe(false);
+  });
 });

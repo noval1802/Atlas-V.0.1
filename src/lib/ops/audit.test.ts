@@ -12,8 +12,14 @@ describe("auth audit", () => {
   });
 
   it("drops a forwarded header that is not an address", () => {
-    const request = new Request("http://osiris.local", { headers: { "x-forwarded-for": "kata sandi, 203.0.113.8" } });
+    const request = new Request("http://osiris.local", { headers: { "x-forwarded-for": "203.0.113.8, kata sandi" } });
     expect(requestIp(request)).toBe("");
+  });
+
+  it("ignores the client-written left hop and prefers the proxy's own headers", () => {
+    const spoofed = (headers: Record<string, string>) => requestIp(new Request("http://osiris.local", { headers }));
+    expect(spoofed({ "x-forwarded-for": "1.2.3.4, 203.0.113.8" })).toBe("203.0.113.8");
+    expect(spoofed({ "x-forwarded-for": "1.2.3.4, 203.0.113.8", "x-real-ip": "198.51.100.7" })).toBe("198.51.100.7");
   });
 });
 

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     await writeAudit({ action: "password_reset_request", result: user ? "not_active" : "unknown", targetId: user?.id, ip });
     return NextResponse.json({ ok: true, message: PUBLIC_RESET_MESSAGE });
   }
-  const origin = resetOrigin(request);
+  const origin = resetOrigin();
   if (!origin || !smtpConfigured()) {
     await writeAudit({
       action: "password_reset_request",

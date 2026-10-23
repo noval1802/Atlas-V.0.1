@@ -24,9 +24,16 @@ describe("auth mail", () => {
     expect(mailboxError("orang@example.com\nBcc: x")).not.toBeNull();
   });
 
-  it("prefers the configured public origin over the request host", () => {
-    process.env.OPS_PUBLIC_URL = "https://ops.example";
-    const request = new Request("http://evil.example/api", { headers: { host: "evil.example" } });
-    expect(resetOrigin(request)).toBe("https://ops.example");
+  it("uses only the configured public origin", () => {
+    process.env.OPS_PUBLIC_URL = "https://ops.example/";
+    expect(resetOrigin()).toBe("https://ops.example");
+  });
+
+  it("refuses to build a link from anything but a valid OPS_PUBLIC_URL", () => {
+    for (const value of [undefined, "", "ops.example", "javascript:alert(1)", "https://ops.example/path"]) {
+      if (value === undefined) delete process.env.OPS_PUBLIC_URL;
+      else process.env.OPS_PUBLIC_URL = value;
+      expect(resetOrigin()).toBeNull();
+    }
   });
 });
