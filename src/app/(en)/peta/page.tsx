@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/ops/current-user";
 import { opsDb } from "@/lib/ops/db";
+import { tileProxyPath } from "@/lib/tile-proxy";
 import Dashboard from "./monitoring-dashboard";
 
 export const dynamic = "force-dynamic";
@@ -19,5 +20,5 @@ export default async function PetaPage() {
     matra: row.matra,
     logo: row.logo,
   }));
-  return <Dashboard kotamaops={kotamaops} role={user.role} userName={user.name} />;
+  return <Dashboard kotamaops={kotamaops} role={user.role} userName={user.name} tileProxy={tileProxyPath(process.env.TILE_PROXY_PATH)} />;
 }

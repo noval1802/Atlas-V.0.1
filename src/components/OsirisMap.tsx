@@ -18,6 +18,7 @@ import { isJasaMargaCamera, isTptCamera } from '@/lib/cctv-layers';
 import type { CatalogCamera } from '@/lib/camera-catalog';
 import { MATRA_LAYER, kotamaopsFeatures, kotamaopsIconId, safeKotamaopsLogo } from '@/lib/kotamaops-points';
 import { NKRI_CENTER } from '@/lib/nkri-view';
+import { tileRequestUrl } from '@/lib/tile-proxy';
 import { KARHUTLA_LAPSIT_AT, formatKarhutlaAmount, formatPersonel, karhutlaReport } from '@/lib/karhutla-lapsit';
 import { KOTAMAOPS_FLAME_CODES, KOTAMAOPS_FLAME_FRAMES, KOTAMAOPS_FLAME_FRAME_MS, KOTAMAOPS_FLAME_HEIGHT, KOTAMAOPS_FLAME_WIDTH, drawKotamaopsFlame, kotamaopsFlameImageId, nextKotamaopsFlameFrame } from '@/lib/kotamaops-flame';
 import type { ArcGisMapLayer, MapEntity } from '@/lib/dashboard-state';
@@ -331,12 +332,9 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       } as const,
       maxPitch: 85,
       transformRequest: (url: string) => {
-        // Route all CARTO CDN requests through the internal Next.js proxy API
-        if (url.includes('cartocdn.com')) {
-          const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-          return { url: `${baseUrl}/api/proxy-tiles?url=${encodeURIComponent(url)}`, credentials: 'same-origin' as const };
-        }
-        return { url };
+        // CARTO requests go through our own proxy: the nginx tile cache when configured, else /api/proxy-tiles.
+        const proxied = tileRequestUrl(url, window.location.origin, tileProxyRef.current);
+        return proxied === url ? { url } : { url: proxied, credentials: 'same-origin' as const };
       },
     };
 
