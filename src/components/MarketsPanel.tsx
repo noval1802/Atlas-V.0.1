@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -115,6 +115,8 @@ function useFeedAge(timestamp?: string): string | null {
   return `${Math.floor(mins / 60)}h ago`;
 }
 
+const noSubscribe = () => () => {};
+
 export default function MarketsPanel({ data, spaceWeather }: MarketsPanelProps) {
   const [expanded, setExpanded] = useState(true);
   const [maximized, setMaximized] = useState(false);
@@ -127,8 +129,7 @@ export default function MarketsPanel({ data, spaceWeather }: MarketsPanelProps) 
   const age = useFeedAge(markets.timestamp);
 
   // Ensure portal only renders on client
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
 
   // Fullscreen covers the map, so Escape has to get you out of it — closing
   // the chart first, since that is the nearer thing to dismiss.

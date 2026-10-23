@@ -49,7 +49,7 @@ function ChainBriefInner() {
   const [aiLoading, setAiLoading] = useState(false);
 
   const briefRef = useRef(brief);
-  briefRef.current = brief;
+  useEffect(() => { briefRef.current = brief; }, [brief]);
 
   const load = useCallback(async (d: number, force = false) => {
     setLoading(true);
@@ -68,6 +68,7 @@ function ChainBriefInner() {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-change; load's spinner reset is the intended first paint of each window
   useEffect(() => { load(days); }, [days, load]);
 
   // Keeps a long-open panel from going stale; the upstreams move daily at most.

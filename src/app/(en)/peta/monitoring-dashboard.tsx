@@ -55,15 +55,14 @@ import SupportMenu from '@/components/SupportMenu';
 import CctvTokenButton from '@/components/CctvTokenButton';
 const UptimeClock = () => {
   const [uptime, setUptime] = useState('00:00:00');
-  const startTime = useRef(0);
-  if (startTime.current === 0) startTime.current = Date.now();
+  const [startTime] = useState(() => Date.now());
   useEffect(() => {
     const iv = setInterval(() => {
-      const e = Math.floor((Date.now() - startTime.current) / 1000);
+      const e = Math.floor((Date.now() - startTime) / 1000);
       setUptime(`${String(Math.floor(e/3600)).padStart(2,'0')}:${String(Math.floor((e%3600)/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`);
     }, 1000);
     return () => clearInterval(iv);
-  }, []);
+  }, [startTime]);
   return <span className="hidden lg:inline">UPTIME: <span className="text-[var(--gold-primary)]">{uptime}</span></span>;
 };
 
@@ -98,10 +97,15 @@ const SPLASH_PROGRESS = ['25%', '50%', '78%', '100%'];
 const HUD_EASE = [0.22, 1, 0.36, 1] as const;
 const hudIn = (delay: number) => ({ duration: 0.7, ease: HUD_EASE, delay });
 
-export default function Dashboard({ kotamaops, role, userName }: { kotamaops: KotamaopsPoint[]; role: string; userName: string }) {
-  const dataRef = useRef<MapData>({ kotamaops });
-  const [dataVersion, setDataVersion] = useState(0);
-  const data = dataRef.current;
+export default function Dashboard({ kotamaops, role, userName, tileProxy = null }: { kotamaops: KotamaopsPoint[]; role: string; userName: string; tileProxy?: string | null }) {
+  /* dataRef is what async callbacks read right after a write (e.g. the markets retry);
+     mapData mirrors it so render never reads a ref. Write only through updateData. */
+  const [mapData, setMapData] = useState<MapData>(() => ({ kotamaops }));
+  const dataRef = useRef(mapData);
+  const updateData = useCallback((change: (prev: MapData) => MapData) => {
+    dataRef.current = change(dataRef.current);
+    setMapData(dataRef.current);
+  }, []);
 
   const [backendStatus, setBackendStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const [mapView, setMapView] = useState({ zoom: 2.5, latitude: 20 });
@@ -134,14 +138,10 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
   const replaceTokenCameras = useCallback((id: string) => {
     const source = id === 'jakarta' ? 'TPT CCTV' : id === 'jasamarga' ? 'Jasa Marga' : '';
     if (source) {
-      dataRef.current = {
-        ...dataRef.current,
-        cameras: dropCamerasFromSource(dataRef.current.cameras ?? [], source),
-      };
-      setDataVersion(value => value + 1);
+      updateData(prev => ({ ...prev, cameras: dropCamerasFromSource(prev.cameras ?? [], source) }));
     }
     setCatalogNonce(value => value + 1);
-  }, []);
+  }, [updateData]);
   const [showDrawing, setShowDrawing] = useState(false);
   const [drawMode, setDrawMode] = useState<DrawMode | null>(null);
   const [drawProgress, setDrawProgress] = useState<DrawProgress | null>(null);
@@ -202,8 +202,8 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
     const out: Record<string, FlightTelemetry> = {};
     if (!watchedFlights.length) return out;
     const buckets = [
-      data?.commercial_flights, data?.private_flights,
-      data?.private_jets, data?.military_flights,
+      mapData.commercial_flights, mapData.private_flights,
+      mapData.private_jets, mapData.military_flights,
     ];
     const wanted = new Set(watchedFlights.map((w) => w.icao24));
     for (const bucket of buckets) {
@@ -218,7 +218,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
       }
     }
     return out;
-  }, [watchedFlights, data]);
+  }, [watchedFlights, mapData]);
 
   // A navigation session owns its own position watch. The planner's watch dies
   // with the planner when guidance takes over the panel, so guidance cannot
@@ -267,7 +267,6 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
   }, []);
 
   const isMobile = useIsMobile();
-  const startTime = useRef(Date.now());
   const geocodeCache = useRef<Map<string, string>>(new Map());
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastGeocodedPos = useRef<{ lat: number; lng: number } | null>(null);
@@ -329,6 +328,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
     const p = new URLSearchParams(window.location.search);
     const layers = p.get('layers');
     if (layers) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL is only readable after hydration; reading it in render would mismatch the server HTML
       setActiveLayers(prev => applyLayerQuery(prev, layers));
     }
 
@@ -458,6 +458,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
   useEffect(() => {
     try {
       const restored = deserializeShapes(localStorage.getItem(STORAGE_KEY));
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after hydration
       if (restored.length) setDrawnPolygons(restored);
     } catch { /* storage unavailable — start empty */ }
   }, []);
@@ -468,7 +469,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
 
   // ── Tripwires ──
   // Re-sweep every watched AOI whenever live data refreshes and record what
-  // changed. Keyed off dataVersion rather than `data` so this runs once per
+  // changed. Keyed off mapData, which changes once per
   // refresh instead of once per render.
   useEffect(() => {
     if (watched.size === 0) return;
@@ -478,14 +479,15 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
       if (!watched.has(shape.id)) continue;
       const ring = queryRing(shape);
       if (!ring) continue;
-      const report = selectInPolygon(ring, dataRef.current);
+      const report = selectInPolygon(ring, mapData);
       const prev = watchBaselines.current[shape.id] ?? null;
       const { baseline, events } = diffSweep(shape.id, report, prev, now);
       watchBaselines.current[shape.id] = baseline;
       fresh.push(...events);
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the tripwire log reacts to each data refresh and keeps history across them
     if (fresh.length) setWatchEvents(log => appendEvents(log, fresh));
-  }, [dataVersion, watched, drawnPolygons]);
+  }, [mapData, watched, drawnPolygons]);
 
   const toggleWatch = useCallback((id: string) => {
     setWatched(prev => {
@@ -540,8 +542,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
       if (res.ok) {
         const json: unknown = await res.json();
         const d = transform ? transform(json) : json as Partial<MapData>;
-        dataRef.current = { ...dataRef.current, ...d };
-        setDataVersion(v => v + 1);
+        updateData(prev => ({ ...prev, ...d }));
         setBackendStatus('connected');
         return true;
       }
@@ -551,7 +552,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
       setBackendStatus('error');
       return false;
     }
-  }, []);
+  }, [updateData]);
 
   // ── PROGRESSIVE DATA LOADING (request-optimized) ──
   useEffect(() => {
@@ -581,6 +582,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
         alert: f.properties?.alert,
       })) };
     };
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- false positive: fetchEndpoint only sets state after its first await
     fetchEndpoint(eqUrl, eqTransform);
     fetchEndpoint('/api/news', newsTransform);
     /* Official warnings — NOAA/NWS, GDACS, NASA EONET. A core feed rather than
@@ -630,14 +632,10 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
   useEffect(() => {
     if (!activeLayers.cctv && !activeLayers.cctv_jm && !activeLayers.cctv_jakarta) return;
     return loadCameraCatalog(cameras => {
-      dataRef.current = {
-        ...dataRef.current,
-        cameras: mergeCameraCatalog(dataRef.current.cameras ?? [], cameras),
-      };
-      setDataVersion(value => value + 1);
+      updateData(prev => ({ ...prev, cameras: mergeCameraCatalog(prev.cameras ?? [], cameras) }));
       setBackendStatus('connected');
     }, () => console.warn('[OSIRIS] Camera catalogue load failed; bounded retry scheduled'));
-  }, [activeLayers.cctv, activeLayers.cctv_jm, activeLayers.cctv_jakarta, catalogNonce]);
+  }, [activeLayers.cctv, activeLayers.cctv_jm, activeLayers.cctv_jakarta, catalogNonce, updateData]);
 
   // Live Malware is pushed over SSE below. Cameras use the catalogue loader above.
   useEffect(() => {
@@ -649,8 +647,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
             const res = await fetch(`${feed.url}?v=${ts}`);
             if (res.ok) {
               const cablesData = await res.json();
-              dataRef.current = { ...dataRef.current, submarine_cables: cablesData.features };
-              setDataVersion(v => v + 1);
+              updateData(prev => ({ ...prev, submarine_cables: cablesData.features }));
             }
           } catch {
             console.warn('Cables fetch failed');
@@ -670,7 +667,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
         layerFetchedRef.current.add(feed.key);
       }
     }
-  }, [activeLayers, fetchEndpoint]);
+  }, [activeLayers, fetchEndpoint, updateData]);
 
   // ── LAYER-AWARE POLLING — only poll data for active layers ──
   useEffect(() => {
@@ -727,8 +724,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
     let filled = false;
 
     const commit = () => {
-      dataRef.current = { ...dataRef.current, malware_threats: [...byIp.values()] };
-      setDataVersion(v => v + 1);
+      updateData(prev => ({ ...prev, malware_threats: [...byIp.values()] }));
     };
 
     source.onmessage = ev => {
@@ -772,7 +768,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
     };
 
     return () => source.close();
-  }, [activeLayers.malware]);
+  }, [activeLayers.malware, updateData]);
 
   // CCTV: loaded once on layer toggle via layerFetchedRef (no viewport polling)
 
@@ -782,12 +778,9 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
   // Produces node coordinates for the SDK network mesh visualization.
   // Does NOT duplicate existing layer visuals — SDK layer is LINES ONLY.
   // Cameras are excluded — they have their own dedicated layer.
-  useEffect(() => {
+  const sdkEntities = useMemo(() => {
     const anyActive = activeLayers.sdk_sea || activeLayers.sdk_air || activeLayers.sdk_naval;
-    if (!anyActive) {
-      dataRef.current = { ...dataRef.current, sdk_entities: [] };
-      return;
-    }
+    if (!anyActive) return [];
 
     const sdkEntities: Array<{
       type: 'Feature';
@@ -797,10 +790,10 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
 
     // Air domain (nodes only — no visual duplication)
     const allFlights = [
-      ...(data.commercial_flights || []),
-      ...(data.private_flights || []),
-      ...(data.private_jets || []),
-      ...(data.military_flights || []),
+      ...(mapData.commercial_flights || []),
+      ...(mapData.private_flights || []),
+      ...(mapData.private_jets || []),
+      ...(mapData.military_flights || []),
     ];
     // Sample flights to keep it clean (every Nth)
     const flightStep = Math.max(1, Math.floor(allFlights.length / 60));
@@ -814,7 +807,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
     }
 
     // Sea domain
-    const ships = data.maritime_ships || [];
+    const ships = mapData.maritime_ships || [];
     const shipStep = Math.max(1, Math.floor(ships.length / 60));
     for (let i = 0; i < ships.length; i += shipStep) {
       const s = ships[i];
@@ -826,8 +819,8 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
     }
 
     // Events — Earthquakes
-    if (data.earthquakes?.length) {
-      for (const eq of data.earthquakes) {
+    if (mapData.earthquakes?.length) {
+      for (const eq of mapData.earthquakes) {
         if (!eq.lat || !eq.lng) continue;
         sdkEntities.push({
           type: 'Feature', geometry: { type: 'Point', coordinates: [eq.lng, eq.lat] },
@@ -837,8 +830,8 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
     }
 
     // GDELT events
-    if (data.gdelt?.length) {
-      for (const g of data.gdelt) {
+    if (mapData.gdelt?.length) {
+      for (const g of mapData.gdelt) {
         if (!g.lat || !g.lng) continue;
         sdkEntities.push({
           type: 'Feature', geometry: { type: 'Point', coordinates: [g.lng, g.lat] },
@@ -848,8 +841,8 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
     }
 
     // News intel
-    if (data.news?.length) {
-      for (const n of data.news) {
+    if (mapData.news?.length) {
+      for (const n of mapData.news) {
         if (!n.coords || n.coords.length < 2) continue;
         sdkEntities.push({
           type: 'Feature', geometry: { type: 'Point', coordinates: [n.coords[1], n.coords[0]] },
@@ -858,8 +851,9 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
       }
     }
 
-    dataRef.current = { ...dataRef.current, sdk_entities: sdkEntities };
-  }, [dataVersion, activeLayers.sdk_sea, activeLayers.sdk_air, activeLayers.sdk_naval]);
+    return sdkEntities;
+  }, [mapData, activeLayers.sdk_sea, activeLayers.sdk_air, activeLayers.sdk_naval]);
+  const data = useMemo(() => ({ ...mapData, sdk_entities: sdkEntities }), [mapData, sdkEntities]);
 
   const totalFlights = useMemo(() => (
     (data.commercial_flights?.length||0)+(data.private_flights?.length||0)+(data.private_jets?.length||0)+(data.military_flights?.length||0)
@@ -1100,6 +1094,7 @@ export default function Dashboard({ kotamaops, role, userName }: { kotamaops: Ko
           onDrawComplete={handleDrawComplete}
           drawnPolygons={drawnPolygons}
           aircraftAirports={aircraftAirports}
+          tileProxy={tileProxy}
         />
       </ErrorBoundary>
 

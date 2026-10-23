@@ -51,7 +51,8 @@ export async function GET(req: Request) {
         };
         if (data.status === 'success') {
           // Parse ASN from "AS15169 Google LLC"
-          let asn = 'N/A', asOrg = data.org || data.isp || 'N/A', asCountry = data.countryCode || 'N/A';
+          let asn = 'N/A', asOrg = data.org || data.isp || 'N/A';
+          const asCountry = data.countryCode || 'N/A';
           const asMatch = data.as?.match(/^AS(\d+)\s+(.+)$/);
           if (asMatch) {
             asn = asMatch[1];
@@ -88,7 +89,8 @@ export async function GET(req: Request) {
       }
     } else if (asnNum) {
       // ASN details via RIPE Stat
-      let asnName = 'N/A', asnDesc = 'N/A', asnCountry = 'N/A';
+      let asnName = 'N/A', asnDesc = 'N/A';
+      const asnCountry = 'N/A';
 
       try {
         const ripeRes = await fetch(`https://stat.ripe.net/data/as-overview/data.json?resource=AS${asnNum}`, {

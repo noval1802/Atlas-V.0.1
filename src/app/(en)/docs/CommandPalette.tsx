@@ -65,16 +65,18 @@ export default function CommandPalette({
       .map(r => r.it);
   }, [items, query]);
 
-  // Reset per opening, and focus the field.
-  useEffect(() => {
+  // Reset per opening (during render, so the old query never paints), then focus the field.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setQuery('');
       setCursor(0);
-      requestAnimationFrame(() => inputRef.current?.focus());
     }
+  }
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
-
-  useEffect(() => setCursor(0), [query]);
 
   // Keep the highlighted row inside the scroll viewport.
   useEffect(() => {
@@ -128,7 +130,7 @@ export default function CommandPalette({
           <input
             ref={inputRef}
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => { setQuery(e.target.value); setCursor(0); }}
             onKeyDown={onKeyDown}
             placeholder="Search sections and endpoints…"
             aria-label="Search documentation"

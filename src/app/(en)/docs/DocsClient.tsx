@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { API_GROUPS, ENDPOINT_COUNT, endpointId } from './apiCatalog';
 import { Callout, Code, CodeBlock, Pre, Section } from './docsPrimitives';
@@ -24,18 +24,19 @@ const API_SECTIONS = [
 const ALL_SECTIONS = [...GUIDE_SECTIONS, ...API_SECTIONS];
 const FALLBACK_ORIGIN = '';
 
+const noSubscribe = () => () => {};
+
 export default function DocsClient() {
   const [active, setActive] = useState('overview');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [origin, setOrigin] = useState(FALLBACK_ORIGIN);
   const mainRef = useRef<HTMLElement>(null);
 
   const paletteItems = useMemo(() => buildPaletteItems(ALL_SECTIONS), []);
 
-  /* Snippets should reference the instance the reader is actually on. */
-  useEffect(() => setOrigin(window.location.origin), []);
+  /* Snippets should reference the instance the reader is actually on; the server renders the fallback. */
+  const origin = useSyncExternalStore(noSubscribe, () => window.location.origin, () => FALLBACK_ORIGIN);
 
   /* Belt-and-braces scroll unlock: globals.css handles this via :has(),
      but release the lock imperatively for engines without :has() support. */

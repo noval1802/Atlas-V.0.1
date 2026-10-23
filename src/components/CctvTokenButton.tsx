@@ -31,7 +31,6 @@ export default function CctvTokenButton({ compact = false, onSaved }: { compact?
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setGate(null);
     void (async () => {
       const response = await fetch('/api/cctv/tokens', { cache: 'no-store' });
       if (cancelled) return;
@@ -79,7 +78,7 @@ export default function CctvTokenButton({ compact = false, onSaved }: { compact?
     <div className={compact ? '' : 'relative group'}>
       <button
         type="button"
-        onClick={() => setOpen(value => !value)}
+        onClick={() => { setGate(null); setOpen(value => !value); }}
         className={compact
           ? 'pointer-events-auto glass-panel px-2 py-1.5 text-[#D4AF37] border-[#D4AF37]/40'
           : `relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${open ? 'bg-[#D4AF37]/20' : 'hover:bg-white/10'}`}

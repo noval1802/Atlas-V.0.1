@@ -110,6 +110,8 @@ interface OsirisMapProps {
   navigating?: boolean;
   /** Corroborated endpoint airports for watched aircraft, keyed by icao24. */
   aircraftAirports?: Record<string, Array<{ icao: string; iata?: string; city?: string; lat: number; lng: number }>>;
+  /** Path of the nginx basemap cache (e.g. /proxy/tiles); null keeps the /api/proxy-tiles route. Read once, when the map is created. */
+  tileProxy?: string | null;
 }
 
 
@@ -157,7 +159,8 @@ interface AlertPinFeature {
   properties: AlertPinProps;
 }
 
-function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightClick, onViewStateChange, onReady, flyToLocation, alertPinIds = null, projection = 'globe', terrainEnabled = false, terrainRetry = 0, terrainFocus = 0, onTerrainStatusChange, mapStyle = 'dark', sweepData, scanTargets = [], demoMode = false, theme = 'core', drawnPolygons = [], arcgisLayers = [], drawMode = null, onDrawComplete, onDrawProgress, onDrawCancel, drawCommand = null, onMapCenter, route = null, userLocation = null, followUser = false, onFollowInterrupt, navigating = false, aircraftAirports = {} }: OsirisMapProps) {
+function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightClick, onViewStateChange, onReady, flyToLocation, alertPinIds = null, projection = 'globe', terrainEnabled = false, terrainRetry = 0, terrainFocus = 0, onTerrainStatusChange, mapStyle = 'dark', sweepData, scanTargets = [], demoMode = false, theme = 'core', drawnPolygons = [], arcgisLayers = [], drawMode = null, onDrawComplete, onDrawProgress, onDrawCancel, drawCommand = null, onMapCenter, route = null, userLocation = null, followUser = false, onFollowInterrupt, navigating = false, aircraftAirports = {}, tileProxy = null }: OsirisMapProps) {
+  const tileProxyRef = useRef(tileProxy);
   /* The logo resolver lives in the map-init effect; it reads the latest Kotamaops from here. */
   const kotamaopsRef = useRef(data.kotamaops ?? []);
   useEffect(() => {
@@ -3240,7 +3243,10 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
   const drawCbRef = useRef({ onDrawComplete, onDrawProgress, onDrawCancel });
   /** Set by the drawing effect so on-screen buttons can dispatch into it. */
   const drawApplyRef = useRef<((a: DrawAction) => void) | null>(null);
-  drawCbRef.current = { onDrawComplete, onDrawProgress, onDrawCancel };
+  /* The draw handlers are bound once; refresh what they call after each render. */
+  useEffect(() => {
+    drawCbRef.current = { onDrawComplete, onDrawProgress, onDrawCancel };
+  });
 
   // ── DRAWING MODE ──
   // A four-mode state machine over one set of map handlers.
@@ -3449,7 +3455,8 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
   return (
     <>
       <div ref={containerRef} className="absolute inset-0 w-full h-full" />
-      {mapReady && mapRef.current && (
+      {/* mapReady is only set once the map exists; mapRef goes null only on unmount. */}
+      {mapReady && (
         <CctvPreviews
           mapRef={mapRef}
           active={(!!activeLayers.cctv || !!activeLayers.cctv_jm || !!activeLayers.cctv_jakarta) && !!activeLayers.cctv_previews}
