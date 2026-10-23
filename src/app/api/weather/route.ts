@@ -293,7 +293,9 @@ async function collectEvents(): Promise<WeatherEvent[]> {
        serves the last good warnings instead of an empty panel. */
     if (!providerSucceeded) throw new Error('no weather provider answered');
 
-    return events;
+    // NWS can list the same alert twice; the panel keys rows by id, so keep the first of each.
+    const seen = new Set<string>();
+    return events.filter((event) => !seen.has(event.id) && Boolean(seen.add(event.id)));
   }
 }
 
