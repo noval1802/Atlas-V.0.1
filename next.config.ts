@@ -44,10 +44,13 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  /* next/image is not used anywhere. The optimizer at /_next/image sits outside
+     the login proxy, so an any-host allowlist made it an open, unauthenticated
+     image proxy (and the reachable surface for GHSA-2464-fhr4-w9xw). No remote
+     hosts, and no optimisation. */
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: '**' },
-    ],
+    unoptimized: true,
+    remotePatterns: [],
   },
   async headers() {
     return [
