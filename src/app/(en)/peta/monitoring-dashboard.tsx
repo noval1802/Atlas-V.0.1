@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, BarChart3, Newspaper, Search, X, Globe, MapPinned, Route, Radar, Satellite, Moon, ExternalLink, AlertTriangle, Activity, Database, Wifi, Play, Network, Crosshair, Bluetooth, Pentagon, Radio , PenLine } from 'lucide-react';
+import { Layers, BarChart3, Newspaper, Search, X, Globe, MapPinned, Route, Radar, Satellite, Moon, ExternalLink, AlertTriangle, Activity, Database, Wifi, Play, Network, Crosshair, Bluetooth, Pentagon, PenLine, Cctv } from 'lucide-react';
 import { type TerrainStatus } from '@/lib/map-terrain';
 import { dropCamerasFromSource, loadCameraCatalog, mergeCameraCatalog } from '@/lib/camera-catalog';
 import { applyLayerQuery, serializeLayers } from '@/lib/cctv-layers';
@@ -50,6 +50,7 @@ import { PortalMenu } from '@/components/ops/portal-menu';
 import { NKRI_CENTER, nkriZoom } from '@/lib/nkri-view';
 import { diffSweep, appendEvents, type WatchBaseline, type WatchEvent } from '@/lib/watch';
 import { STORAGE_KEY, serializeShapes, deserializeShapes, shapesToGeoJSON, downloadFile } from '@/lib/aoi-export';
+import { isSpaceCam, toggleSpaceCam, useSpaceCams, writeSpaceCams } from '@/lib/space-cams';
 const TokenPanel = dynamic(() => import('@/components/TokenPanel'));
 import SupportMenu from '@/components/SupportMenu';
 import CctvTokenButton from '@/components/CctvTokenButton';
@@ -132,6 +133,9 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
   const [showMarkets, setShowMarkets] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showSpaceCam, setShowSpaceCam] = useState(false);
+  /* CCTV this viewer chose for the SPACE multiviewer; shared with the multiviewer tab through this browser's storage. */
+  const spaceCams = useSpaceCams();
+  const toggleSpace = useCallback((camera: WatchedCamera) => writeSpaceCams(toggleSpaceCam(spaceCams, camera)), [spaceCams]);
   const [showScmPanel, setShowScmPanel] = useState(true);
   const [showIntel, setShowIntel] = useState(false);
   const [catalogNonce, setCatalogNonce] = useState(0);
@@ -1304,8 +1308,8 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
         </div>
 
         <div className="relative group">
-          <button onClick={() => { setShowIntel(false); setShowAlerts(false); setShowMarkets(false); setShowSpaceCam(v => !v); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showSpaceCam ? 'bg-[#00E5FF]/20' : 'hover:bg-white/10'}`} title="Live from Space — 24/7 video downlink from the ISS" aria-label="Live from Space" aria-expanded={showSpaceCam}>
-            <Radio className={`w-4 h-4 ${showSpaceCam ? 'text-[#00E5FF]' : 'text-white/60'}`} />
+          <button onClick={() => { setShowIntel(false); setShowAlerts(false); setShowMarkets(false); setShowSpaceCam(v => !v); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showSpaceCam ? 'bg-[#00E5FF]/20' : 'hover:bg-white/10'}`} title="SPACE — multiviewer CCTV pilihan Anda" aria-label="SPACE: CCTV terpilih" aria-expanded={showSpaceCam}>
+            <Cctv className={`w-4 h-4 ${showSpaceCam ? 'text-[#00E5FF]' : 'text-white/60'}`} />
             {showSpaceCam && (
               <span
                 aria-hidden="true"
@@ -1317,7 +1321,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
           <AnimatePresence>
             {showSpaceCam && (
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="absolute right-12 top-1/2 -translate-y-1/2 w-80">
-                <SpaceCam />
+                <SpaceCam cameras={spaceCams} onRemove={toggleSpace} onLocate={(lat, lng) => setFlyToLocation({ lat, lng, zoom: 15, ts: Date.now() })} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -1747,6 +1751,8 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
         camera={activeCamera}
         onClose={() => setActiveCamera(null)}
         onLocate={(lat, lng) => setFlyToLocation({ lat, lng, ts: Date.now() })}
+        pinned={isSpaceCam(spaceCams, activeCamera)}
+        onTogglePin={activeCamera ? () => toggleSpace(activeCamera) : undefined}
       />
 
       {/* ── Entity Graph Panel ── */}
