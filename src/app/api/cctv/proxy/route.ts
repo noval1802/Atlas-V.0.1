@@ -3,6 +3,7 @@ import https from 'https';
 import http from 'http';
 import net from 'node:net';
 import { promises as dns } from 'node:dns';
+import { isPublicIp } from '@/lib/ssrf-guard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -14,7 +15,6 @@ export const maxDuration = 15;
 const ALLOWED_HOSTS = [
   'cdn.skylinewebcams.com',
   'cdn2.skylinewebcams.com',
-  's3-eu-west-1.amazonaws.com',
   'voyage.aprr.fr',
   // Rijkswaterstaat motorway frames — 401 without a Referer.
   'stream.inmoves.nl',
@@ -39,30 +39,37 @@ const ALLOWED_HOSTS = [
 // An Accept header is still required: without one these servers hang up.
 const NO_REFERER_HOSTS = ['thb.gov.tw'];
 
-function isAllowed(hostname: string): boolean {
+/* S3 hosts anyone's bucket, so it is allowed for TfL's JamCams bucket only, path-style. */
+const S3_HOST = 's3-eu-west-1.amazonaws.com';
+const S3_PREFIX = '/jamcams.tfl.gov.uk/';
+
+export function isAllowed(url: URL): boolean {
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+  const hostname = url.hostname.toLowerCase();
+  if (hostname === S3_HOST) return url.pathname.startsWith(S3_PREFIX);
   return ALLOWED_HOSTS.some(h => hostname === h || hostname.endsWith('.' + h));
 }
+
+const MAX_REDIRECTS = 3;
+const MAX_BYTES = 5 * 1024 * 1024;
 
 function sendsReferer(hostname: string): boolean {
   return !NO_REFERER_HOSTS.some(h => hostname === h || hostname.endsWith('.' + h));
 }
 
 /**
- * The type to serve a frame as.
- *
- * Singapore's LTA cameras label every JPEG `application/octet-stream` and send
- * `X-Content-Type-Options: nosniff` with it, so the browser refuses to render
- * it in an <img> and all nine cameras showed as broken. The first bytes of a
- * file say what it is; a declared image type is taken at its word.
+ * The type to serve a frame as, read off its first bytes — never the upstream's
+ * label. Singapore's LTA cameras call every JPEG `application/octet-stream`;
+ * worse, any upstream that labels HTML or SVG as an image would otherwise have
+ * it served from this origin. Null means "not a raster image": refuse it.
  */
-export function imageType(data: Buffer, declared: string): string {
-  if (/^image\//i.test(declared)) return declared;
+export function imageType(data: Buffer): string | null {
   const head = data.subarray(0, 12);
   if (head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return 'image/jpeg';
   if (head.length >= 8 && head.toString('latin1', 0, 8) === '\x89PNG\r\n\x1a\n') return 'image/png';
   if (head.length >= 12 && head.toString('latin1', 0, 4) === 'RIFF' && head.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
   if (head.length >= 4 && head.toString('latin1', 0, 4) === 'GIF8') return 'image/gif';
-  return declared;
+  return null;
 }
 
 /**
@@ -77,22 +84,24 @@ export function imageType(data: Buffer, declared: string): string {
 const ATTEMPT_TIMEOUT_MS = 6000;
 const MAX_ADDRESSES = 2;
 
-async function addressesFor(hostname: string): Promise<(string | undefined)[]> {
-  try {
-    const found = await dns.lookup(hostname, { all: true });
-    return found.slice(0, MAX_ADDRESSES).map(a => a.address);
-  } catch {
-    return [undefined]; // let Node resolve it itself
-  }
+/** Public addresses only; the connection is pinned to them, so a DNS answer cannot change between check and use. */
+async function addressesFor(hostname: string): Promise<string[]> {
+  const found = await dns.lookup(hostname, { all: true });
+  const usable = found.map(a => a.address).filter(isPublicIp);
+  if (!usable.length) throw new Error('Host resolves to no public address');
+  return usable.slice(0, MAX_ADDRESSES);
 }
 
 /** Fetches a camera frame, trying each address the host publishes. */
-async function fetchFrame(url: string, referer: string | null): Promise<{ status: number; contentType: string; data: Buffer }> {
-  const addresses = await addressesFor(new URL(url).hostname);
+async function fetchFrame(url: string, referer: string | null, hops = 0): Promise<{ status: number; contentType: string; data: Buffer }> {
+  const target = new URL(url);
+  // Checked on every hop: a redirect must not leave the allowlist or reach a private address.
+  if (!isAllowed(target)) throw new Error('Redirect left the allowed hosts');
+  const addresses = await addressesFor(target.hostname);
   let lastError: unknown;
-  for (const address of addresses.length ? addresses : [undefined]) {
+  for (const address of addresses) {
     try {
-      return await proxyFetch(url, referer, address);
+      return await proxyFetch(url, referer, address, hops);
     } catch (error) {
       lastError = error;
     }
@@ -101,7 +110,7 @@ async function fetchFrame(url: string, referer: string | null): Promise<{ status
 }
 
 /** One attempt, against one address. `referer` is omitted for hosts that choke on it. */
-function proxyFetch(url: string, referer: string | null, address?: string): Promise<{ status: number; contentType: string; data: Buffer }> {
+function proxyFetch(url: string, referer: string | null, address: string, hops: number): Promise<{ status: number; contentType: string; data: Buffer }> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const isHttps = parsed.protocol === 'https:';
@@ -120,12 +129,10 @@ function proxyFetch(url: string, referer: string | null, address?: string): Prom
 
     /* Only the address is pinned; the Host header and TLS name still come
        from the URL, so the request is the same one Node would have sent. */
-    if (address) {
-      const family = net.isIPv6(address) ? 6 : 4;
-      options.lookup = (_host, opts, cb) =>
-        // Node asks for every address when Happy Eyeballs is on; this is the one.
-        cb(null, opts?.all ? [{ address, family }] : address, family);
-    }
+    const family = net.isIPv6(address) ? 6 : 4;
+    options.lookup = (_host, opts, cb) =>
+      // Node asks for every address when Happy Eyeballs is on; this is the one.
+      cb(null, opts?.all ? [{ address, family }] : address, family);
 
     if (isHttps) {
       options.rejectUnauthorized = false;
@@ -133,12 +140,19 @@ function proxyFetch(url: string, referer: string | null, address?: string): Prom
 
     const req = mod.get(url, options, (res) => {
       if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
-        // A redirect can point at another host, so it is resolved afresh.
-        fetchFrame(new URL(res.headers.location, url).toString(), referer).then(resolve).catch(reject);
+        res.resume();
+        if (hops >= MAX_REDIRECTS) { reject(new Error('Too many redirects')); return; }
+        // A redirect can point at another host, so it is checked and resolved afresh.
+        fetchFrame(new URL(res.headers.location, url).toString(), referer, hops + 1).then(resolve).catch(reject);
         return;
       }
       const chunks: Buffer[] = [];
-      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      let size = 0;
+      res.on('data', (chunk: Buffer) => {
+        size += chunk.length;
+        if (size > MAX_BYTES) { req.destroy(); reject(new Error('Frame too large')); return; }
+        chunks.push(chunk);
+      });
       res.on('end', () => {
         resolve({
           status: res.statusCode || 502,
@@ -167,7 +181,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
   }
 
-  if (!isAllowed(target.hostname.toLowerCase())) {
+  if (!isAllowed(target)) {
     return NextResponse.json({ error: 'Forbidden domain: ' + target.hostname }, { status: 403 });
   }
 
@@ -182,10 +196,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: `Upstream ${result.status}` }, { status: result.status });
     }
 
+    const type = imageType(result.data);
+    if (!type) return NextResponse.json({ error: 'Upstream did not return an image' }, { status: 415 });
+
     return new NextResponse(new Uint8Array(result.data), {
       status: 200,
       headers: {
-        'Content-Type': imageType(result.data, result.contentType),
+        'Content-Type': type,
+        'X-Content-Type-Options': 'nosniff',
+        // Belt and braces: even if a browser rendered this as a document, it gets no script and no origin.
+        'Content-Security-Policy': "default-src 'none'; sandbox",
         'Cache-Control': 'public, max-age=5, stale-while-revalidate=10',
         'Access-Control-Allow-Origin': '*',
       },

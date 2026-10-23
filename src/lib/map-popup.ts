@@ -252,3 +252,18 @@ export interface NewsPopup extends Record<string, unknown> {
   category?: string;
   embed_allowed?: boolean | string;
 }
+
+/** Text for an HTML string built by hand (popups go through Popup.setHTML). */
+export function htmlEsc(value: unknown): string {
+  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+/**
+ * An http(s) URL ready to sit inside a quoted href/src attribute, or '#'.
+ * Escaped here because every caller puts it in quotes: a feed URL containing
+ * `" onmouseover="…` passes the scheme check and would otherwise break out.
+ */
+export function urlSafe(value: unknown): string {
+  const url = String(value ?? '');
+  return /^https?:\/\//i.test(url) ? htmlEsc(url) : '#';
+}

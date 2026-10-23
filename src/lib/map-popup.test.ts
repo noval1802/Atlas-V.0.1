@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clickedProperties, pointCoordinates, type FlightPopup } from './map-popup';
+import { clickedProperties, pointCoordinates, type FlightPopup, htmlEsc, urlSafe } from './map-popup';
 
 describe('pointCoordinates', () => {
   it('reads a point as longitude then latitude', () => {
@@ -26,5 +26,25 @@ describe('clickedProperties', () => {
   it('returns nothing when the click has no feature', () => {
     expect(clickedProperties({ features: [] })).toBeNull();
     expect(clickedProperties({ features: [{ properties: null }] })).toBeNull();
+  });
+});
+
+describe('popup escaping', () => {
+  it('escapes text so a feed title cannot open a tag', () => {
+    expect(htmlEsc('<img src=x onerror="alert(1)">')).toBe('&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+    expect(htmlEsc(null)).toBe('');
+  });
+
+  it('keeps an http(s) link but cannot be broken out of its attribute', () => {
+    expect(urlSafe('https://example.com/a?b=1&c=2')).toBe('https://example.com/a?b=1&amp;c=2');
+    const out = urlSafe('https://x/" onmouseover="alert(1)" x="');
+    expect(out).not.toContain('"');
+    expect(`<a href="${out}">`).toBe('<a href="https://x/&quot; onmouseover=&quot;alert(1)&quot; x=&quot;">');
+  });
+
+  it('turns every other scheme into #', () => {
+    for (const url of ['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,x', ' https://x', '', undefined]) {
+      expect(urlSafe(url)).toBe('#');
+    }
   });
 });
