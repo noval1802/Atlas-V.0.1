@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isCartoTileUrl } from '@/lib/tile-proxy';
 
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get('url');
@@ -8,10 +9,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Only allow cartocdn.com domains to prevent open proxy abuse
+    /* Only the basemap hosts and paths: every distinct URL becomes an entry in
+       the year-long fetch cache, so an open *.cartocdn.com rule let a caller
+       fill the disk with arbitrary keys. */
     const targetUrl = new URL(url);
-    const host = targetUrl.hostname.toLowerCase();
-    if (host !== 'cartocdn.com' && !host.endsWith('.cartocdn.com')) {
+    if (!isCartoTileUrl(targetUrl)) {
       return NextResponse.json({ error: 'Forbidden domain' }, { status: 403 });
     }
 
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',
-        'Access-Control-Allow-Origin': '*',
+        'X-Content-Type-Options': 'nosniff',
       },
     });
 
