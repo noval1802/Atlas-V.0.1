@@ -237,6 +237,9 @@ export function CameraFeedView({ feed, contain = false }: { feed: CameraFeed; co
           className="w-full h-full border-0"
           allow="autoplay; contain"
           allowFullScreen
+          // Camera pages come from feed data: let the player run, but not navigate the top window or open popups.
+          sandbox="allow-scripts allow-same-origin allow-presentation"
+          referrerPolicy="no-referrer"
         />
       ) : imageUrl ? (
         <img

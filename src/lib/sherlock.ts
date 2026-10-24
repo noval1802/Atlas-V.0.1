@@ -18,8 +18,11 @@
  * ═══════════════════════════════════════════════════════════════
  */
 
+/* Pinned to a commit, not master: every entry is a URL this server will
+   request, so a change upstream must not reach production unreviewed.
+   To update, review the data.json diff and move the SHA. */
 const DATA_URL =
-  'https://raw.githubusercontent.com/sherlock-project/sherlock/master/sherlock_project/resources/data.json';
+  'https://raw.githubusercontent.com/sherlock-project/sherlock/e40a45ec2a074b90703b3b4b842c8a3adbd6ada3/sherlock_project/resources/data.json';
 
 /** Shape of one entry in Sherlock's data.json. */
 interface SiteDef {

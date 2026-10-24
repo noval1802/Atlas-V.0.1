@@ -68,7 +68,18 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
-          { key: 'Content-Security-Policy', value: `default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: data: blob:${__impeccableLiveDev};` },
+          /* Feeds, tiles and camera players come from many hosts, so default-src stays
+             wide. Scripts do not: only this origin runs code (production chunks use no
+             eval; the dev overlay does). No plugins, no <base> swap, no framing by others. */
+          { key: 'Content-Security-Policy', value: [
+            `default-src 'self' 'unsafe-inline' https: wss: data: blob:${__impeccableLiveDev}`,
+            `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}${__impeccableLiveDev}`,
+            "worker-src 'self' blob:",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'self'",
+          ].join('; ') },
           ...(process.env.NODE_ENV === "production"
             ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]
             : []),

@@ -1532,6 +1532,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
                     className="w-full h-full absolute inset-0"
                     allow="autoplay; encrypted-media"
                     allowFullScreen
+                    sandbox="allow-scripts allow-same-origin allow-presentation"
                   />
                 </div>
               ) : (

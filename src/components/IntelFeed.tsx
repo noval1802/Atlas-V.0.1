@@ -91,14 +91,17 @@ export default function IntelFeed({ data, onLocate }: IntelFeedProps) {
                   </span>
                 </div>
               ) : (
-                news.slice(0, 25).map((item, i) => (
+                news.slice(0, 25).map((item, i) => {
+                  // Feed links come from third-party RSS; only http(s) may open or render as a link.
+                  const link = item.link && /^https?:\/\//i.test(item.link) ? item.link : undefined;
+                  return (
                   <div
                     key={i}
                     role="button"
                     tabIndex={0}
                     className="px-4 py-2.5 hover:bg-[var(--hover-accent)] transition-colors cursor-pointer"
-                    onClick={() => { if (item.link) window.open(item.link, '_blank', 'noopener,noreferrer'); else setSelectedIdx(selectedIdx === i ? null : i); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && item.link) window.open(item.link, '_blank', 'noopener,noreferrer'); }}
+                    onClick={() => { if (link) window.open(link, '_blank', 'noopener,noreferrer'); else setSelectedIdx(selectedIdx === i ? null : i); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && link) window.open(link, '_blank', 'noopener,noreferrer'); }}
                   >
                     {/* Top row: risk badge + source + time */}
                     <div className="flex items-center gap-2 mb-1">
@@ -153,7 +156,7 @@ export default function IntelFeed({ data, onLocate }: IntelFeedProps) {
                           className="mt-2 overflow-hidden"
                         >
                           <a
-                            href={item.link}
+                            href={link}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-1 text-[11px] font-mono text-[var(--cyan-primary)] hover:underline"
@@ -166,7 +169,8 @@ export default function IntelFeed({ data, onLocate }: IntelFeedProps) {
                       )}
                     </AnimatePresence>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
           </motion.div>
