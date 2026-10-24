@@ -1,5 +1,6 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { Agent, fetch as undiciFetch } from 'undici';
 
 /**
  * SSRF guard shared by route handlers that take a user-controlled host / IP
@@ -175,11 +176,29 @@ export async function validateHost(host: string): Promise<ValidationResult> {
   return { ok: true, resolved: answers.map(a => a.address) };
 }
 
+/** Connects to the given addresses only. The Host header and TLS name still come from the URL. */
+export function pinnedAgent(addresses: string[]): Agent {
+  const all = addresses.map(address => ({ address, family: isIP(address) }));
+  return new Agent({
+    keepAliveTimeout: 1000,
+    connect: {
+      lookup: (_hostname, options, callback) => {
+        if (!all.length) return callback(new Error('safeFetch: no validated address'), '', 0);
+        // Happy Eyeballs asks for every address at once.
+        if (options?.all) return (callback as unknown as (err: null, list: typeof all) => void)(null, all);
+        callback(null, all[0].address, all[0].family);
+      },
+    },
+  });
+}
+
 /**
  * Wrap a fetch call so that:
  *   - the URL's host is validated before the request (block private targets)
  *   - redirects are followed manually, with each hop re-validated (block a
  *     redirect to a private host from a public-looking original)
+ *   - the socket connects only to the addresses that were validated, so a
+ *     rebinding DNS answer between check and connect cannot reach a private host
  */
 export async function safeFetch(
   inputUrl: string,
@@ -201,7 +220,11 @@ export async function safeFetch(
     if (!check.ok) {
       throw new Error(`safeFetch: blocked target — ${check.reason}`);
     }
-    const res = await fetch(currentUrl, { ...passInit, redirect: 'manual' });
+    const res = await undiciFetch(currentUrl, {
+      ...(passInit as Parameters<typeof undiciFetch>[1]),
+      redirect: 'manual',
+      dispatcher: pinnedAgent(check.resolved ?? []),
+    }) as unknown as Response;
     if (res.status >= 300 && res.status < 400) {
       const loc = res.headers.get('location');
       if (!loc) return res;
