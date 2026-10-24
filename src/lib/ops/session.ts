@@ -2,6 +2,12 @@ export const OPS_COOKIE = "osiris_ops";
 export const SESSION_MS = 8 * 60 * 60 * 1000;
 export const REMEMBER_MS = 14 * 24 * 60 * 60 * 1000;
 
+/** HMAC key for session cookies. Shorter than 32 characters counts as unset, so sessions fail closed. */
+export function sessionSecret(): string {
+  const secret = process.env.OPS_SESSION_SECRET ?? "";
+  return secret.length >= 32 ? secret : "";
+}
+
 type SessionPayload = { sub: string; exp: number; ver?: number };
 
 function encode(bytes: Uint8Array): string {

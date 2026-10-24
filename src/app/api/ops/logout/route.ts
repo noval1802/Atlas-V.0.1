@@ -2,12 +2,12 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { requestIp, writeAudit } from "@/lib/ops/audit";
 import { opsDb } from "@/lib/ops/db";
-import { OPS_COOKIE, clearSessionCookie, readSession } from "@/lib/ops/session";
+import { OPS_COOKIE, clearSessionCookie, readSession, sessionSecret } from "@/lib/ops/session";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const secret = process.env.OPS_SESSION_SECRET ?? "";
+  const secret = sessionSecret();
   const token = (await cookies()).get(OPS_COOKIE)?.value;
   const session = await readSession(token, secret);
   if (session) {

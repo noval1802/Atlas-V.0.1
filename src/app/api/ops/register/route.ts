@@ -14,30 +14,36 @@ export async function POST(request: Request) {
   }
   const parsed = parseRegister(await request.json().catch(() => null));
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
-  const usernameTaken = await opsDb().user.findUnique({ where: { username: parsed.value.username }, select: { id: true } });
-  if (usernameTaken) return NextResponse.json({ error: "Nama pengguna sudah dipakai." }, { status: 409 });
-  const emailTaken = await opsDb().user.findUnique({ where: { email: parsed.value.email }, select: { id: true } });
-  if (emailTaken) return NextResponse.json({ error: "Email sudah dipakai." }, { status: 409 });
-  const created = await opsDb().user.create({
-    data: {
-      name: parsed.value.name,
-      username: parsed.value.username,
-      email: parsed.value.email,
-      organization: parsed.value.organization,
-      position: parsed.value.position,
-      passwordHash: await hashPassword(parsed.value.password),
-      role: registrationRole(),
-      active: false,
-      accountStatus: "PENDING",
-    },
+  // Taken names and emails get the same 201 as a new account, so the form cannot list who exists.
+  const passwordHash = await hashPassword(parsed.value.password);
+  const taken = await opsDb().user.findFirst({
+    where: { OR: [{ username: parsed.value.username }, { email: parsed.value.email }] },
+    select: { id: true },
   });
-  await writeAudit({
-    action: "register",
-    result: "pending",
-    targetId: created.id,
-    ip,
-    detail: "akun menunggu persetujuan",
-  });
+  if (taken) {
+    await writeAudit({ action: "register", result: "duplicate", targetId: taken.id, ip, detail: "nama pengguna atau email sudah terdaftar" });
+  } else {
+    const created = await opsDb().user.create({
+      data: {
+        name: parsed.value.name,
+        username: parsed.value.username,
+        email: parsed.value.email,
+        organization: parsed.value.organization,
+        position: parsed.value.position,
+        passwordHash,
+        role: registrationRole(),
+        active: false,
+        accountStatus: "PENDING",
+      },
+    });
+    await writeAudit({
+      action: "register",
+      result: "pending",
+      targetId: created.id,
+      ip,
+      detail: "akun menunggu persetujuan",
+    });
+  }
   return NextResponse.json(
     { ok: true, message: "Pendaftaran diterima. Akun menunggu persetujuan Admin." },
     { status: 201 },

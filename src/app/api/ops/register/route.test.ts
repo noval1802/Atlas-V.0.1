@@ -9,8 +9,8 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/ops/db", () => ({
   opsDb: () => ({
     user: {
-      findUnique: async ({ where }: { where: { username?: string; email?: string } }) =>
-        state.rows.find((row) => (where.username ? row.username === where.username : row.email === where.email)) ?? null,
+      findFirst: async ({ where }: { where: { OR: Array<{ username?: string; email?: string }> } }) =>
+        state.rows.find((row) => where.OR.some((c) => (c.username ? row.username === c.username : row.email === c.email))) ?? null,
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row = { id: "user-new", ...data };
         state.rows.push(row);
@@ -63,17 +63,19 @@ describe("POST /api/ops/register", () => {
     expect(state.audits[0]).toMatchObject({ action: "register", result: "pending" });
   });
 
-  it("reports a duplicate username and a duplicate email separately", async () => {
-    state.rows.push({ id: "ada", username: "budi.ops", email: "lain@example.com" });
-    const username = await POST(new Request("http://osiris.local/api/ops/register", { method: "POST", body: JSON.stringify(body) }));
-    expect(username.status).toBe(409);
-    expect(await username.json()).toMatchObject({ error: "Nama pengguna sudah dipakai." });
-    state.rows[0] = { id: "ada", username: "orang.lain", email: "budi@example.com" };
-    const email = await POST(new Request("http://osiris.local/api/ops/register", {
+  it("answers a taken username or email exactly like a new account", async () => {
+    const fresh = await POST(new Request("http://osiris.local/api/ops/register", {
       method: "POST",
-      body: JSON.stringify({ ...body, username: "budi.baru" }),
+      body: JSON.stringify({ ...body, username: "orang.baru", email: "baru@example.com" }),
     }));
-    expect(email.status).toBe(409);
-    expect(await email.json()).toMatchObject({ error: "Email sudah dipakai." });
+    const expected = await fresh.json();
+    state.rows = [{ id: "ada", username: "budi.ops", email: "lain@example.com" }];
+    for (const attempt of [body, { ...body, username: "budi.baru", email: "lain@example.com" }]) {
+      const response = await POST(new Request("http://osiris.local/api/ops/register", { method: "POST", body: JSON.stringify(attempt) }));
+      expect(response.status).toBe(fresh.status);
+      expect(await response.json()).toEqual(expected);
+    }
+    expect(state.rows).toHaveLength(1);
+    expect(state.audits.slice(-2).map((a) => a.result)).toEqual(["duplicate", "duplicate"]);
   });
 });

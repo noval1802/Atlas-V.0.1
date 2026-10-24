@@ -36,7 +36,7 @@ function login(body: Record<string, unknown>, headers: Record<string, string> = 
 
 describe("POST /api/ops/login", () => {
   beforeEach(() => {
-    process.env.OPS_SESSION_SECRET = "rahasia-uji-sesi";
+    process.env.OPS_SESSION_SECRET = "rahasia-uji-sesi-yang-cukup-panjang-32";
     state.users = [];
     state.audits = [];
     resetRateLimits();

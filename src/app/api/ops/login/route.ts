@@ -4,7 +4,7 @@ import { requestIp, writeAudit } from "@/lib/ops/audit";
 import { opsDb } from "@/lib/ops/db";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/lib/ops/password";
 import { rateLimit } from "@/lib/ops/rate-limit";
-import { REMEMBER_MS, SESSION_MS, issueSession, sessionCookie } from "@/lib/ops/session";
+import { REMEMBER_MS, SESSION_MS, issueSession, sessionCookie, sessionSecret } from "@/lib/ops/session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ const INVALID = "Nama pengguna atau kata sandi salah.";
 const WINDOW_MS = 15 * 60 * 1000;
 
 export async function POST(request: Request) {
-  const secret = process.env.OPS_SESSION_SECRET;
+  const secret = sessionSecret();
   if (!secret) return NextResponse.json({ error: "Sesi belum dikonfigurasi." }, { status: 500 });
   const ip = requestIp(request);
   let body: { username?: unknown; password?: unknown; remember?: unknown };

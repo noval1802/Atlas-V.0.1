@@ -1,6 +1,6 @@
 import { sessionMatchesUser } from "./access";
 import { opsDb } from "./db";
-import { readSession } from "./session";
+import { readSession, sessionSecret } from "./session";
 
 /** Akun, sandi, dan webhook yang memang dipanggil tanpa sesi. */
 const PUBLIC_API = new Set([
@@ -34,11 +34,35 @@ export function isAdminApi(pathname: string): boolean {
   );
 }
 
+/** Active reconnaissance and OSINT lookups. Viewer and monitoring roles are refused. */
+export function isOperatorApi(pathname: string): boolean {
+  return pathname === "/api/scanner" || pathname.startsWith("/api/scanner/") || pathname.startsWith("/api/osint/");
+}
+
+/**
+ * A state-changing request sent by another site. SameSite=Lax already withholds the
+ * cookie on cross-site POSTs; this also refuses same-site subdomains and old browsers.
+ * Server-to-server callers (webhook, SDK ingest) send no Origin and pass.
+ */
+export function crossSiteWrite(method: string, headers: Headers): boolean {
+  if (["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())) return false;
+  const site = headers.get("sec-fetch-site");
+  if (site) return site !== "same-origin" && site !== "none";
+  const origin = headers.get("origin");
+  if (!origin) return false;
+  const host = headers.get("x-forwarded-host") ?? headers.get("host");
+  try {
+    return new URL(origin).host !== host;
+  } catch {
+    return true;
+  }
+}
+
 export type SessionAccount = { id: string; role: string; kotamaopsId: string | null };
 
 /** Signed cookie plus the live account. Inactive, pending, and revoked sessions return null. */
 export async function sessionAccount(token: string | undefined): Promise<SessionAccount | null> {
-  const session = await readSession(token, process.env.OPS_SESSION_SECRET ?? "");
+  const session = await readSession(token, sessionSecret());
   if (!session) return null;
   try {
     const user = await opsDb().user.findUnique({

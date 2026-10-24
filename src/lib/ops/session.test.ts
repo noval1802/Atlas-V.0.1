@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REMEMBER_MS, SESSION_MS, issueSession, readSession, sessionCookie } from "./session";
+import { REMEMBER_MS, SESSION_MS, issueSession, readSession, sessionCookie, sessionSecret } from "./session";
 
 describe("ops session", () => {
   it("round-trips a signed cookie and rejects a different secret", async () => {
@@ -18,5 +18,18 @@ describe("ops session", () => {
     expect(sessionCookie(token, REMEMBER_MS / 1000)).toContain("SameSite=Lax");
     expect(sessionCookie(token, SESSION_MS / 1000)).toContain("Max-Age=28800");
     expect(sessionCookie(token, REMEMBER_MS / 1000)).toContain("Max-Age=1209600");
+  });
+
+  it("treats a secret shorter than 32 characters as unset", () => {
+    const before = process.env.OPS_SESSION_SECRET;
+    try {
+      process.env.OPS_SESSION_SECRET = "pendek";
+      expect(sessionSecret()).toBe("");
+      process.env.OPS_SESSION_SECRET = "x".repeat(32);
+      expect(sessionSecret()).toBe("x".repeat(32));
+    } finally {
+      if (before === undefined) delete process.env.OPS_SESSION_SECRET;
+      else process.env.OPS_SESSION_SECRET = before;
+    }
   });
 });
