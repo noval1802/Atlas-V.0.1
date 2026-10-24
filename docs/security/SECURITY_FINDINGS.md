@@ -51,7 +51,7 @@ Probe hidup pada tanggal yang sama hanya `GET` tanpa cookie ke `http://127.0.0.1
 ### F-005 — Pembaca menerima situasi dan feed monitoring
 
 - **Keparahan:** MEDIUM
-- **Status:** terbuka sebagai keputusan produk, bukan sebagai bug yang sudah dieksploitasi.
+- **Status:** sebagian ditutup 2026-10-24. `/api/scanner` dan `/api/osint/*` kini hanya untuk Admin dan Operator (`isOperatorApi` di `src/lib/ops/gate.ts`, ditolak 403 di `src/proxy.ts`). Baca situasi dan feed CCTV untuk `ANALYST`/`PIMPINAN` tetap terbuka sebagai keputusan produk.
 - **Lokasi:** `seesAllKotamaops` dan `situationWhere` di `src/lib/ops/access.ts`. `GET` `src/app/api/ops/situations/route.ts`. `src/app/(id)/operator/page.tsx`. `src/proxy.ts` hanya menuntut sesi untuk feed. Ringkasan yang sama ada di `docs/akses-endpoint.md`.
 - **Skenario:** `ANALYST` dan `PIMPINAN` membaca semua baris situasi, termasuk personel dan catatan, serta memanggil CCTV, OSINT, pemindai, dan AI. Tulis situasi ditolak di `PATCH` sebelum baris unit lain dibaca. Halaman `/pengguna` dan API admin menolak di server.
 - **Bukti:** kode dan `docs/akses-endpoint.md` selaras. Uji dengan akun tiap peran belum dijalankan.
@@ -61,7 +61,7 @@ Probe hidup pada tanggal yang sama hanya `GET` tanpa cookie ke `http://127.0.0.1
 ### F-006 — Registrasi publik membedakan akun yang sudah ada
 
 - **Keparahan:** MEDIUM
-- **Status:** terbuka. `POST` tidak dijalankan pada audit ini.
+- **Status:** ditutup 2026-10-24. Nama pengguna atau email yang sudah terdaftar menerima 201 dan pesan yang sama dengan akun baru; hash sandi tetap dihitung agar waktu respons serupa. Duplikat dicatat di audit sebagai `duplicate`. Diuji di `src/app/api/ops/register/route.test.ts`.
 - **Lokasi:** `src/app/api/ops/register/route.ts`. Route ada di `PUBLIC_API` pada `src/lib/ops/gate.ts`.
 - **Skenario:** jawaban 409 berbeda untuk nama pengguna dan email. Akun baru `ANALYST`, `active: false`, `PENDING`. Login menolak status selain `ACTIVE`.
 - **Bukti:** handler dibaca. Batas 5 permintaan per jam per IP memakai penghitung F-002.
@@ -71,7 +71,7 @@ Probe hidup pada tanggal yang sama hanya `GET` tanpa cookie ke `http://127.0.0.1
 ### F-007 — Cookie sesi tanpa Secure di luar produksi
 
 - **Keparahan:** LOW
-- **Status:** terbuka untuk server dev. Produksi memasang `Secure` bila `NODE_ENV=production`.
+- **Status:** diterima sebagai risiko dev (2026-10-24). Server dev melayani HTTP di LAN; `Secure` di sana membuat login mustahil. Produksi tetap memasang `Secure`, jadi produksi harus di belakang HTTPS.
 - **Lokasi:** `sessionCookie` di `src/lib/ops/session.ts`.
 - **Skenario:** cookie `osiris_ops` adalah `HttpOnly`, `SameSite=Lax`, `Path=/`. `Secure` hanya saat produksi. Server dev mendengarkan di semua antarmuka.
 - **Bukti:** fungsi dibaca. Masa berlaku 8 jam, atau 14 hari bila ingat saya. `readSession` menolak rahasia kosong, tanda tangan salah, dan kedaluwarsa.
@@ -93,3 +93,4 @@ Kontrol berikut terlihat dari kode pada tanggal audit. Itu bukan pernyataan bahw
 | Tanggal | Perubahan |
 | --- | --- |
 | 2026-10-17 | Audit awal working tree. F-001 sampai F-007 dibuka. Tidak ada perbaikan kode. |
+| 2026-10-24 | Perbaikan MEDIUM/LOW audit lanjutan: CSP `script-src 'self'` (tanpa `unsafe-eval` di produksi) plus `object-src`/`base-uri`/`form-action`/`frame-ancestors`; port intel 4000 hanya `127.0.0.1`; RECON/OSINT hanya Admin dan Operator; `OPS_SESSION_SECRET` < 32 karakter dianggap kosong; tolak POST lintas situs (`Sec-Fetch-Site`/`Origin`, nginx kini meneruskan `Host` lengkap dengan port); tautan IntelFeed hanya http(s); iframe kamera dan live feed di-sandbox; registrasi tidak membedakan akun yang ada (F-006); `safeFetch` memaku koneksi ke IP yang sudah divalidasi (undici); `/api/proxy-tiles` hanya host dan path basemap CARTO; sisa interpolasi popup peta di-escape; daftar Sherlock dipaku ke commit `e40a45e`. F-005 sebagian, F-006 ditutup, F-007 diterima. |

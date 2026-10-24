@@ -1,0 +1,270 @@
+# Audit ATLAS untuk Monitoring Situasi Nasional Pusdalops TNI
+
+**Tanggal:** 24 Oktober 2026
+**Objek:** repo `Atlas-V.0.1`, branch `feat/kotamaops-matra` (commit `74e5d8c`, ditambah perbaikan keamanan MEDIUM/LOW yang belum di-commit)
+**Lingkup:** fitur, ketersediaan, keharusan sistem, dan keharusan UI. Audit keamanan ada di `docs/security/SECURITY_FINDINGS.md` dan tidak diulang di sini.
+**Metode:** membaca kode dan konfigurasi, ditambah angka beban yang diukur sebelumnya. Aplikasi tidak diuji dengan akun per peran dan tidak dibuka di layar video wall. Butir yang belum diuji ditandai *belum diverifikasi*.
+
+---
+
+## 1. Ringkasan untuk pimpinan proyek
+
+ATLAS saat ini adalah **dasbor OSINT global (warisan OSIRIS) yang ditempeli modul operasi TNI**. Modul TNI-nya sudah berdiri dengan baik: login dan peran, status situasi per Kotamaops beserta riwayat revisi, CCTV Jasa Marga dan Jakarta, multiviewer, serta data karhutla. Kira-kira 70% fitur lainnya adalah lapisan global yang tidak relevan untuk Pusdalops, misalnya pasar saham, kripto, CCTV luar negeri, konflik luar negeri, dan alat OSINT siber.
+
+Ada empat celah besar sebelum sistem layak dipakai sebagai Monitoring Situasi Nasional:
+
+| # | Celah | Akibat |
+|---|---|---|
+| 1 | **Belum ada satu pun sumber data nasional.** BMKG, BNPB, PVMBG/MAGMA, SiPongi, Basarnas, dan Bakamla semuanya belum terhubung. Gempa dan cuaca masih diambil dari USGS dan NWS (AS). | Peta "situasi nasional" belum menampilkan situasi nasional. |
+| 2 | **Status situasi tidak tampil di peta**, dan belum ada tampilan ringkas untuk pimpinan. | Pimpinan tidak bisa melihat kondisi nasional dalam sekali pandang. |
+| 3 | **Bergantung penuh pada layanan asing.** Peta dasar (CARTO), citra satelit (Esri), terrain (AWS), dan font (Google) semuanya dari luar. AI mengirim data ke Google Gemini. | Di jaringan tertutup peta dasar kosong. Area pandang operator dan kueri bocor ke pihak asing. |
+| 4 | **Alur pelaporan baru sebatas angka.** Belum ada log kejadian, persetujuan berjenjang, ekspor laporan situasi (lapsit), maupun notifikasi eskalasi. | Belum mendukung kerja ruang operasi sehari-hari. |
+
+Selain itu ada sejumlah keharusan operasional yang belum terpenuhi: TLS, backup database, healthcheck, migrasi saat deploy, dan CI/CD internal. `deploy.sh` dan workflow GitHub peninggalan OSIRIS masih mengarah ke server asing dan registry publik.
+
+**Penilaian kesiapan** (subjektif, skala 1–5):
+
+| Area | Nilai | Catatan |
+|---|---|---|
+| Fondasi akses dan data operasi | 4 | RBAC, revisi, dan audit login sudah ada. Keamanan sudah diaudit dan diperbaiki. |
+| Kesesuaian fitur dengan misi | 2 | Inti TNI ada, tetapi sumber nasional belum ada dan banyak fitur tidak relevan. |
+| Ketersediaan / operasi 24/7 | 2 | Belum ada backup, TLS, healthcheck aplikasi, maupun redundansi. |
+| Kemandirian dari layanan asing | 1 | Peta dasar, font, dan AI semuanya asing. |
+| UI ruang operasi | 2 | Tema gelap sudah ada. Masih campur Inggris, huruf terlalu kecil, dan status tidak tampil di peta. |
+
+---
+
+## 2. Audit fitur
+
+### 2.1 Fitur yang dipertahankan (inti misi)
+
+| Fitur | Lokasi | Catatan |
+|---|---|---|
+| Login, peran (6), persetujuan akun, reset sandi, audit login | `src/app/(id)/*`, `src/lib/ops/*` | SMTP diperlukan untuk reset sandi. `OPS_PUBLIC_URL` wajib diisi. |
+| Status situasi per Kotamaops beserta revisi | `src/app/api/ops/situations`, `prisma/schema.prisma` | Isinya: status KONDUSIF/WASPADA/SIAGA, personel, dikerahkan, jumlah kejadian, dan catatan. |
+| Dasbor operator | `src/app/(id)/operator`, `src/components/ops/operator-dashboard.tsx` | Menampilkan ringkasan, tabel, formulir, dan 20 revisi terakhir. |
+| Manajemen pengguna | `src/app/(id)/pengguna` | Khusus admin. Hanya SUPER_ADMIN yang bisa mengubah SUPER_ADMIN. |
+| Layer Kotamaops (AD/AL/AU) | `src/lib/kotamaops-points.ts`, `public/kodam/` | Ada 22 satuan, yaitu 21 Kodam dan Kodaeral V. Satuan AU masih kosong. |
+| CCTV Jasa Marga dan TPT Jakarta | `src/app/api/cctv/jasamarga.ts`, `tpt.ts` | Butuh `JASAMARGA_WFS_TOKEN` dan `TPT_CCTV_TOKEN`. Tanpa token, daftarnya kosong. |
+| SPACE dan Multiviewer CCTV | `src/components/SpaceCam.tsx`, `/peta/multiview` | Tanpa batas jumlah kamera, dengan preset tata letak. |
+| Gambar/AOI, pencarian lokasi, panel ArcGIS | `src/lib/aoi-export.ts`, `ArcGISPanel.tsx` | Panel ArcGIS bisa dipakai untuk memuat layer BNPB/InaRISK. |
+
+### 2.2 Fitur yang perlu disesuaikan
+
+| Fitur | Masalah | Arah penyesuaian |
+|---|---|---|
+| Karhutla | Angkanya **ditulis langsung di kode** (`src/lib/karhutla-lapsit.ts`) dari satu lapsit tanggal 5 Okt 2026. | Simpan di DB dan sediakan input operator. |
+| Gempa, kebakaran, cuaca | Diambil dari USGS, NASA FIRMS, NWS, dan GDACS. | Ganti dengan BMKG (gempa, cuaca, InaTEWS), SiPongi atau BRIN (hotspot), dan MAGMA (gunung api). |
+| Pesawat (ADS-B), kapal (AIS) | Cakupan global, tanpa filter wilayah. AIS butuh `AIS_API_KEY`. | Batasi ke ruang udara dan perairan RI (ALKI, ZEE). Bila ada, pakai data milik TNI atau Bakamla. |
+| Berita (IntelFeed, Live News) | Sumbernya media asing (BBC, Al Jazeera, TASS, dan lain-lain). | Ganti dengan Antara, TVRI, RRI, dan kanal instansi. |
+| AI briefing | Mengirim data ke Google Gemini. | Matikan, atau ganti dengan LLM on-prem. |
+| Region dossier | Memakai Wikipedia berbahasa Inggris. | Ganti ke id.wikipedia atau data BPS. |
+| Dokumentasi `/docs` | Masih katalog API OSIRIS dalam bahasa Inggris. | Tulis ulang sebagai panduan pengguna ATLAS. |
+
+### 2.3 Fitur yang dihapus atau disembunyikan
+
+- **Tidak relevan:**
+  - MarketsPanel (saham dan kripto).
+  - CHAIN INTEL dan forensik dompet kripto.
+  - TokenPanel `$OSIRIS`. Masih di-mount di `monitoring-dashboard.tsx:1253,1268` walaupun flag-nya dimatikan.
+  - SupportMenu.
+  - ScmPanel.
+  - Konflik dan garis depan luar negeri (liveuamap, deepstatemap).
+  - CCTV dari ±50 negara.
+  - Space weather.
+  - Country risk.
+  - Fasilitas nuklir.
+- **Berisiko:**
+  - **WorldRemote.** Fitur ini memindai port `127.0.0.1` dari browser dan memakai Web Bluetooth (`WorldRemote.tsx:85`). Perilaku seperti ini tidak pantas ada di sistem TNI. **Prioritas hapus.**
+  - **Alat OSINT identitas dan port scanner.** Sejak perbaikan 24 Okt aksesnya sudah dibatasi ke Admin dan Operator (belum di-commit). Kueri tetap terkirim ke layanan asing, jadi perlu diputuskan apakah fitur ini memang wewenang Pusdalops.
+  - **Kontainer `osiris-intel` dan adapter SDK "Polybolos/Anduril Lattice".** Keduanya tidak dipakai untuk misi.
+
+### 2.4 Data nasional yang belum ada
+
+Hasil grep terhadap `bmkg|bnpb|inarisk|magma|pvmbg|basarnas|bakamla|sipongi` adalah **nol**.
+
+| Sumber | Kegunaan | Prioritas |
+|---|---|---|
+| BMKG | Gempa terkini, peringatan dini cuaca, InaTEWS tsunami | WAJIB |
+| BNPB (InaRISK, DIBI, data kejadian bencana) | Kejadian bencana dan wilayah rawan | WAJIB |
+| PVMBG / MAGMA Indonesia | Status gunung api (Normal/Waspada/Siaga/Awas) | WAJIB |
+| SiPongi KLHK, hotspot BRIN | Karhutla otomatis, menggantikan data hardcode | WAJIB |
+| Batas administrasi (BIG), provinsi, ZEE, ALKI | Layer dasar wilayah | WAJIB |
+| Basarnas | Operasi SAR | SEBAIKNYA |
+| Bakamla, AIS perairan RI | Keamanan laut | SEBAIKNYA |
+| Data banjir (BBWS, Posko Banjir) | Bencana hidrometeorologi | SEBAIKNYA |
+| Satuan AL/AU lengkap (Koarmada, Koopsud, Kogabwilhan), Korem/Kodim | Kelengkapan struktur satuan | SEBAIKNYA |
+
+### 2.5 Alur pelaporan situasi: kondisi sekarang dan kekurangannya
+
+**Kondisi sekarang:**
+- **Data.** Setiap Kotamaops punya satu baris situasi terkini. Setiap simpanan menulis revisi dalam satu transaksi.
+- **Hak tulis.** Admin dan Operator Pusdalops boleh menulis untuk semua satuan. Operator Kodam hanya untuk satuannya sendiri. Analis dan Pimpinan hanya bisa membaca.
+- **Waktu.** Disimpan dalam UTC dan ditampilkan dalam WIB saja.
+
+**Belum ada:**
+1. **Log kejadian.** Belum ada catatan per kejadian dengan waktu, koordinat, kategori, korban, sumber, lampiran foto/dokumen, dan status tindak lanjut. Saat ini hanya ada `incidentCount`.
+2. **Rantai komando.** Belum ada alur draf → verifikasi Pusdalops → persetujuan pimpinan.
+3. **Laporan situasi harian.** Belum ada ekspor PDF/DOCX berformat dinas atau rekap pukul 06.00/18.00.
+4. **Notifikasi eskalasi.** Perubahan status ke WASPADA/SIAGA tidak memicu notifikasi apa pun, dan belum ada konfirmasi baca.
+5. **Buku piket.** Belum ada catatan serah terima shift.
+6. **Riwayat dan tren.** Riwayat lengkap per satuan, filter tanggal, dan grafik tren status belum ada.
+7. **Zona waktu.** Waktu belum ditampilkan dalam WITA/WIT sesuai lokasi satuan.
+
+---
+
+## 3. Audit ketersediaan
+
+### 3.1 Ketergantungan layanan luar
+
+Kode menghubungi sekitar 150 host luar. Yang paling menentukan:
+
+| Host | Fungsi | Jika tidak terjangkau |
+|---|---|---|
+| `*.basemaps.cartocdn.com` (CARTO, AS) | Tile vektor, glyph label, sprite ikon, style | **Peta dasar kosong** |
+| `server.arcgisonline.com` (Esri, AS) | Mode citra satelit | Mode satelit kosong |
+| `s3.amazonaws.com/elevation-tiles-prod` (AWS) | Terrain 3D | Terrain mati |
+| `fonts.googleapis.com` / `gstatic` | Font | Halaman tertahan sampai timeout, lalu memakai font sistem |
+| Gemini (`ai-engine.ts`) | AI briefing | Beralih ke analisis heuristik |
+| USGS, FIRMS, GDACS, NWS, OpenSky, adsb.*, aisstream | Feed situasi | Layer terkait kosong |
+| Nominatim, Photon, OSRM, Valhalla | Pencarian lokasi dan rute | Pencarian dan rute gagal |
+| nginx `resolver 1.1.1.1 8.8.8.8` | DNS untuk tile cache | Di intranet cache tidak bisa terisi |
+
+**Di jaringan tertutup** yang tetap jalan hanya login, data situasi, dasbor operator, manajemen pengguna, dan mesin peta MapLibre (sudah dibundel). Peta dasar dan hampir semua feed mati.
+
+### 3.2 Resiliensi
+
+| Aspek | Kondisi | Bukti |
+|---|---|---|
+| Health check | `/api/health` hanya menyatakan proses hidup (`checks_performed: 'none'`) dan tidak memeriksa DB. | `src/app/api/health/route.ts` |
+| Healthcheck Docker | Hanya ada untuk Postgres dan intel. **Kontainer app dan nginx tidak punya.** `depends_on` juga tidak menunggu DB sehat. | `docker-compose.yml` |
+| Titik kegagalan tunggal | Satu kontainer app, satu nginx, satu Postgres tanpa replika, satu host. | `docker-compose.yml` |
+| DB mati | Semua sesi gagal, sehingga **semua pengguna terlempar ke halaman login**. Aman, tetapi berarti sistem mati total. Penulisan audit gagal tanpa jejak. | `src/lib/ops/gate.ts`, `audit.ts` |
+| State di memori | Rate limit, sekitar 38 cache `Map`, stream SSE, dan WebSocket AIS tidak bisa dibagi ke lebih dari satu instance. | `src/lib/ops/rate-limit.ts` |
+| Timeout upstream | Baik. Hampir semua fetch memakai `AbortSignal.timeout`. CCTV dibatasi 5 MB dan 3 redirect. | — |
+| Cache | nginx hanya meng-cache tile, dan **`TILE_PROXY_PATH` belum diaktifkan**, sehingga tile masih lewat Node. | `.env.example` |
+| Compose | Wajib ada network eksternal `umami_default`; tanpa itu `up` gagal. Port 3000 terbuka langsung tanpa melewati nginx. Password Postgres punya default `change-me`. | `docker-compose.yml` |
+
+### 3.3 Kapasitas
+
+Angka acuan dari pengukuran sebelumnya, satu proses Node: `/api/health` 316 req/s, `/masuk` 145 req/s, tile dari cache nginx sekitar 640 req/s, memori 137–423 MB, JS klien sekitar 1,1 MB gzip.
+
+- **50–200 pengguna:** perkiraan beban 35–65 req/s. Satu instance masih cukup, tetapi tanpa cadangan.
+- **CCTV:** tidak ada cache bersama. Contoh: 20 layar × 16 kamera dengan refresh 5 detik ≈ 64 req/s, masing-masing sampai 5 MB lewat Node. Perlu micro-cache di nginx atau relay stream (misalnya MediaMTX).
+- **Sesi:** sesi standar berlaku 8 jam, sehingga layar video wall akan keluar sendiri di tengah shift.
+- **Spesifikasi minimum yang disarankan:** app 4 vCPU / 8 GB; Postgres 2 vCPU / 4 GB dengan SSD dan volume backup terpisah; disk tile minimal 20 GB. Atau gunakan PMTiles Indonesia (perkiraan 1–3 GB, *belum diverifikasi*). Klien video wall perlu GPU dengan dukungan WebGL2.
+
+---
+
+## 4. Keharusan sistem
+
+### WAJIB (sebelum dipakai di Pusdalops)
+
+| # | Keharusan | Kondisi sekarang / bukti |
+|---|---|---|
+| S1 | **Peta dasar, glyph, sprite, terrain, dan font di-host sendiri** (PMTiles/OpenMapTiles wilayah Indonesia, font lewat `next/font/local`). | Semuanya dari CARTO, Esri, AWS, dan Google (`public/dark-matter-style.json`, `OsirisMap.tsx`, `terrain-tiles.ts`, `globals.css:1`). |
+| S2 | **Tidak ada data operasi yang keluar ke layanan asing.** Matikan Gemini atau ganti dengan LLM on-prem. Tinjau feed OSINT dan geocoder. | `src/lib/ai-engine.ts`, `/api/osint/*`, `/api/geo` |
+| S3 | **HTTPS dengan sertifikat CA internal.** Tutup port 3000 dan port 8080 HTTP. | nginx hanya `listen 8080` tanpa TLS. Cookie produksi bertanda `Secure`, sehingga login lewat `http://IP` kemungkinan gagal (*belum diverifikasi*). |
+| S4 | **Backup Postgres terjadwal yang diuji restore-nya**, disimpan di lokasi terpisah. | Belum ada sama sekali. |
+| S5 | **Compose diperbaiki:** `DATABASE_URL` diarahkan ke `osiris-postgres`, `depends_on: service_healthy`, network `umami_default` dihapus, password Postgres tanpa nilai default, healthcheck untuk app dan nginx. | `.env` lokal menunjuk ke `127.0.0.1`, alamat yang tidak berlaku dari dalam kontainer. |
+| S6 | **Health check kesiapan** yang memeriksa koneksi DB. | `/api/health` tidak memeriksa apa pun. |
+| S7 | **Migrasi DB otomatis saat deploy** (`prisma migrate deploy`). | Image runner tidak membawa Prisma CLI maupun folder migrasi (`Dockerfile`). |
+| S8 | **Data seed fiktif diganti data riil** atau ditandai jelas sebagai contoh. | Angka personel dan status di `prisma/seed.mjs:9-31` adalah karangan. |
+| S9 | **Hapus jalur deploy warisan OSIRIS** dan ganti dengan CI/CD internal (test dan lint sebelum build, registry privat). | `deploy.sh` melakukan SSH ke server pihak lain lalu `docker-compose down` (ada downtime). `.github/workflows/docker-publish.yml` mem-push image ke ghcr.io publik. |
+| S10 | **Rotasi log dan pemantauan disk.** | `logging:` tidak diatur di compose. |
+| S11 | **Sumber data nasional** (BMKG, BNPB, MAGMA, SiPongi, batas wilayah BIG). | Lihat bagian 2.4. |
+
+### SEBAIKNYA
+
+| # | Keharusan |
+|---|---|
+| S12 | Pindahkan rate limit dan cache ke Redis/Postgres agar aplikasi bisa dijalankan lebih dari satu instance. |
+| S13 | Siapkan replika atau standby Postgres. Saat DB mati, tampilkan "mode terbatas" alih-alih melempar semua pengguna ke login. |
+| S14 | Logging terstruktur, metrik, dan alert (Prometheus/Grafana/Loki). Penulisan audit yang gagal harus memicu alarm. |
+| S15 | Kebijakan retensi dan arsip untuk `AuthAudit` dan `SituationRevision`, yang sekarang tumbuh tanpa batas. |
+| S16 | NTP internal di semua host. `TZ` didokumentasikan. |
+| S17 | Micro-cache atau relay CCTV. Aktifkan `TILE_PROXY_PATH=/proxy/tiles`. |
+| S18 | Rahasia disimpan di Docker secrets atau vault. Lengkapi `.env.example` (`OSIRIS_CCTV_SNAPSHOT`, `OSIRIS_NOMINATIM_*`, `INTEL_PORT`, `GEMINI_API_KEY_2..n`). |
+| S19 | Kebijakan sesi untuk akun video wall dan shift 24 jam. |
+
+### OPSIONAL
+
+| # | Keharusan |
+|---|---|
+| S20 | Uji end-to-end (Playwright) untuk login, peta, dan pelaporan. Saat ini ada 114 file unit test tanpa e2e. |
+| S21 | Deploy blue-green tanpa downtime. |
+| S22 | Hapus modul yang tidak relevan untuk memperkecil permukaan serangan dan ukuran JS. |
+
+---
+
+## 5. Keharusan UI
+
+### 5.1 Temuan utama
+
+- **Bahasa campuran.** Bagian `(id)` (operator, pengguna, login) sudah berbahasa Indonesia. Bagian `/peta` sebagian besar masih Inggris dan dirender dengan `lang="en"` (`src/app/(en)/layout.tsx:10`). Perkiraan jumlah string Inggris: `OsirisMap.tsx` ±143, `WorldRemote.tsx` ±128, `monitoring-dashboard.tsx` ±79, `OsintPanel.tsx` ±72, `LiveAlerts`/`LayerPanel`/`FingerprintSearch` ±40 masing-masing. Contohnya "M… EARTHQUAKE", "AWAITING INTELLIGENCE...", dan nama layer AVIATION/MARITIME/HAZARD/THREAT.
+- **Istilah.** Label peran masih "Viewer" dan "Monitoring" (`src/lib/ops/access.ts:56-61`). Kata "Kodam" dan "Provinsi" tidak muncul di UI peta.
+- **Status tidak terlihat di peta.** `/peta` memuat Kotamaops tanpa status situasi (`src/app/(en)/peta/page.tsx`). Beranda PIMPINAN adalah `/peta`, jadi pimpinan tidak langsung melihat siaga atau waspada.
+- **Huruf terlalu kecil untuk ruang operasi.** Ada 257 kelas `text-[6–9px]` di komponen dan 72 popup dengan `font-size` 7–9px. Hampir tidak ada skala responsif untuk layar besar: hanya 1 `clamp()` dan 2 breakpoint `2xl:`.
+- **Jam.** `/peta` dan `/operator` sudah menampilkan WIB (`dashboard-chrome.tsx` `WibClock`). Jam tiga zona WIB/WITA/WIT baru ada di halaman login (`zone-clocks.tsx`). CameraViewer masih memakai UTC "Z" (`CameraViewer.tsx:25`).
+- **Pembaruan data.** `/operator` hanya mem-poll `/api/health` tiap 60 detik. **Tabel situasi tidak diperbarui otomatis** dan tidak ada stempel "diperbarui pukul …".
+- **Video wall.** Tema gelap sudah konsisten. Sudah ada fullscreen (`F`) di peta dan multiviewer. Belum ada mode kiosk (tanpa chrome, rotasi panel, Wake Lock) dan belum ada preset multiviewer yang disimpan per ruang.
+- **Sisa OSIRIS.** Metadata SEO OSINT (`site-metadata.ts:20-40`), `manifest.json` memakai `osiris-icon.png`, `og-image` bergambar Mata Horus "OPEN SOURCE", log `[OSIRIS]`, dan tiga screenshot di `docs/screenshots` masih tampilan OSIRIS. Belum ada identitas Pusdalops TNI.
+- **Konsistensi visual.** Ada 1.066 kode warna hex langsung di komponen, padahal token warna tersedia di `globals.css`. Popup peta masih string HTML dengan style inline.
+- **Aksesibilitas.** Bagian ops sudah baik: target sentuh 44px, outline 2px, dan `role=status`. Di komponen peta baru ada 67 `aria-label` untuk 179 tombol. Status di dasbor sudah memakai teks, tidak hanya warna. Layer peta masih dibedakan hanya dengan warna.
+
+### 5.2 Daftar keharusan UI
+
+**WAJIB**
+
+| # | Keharusan | Bukti |
+|---|---|---|
+| U1 | Warna dan label KONDUSIF/WASPADA/SIAGA tampil di setiap titik Kotamaops pada peta, lengkap dengan legenda dan filter matra. | `peta/page.tsx` tidak membaca `situation` |
+| U2 | **Dasbor pimpinan satu layar:** peta status nasional, jumlah satuan Siaga/Waspada, kejadian terbaru, dan waktu pembaruan terakhir. | `homeForRole` mengarahkan PIMPINAN ke `/peta` tanpa status |
+| U3 | Bahasa Indonesia penuh di `/peta`, semua popup dan panel, dan `lang="id"`. | `(en)/layout.tsx:10`, `OsirisMap.tsx`, `LayerPanel.tsx:82-152` |
+| U4 | Ukuran huruf minimum sekitar 12px di meja operator dan sekitar 16px (atau skala fluida) di video wall. | 257 `text-[6–9px]`, 72 `font-size` 7–9px di popup |
+| U5 | Data situasi diperbarui otomatis, dengan stempel "Diperbarui HH.MM WIB" dan tanda data basi saat feed gagal. | `operator-dashboard.tsx:87-100` |
+| U6 | Jam WIB/WITA/WIT di `/peta` dan `/operator`. Hapus jam UTC di CameraViewer. Komponen `ZoneClocks` bisa dipakai ulang. | `zone-clocks.tsx`, `CameraViewer.tsx:25` |
+| U7 | Hapus fitur dan branding yang tidak relevan: TokenPanel, SupportMenu, MarketsPanel, WorldRemote, docs OSINT, metadata SEO, ikon dan og-image OSIRIS. Ganti dengan identitas Pusdalops TNI. | Bagian 2.3, `site-metadata.ts`, `manifest.json` |
+
+**SEBAIKNYA**
+
+| # | Keharusan |
+|---|---|
+| U8 | Mode kiosk/video wall: rute tanpa chrome, rotasi panel otomatis, tata letak 1080p dan 4K, Wake Lock. |
+| U9 | Preset multiviewer yang disimpan per ruang/dinding dan bisa dipakai bersama, tidak hanya per browser. |
+| U10 | Token warna status (`--status-kondusif/waspada/siaga`) menggantikan hex langsung. Popup peta diubah jadi komponen. |
+| U11 | State error, kosong, dan memuat diseragamkan dalam Bahasa Indonesia, termasuk `ErrorBoundary` dan LiveAlerts. |
+| U12 | Label peran berbahasa Indonesia, misalnya "Pimpinan" dan "Peninjau". |
+| U13 | Rel tombol kanan peta dijadikan satu komponen, dengan focus ring yang lebih tebal. |
+| U14 | Formulir log kejadian dan tampilan riwayat per satuan (pasangan UI untuk bagian 2.5). |
+
+**OPSIONAL**
+
+| # | Keharusan |
+|---|---|
+| U15 | Mode kontras tinggi atau mode terang untuk ruangan yang terang. |
+| U16 | Penanda bentuk/ikon di layer, tidak hanya warna. |
+| U17 | Peta choropleth 38 provinsi. Data batas provinsi belum ada di repo. |
+| U18 | Pratinjau cetak lapsit langsung dari dasbor pimpinan. |
+
+---
+
+## 6. Usulan urutan pengembangan
+
+| Tahap | Isi | Butir |
+|---|---|---|
+| **0. Bersih-bersih** (±1 minggu) | Hapus WorldRemote, TokenPanel, Markets, kripto, CCTV luar negeri, jalur deploy OSIRIS, dan sisa branding. Hentikan Gemini. Commit perbaikan keamanan yang tertunda. | U7, S2, S9, S22 |
+| **1. Fondasi operasi** | TLS, perbaikan compose, healthcheck DB, migrasi otomatis, backup terjadwal, rotasi log, data seed riil. | S3–S8, S10 |
+| **2. Peta mandiri** | Tile vektor, glyph, sprite, terrain, dan font Indonesia di-host sendiri. Tambah layer batas wilayah BIG. | S1, S11 |
+| **3. Situasi nasional di layar** | Status Kotamaops di peta, dasbor pimpinan, auto-refresh, jam tiga zona, Bahasa Indonesia penuh, ukuran huruf. | U1–U6 |
+| **4. Data nasional** | Integrasi BMKG (gempa, cuaca, InaTEWS), MAGMA, BNPB, SiPongi/BRIN. Karhutla diinput ke DB. | S11, 2.4 |
+| **5. Alur kerja Pusdalops** | Log kejadian, persetujuan berjenjang, ekspor lapsit PDF, notifikasi eskalasi, buku piket. | 2.5, U14 |
+| **6. Ruang operasi** | Mode kiosk, preset multiviewer bersama, relay CCTV, observability, multi-instance. | U8, U9, S12–S19 |
+
+## 7. Batasan audit
+
+- Aplikasi tidak diuji dengan akun per peran dan tidak dicoba di layar 1080p atau 4K maupun video wall.
+- Jumlah string Inggris dan kelas huruf kecil adalah hitungan grep kasar.
+- Perilaku di jaringan tertutup disimpulkan dari daftar host dalam kode, belum diuji di lingkungan air-gapped.
+- Perkiraan kapasitas dan ukuran PMTiles adalah estimasi, belum diuji beban.
+- Audit dikerjakan oleh tiga auditor paralel (fitur, sistem, UI) lalu digabung. Klaim kritis diverifikasi ulang: `deploy.sh`, workflow ghcr, `/api/health`, TLS, Dockerfile, seed, `DATABASE_URL`, dan jam WIB.
