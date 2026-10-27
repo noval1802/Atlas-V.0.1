@@ -76,7 +76,7 @@ export const API_GROUPS: ApiGroup[] = [
           'Fans out to the heavy feeds in parallel and returns only the counts — roughly 100 bytes instead of 10 MB of GeoJSON.',
         returns: ['stats', 'timestamp'],
         notes:
-          '`stats` contains `flights`, `sats`, `cctv`, `weather`, `nuclear`, `incidents`. Cached `s-maxage=30, stale-while-revalidate=60`, so 10k concurrent dashboard boots collapse into one upstream fetch per minute.',
+          '`stats` contains `flights`, `sats`, `cctv`, `weather`, `incidents`. Cached `s-maxage=30, stale-while-revalidate=60`, so 10k concurrent dashboard boots collapse into one upstream fetch per minute.',
       },
     ],
   },
@@ -99,23 +99,6 @@ export const API_GROUPS: ApiGroup[] = [
         summary: 'Tracked orbital objects with TLE-derived positions.',
         returns: ['satellites', 'total', 'category_counts', 'raw_count', 'timestamp'],
         notes: 'Sourced from celestrak.org. `category_counts` breaks the set down by mission type.',
-      },
-      {
-        path: '/api/space-weather',
-        method: 'GET',
-        summary: 'Geomagnetic conditions and solar flare activity from NOAA SWPC.',
-        returns: [
-          'kp_index',
-          'kp_available',
-          'kp_timestamp',
-          'storm_level',
-          'storm_color',
-          'solar_flares',
-          'alerts',
-          'timestamp',
-        ],
-        notes:
-          '`storm_color` is a hex string the HUD renders directly, so clients need no severity lookup table. `kp_index` is null and `storm_level` is "Unknown" when NOAA did not answer — absence of a reading is never reported as "Quiet".',
       },
     ],
   },
@@ -174,43 +157,13 @@ export const API_GROUPS: ApiGroup[] = [
   {
     id: 'geopolitical',
     title: 'Geopolitical',
-    blurb: 'Conflict zones, frontlines, event streams, and country-level risk.',
+    blurb: 'Event streams and region summaries.',
     endpoints: [
-      {
-        path: '/api/conflicts',
-        method: 'GET',
-        summary: 'Active conflict zones joined with live incident reporting.',
-        returns: [
-          'zones',
-          'activeWarzones',
-          'liveEvents',
-          'totalZones',
-          'totalLiveEvents',
-          'sources',
-          'refreshInterval',
-          'timestamp',
-        ],
-        notes: '`refreshInterval` is the server’s recommended client poll interval in milliseconds — honour it rather than hard-coding your own.',
-      },
-      {
-        path: '/api/frontlines',
-        method: 'GET',
-        summary: 'Frontline geometry for active theatres.',
-        returns: ['frontlines', 'timestamp'],
-      },
       {
         path: '/api/gdelt',
         method: 'GET',
         summary: 'Geocoded world events from the GDELT project.',
         returns: ['events', 'total', 'source', 'timestamp'],
-      },
-      {
-        path: '/api/country-risk',
-        method: 'GET',
-        summary: 'Per-country risk scoring alongside market session state.',
-        returns: ['countries', 'methodology', 'exchanges', 'open_exchanges', 'total_exchanges', 'timestamp'],
-        notes:
-          '`base_risk` is a hand-assigned editorial ordering, not a calibrated or back-tested figure — `methodology.basis` says so on every response. `quake_magnitude` is the observed USGS component, reported separately so the two are not conflated.',
       },
       {
         path: '/api/region-dossier',
@@ -226,8 +179,8 @@ export const API_GROUPS: ApiGroup[] = [
   },
   {
     id: 'media-markets',
-    title: 'Media & Markets',
-    blurb: 'News aggregation, live broadcast streams, and financial instruments.',
+    title: 'Media',
+    blurb: 'News aggregation and live broadcast streams.',
     endpoints: [
       {
         path: '/api/news',
@@ -240,24 +193,6 @@ export const API_GROUPS: ApiGroup[] = [
         method: 'GET',
         summary: '24/7 broadcast streams grouped by category.',
         returns: ['feeds', 'categories', 'total', 'timestamp'],
-      },
-      {
-        path: '/api/markets',
-        method: 'GET',
-        summary: 'Defence-sector equities and commodities.',
-        returns: ['stocks', 'timestamp'],
-      },
-      {
-        path: '/api/crypto',
-        method: 'GET',
-        summary: 'Spot prices for the assets shown in the status ticker.',
-        returns: ['…price series'],
-      },
-      {
-        path: '/api/scm-suppliers',
-        method: 'GET',
-        summary: 'Supply-chain suppliers with criticality flags.',
-        returns: ['suppliers', 'total', 'critical_count', 'timestamp'],
       },
     ],
   },
@@ -293,12 +228,6 @@ export const API_GROUPS: ApiGroup[] = [
         params: [{ name: 'url', required: true, desc: 'Upstream stream URL.' }],
         returns: ['domain', 'failed', 'error'],
         notes: 'Allow-listed by domain. Not a general-purpose open proxy.',
-      },
-      {
-        path: '/api/infrastructure',
-        method: 'GET',
-        summary: 'Fixed strategic infrastructure — nuclear sites, plants, and facilities.',
-        returns: ['infrastructure', 'total', 'timestamp'],
       },
       {
         path: '/api/maritime',
@@ -545,41 +474,12 @@ export const API_GROUPS: ApiGroup[] = [
     id: 'ai',
     title: 'AI Analysis',
     blurb:
-      'Gemini-backed correlation over feed data you supply. All three are POST, all three are rate limited to 5 requests per minute per IP.',
+      'Heuristic read-out built on this server from feed data you supply. No external model is called. Rate limited per IP.',
     endpoints: [
-      {
-        path: '/api/ai/analyze',
-        method: 'POST',
-        summary: 'Cross-feed correlation and threat assessment over an intelligence context.',
-        returns: ['…analysis'],
-        notes:
-          'Body is an `IntelligenceContext`. Exceeding the limit returns 429. Feed it straight from the read endpoints — the shape matches what they return.',
-        bodyExample: `{
-  "earthquakes": [],
-  "news": [],
-  "threats": [],
-  "cyberAlerts": [],
-  "timestamp": "2026-07-29T12:00:00Z"
-}`,
-      },
-      {
-        path: '/api/ai/briefing',
-        method: 'POST',
-        summary: 'Structured threat briefing in the style of a daily intelligence product.',
-        returns: ['…briefing'],
-        notes: 'Same `IntelligenceContext` body and same rate limit as `/api/ai/analyze`.',
-        bodyExample: `{
-  "earthquakes": [],
-  "news": [],
-  "threats": [],
-  "cyberAlerts": [],
-  "timestamp": "2026-07-29T12:00:00Z"
-}`,
-      },
       {
         path: '/api/ai/overview',
         method: 'POST',
-        summary: 'One-click read-out for the Alerts or Markets panel. Alerts also return a structured brief: threads by theatre, perspective and seismic summary.',
+        summary: 'One-click read-out for the Live Alerts panel, with a structured brief: threads by theatre, perspective and seismic summary.',
         returns: ['mode', 'overview', 'highlights', 'generatedBy', 'generatedAt', 'brief'],
         bodyExample: `{
   "mode": "alerts",

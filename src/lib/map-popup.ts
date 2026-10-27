@@ -114,13 +114,6 @@ export interface IncidentPopup extends Record<string, unknown> {
   name?: string;
 }
 
-export interface ConflictPopup extends Record<string, unknown> {
-  severity?: string;
-  label?: string;
-  description?: string;
-  sourceUrl?: string;
-}
-
 export interface SdkLinkPopup extends Record<string, unknown> {
   url?: string;
   source?: string;
@@ -148,15 +141,6 @@ export interface ScanPopup extends Record<string, unknown> {
   country?: string;
   isp?: string;
   type?: string;
-}
-
-export interface SupplierPopup extends Record<string, unknown> {
-  risk_level?: string;
-  active_threats?: string;
-  name?: string;
-  category?: string;
-  city?: string;
-  country?: string;
 }
 
 export interface SweepPopup extends Record<string, unknown> {
@@ -205,17 +189,6 @@ export interface WeatherPopup extends Record<string, unknown> {
   title?: string;
   severity?: string;
   source?: string;
-}
-
-export interface FacilityPopup extends Record<string, unknown> {
-  status?: string;
-  sourceUrl?: string;
-  name?: string;
-  city?: string;
-  country?: string;
-  owner?: string;
-  reactors?: string | number;
-  capacityMW?: string | number;
 }
 
 export interface KotamaopsPopup extends Record<string, unknown> {

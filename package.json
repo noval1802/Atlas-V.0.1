@@ -20,7 +20,6 @@
     "seed": "node prisma/seed.mjs"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.19.2",
     "@vercel/analytics": "^2.0.1",
     "framer-motion": "^12.38.0",

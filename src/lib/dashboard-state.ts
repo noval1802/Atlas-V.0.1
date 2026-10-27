@@ -4,7 +4,6 @@ export interface GlobalStats {
   sats: number;
   cctv: number;
   weather: number;
-  nuclear: number;
   incidents: number;
 }
 
@@ -23,14 +22,6 @@ export interface RegionDossier {
   } | null;
   head_of_state?: { name?: string; position?: string } | null;
   wikipedia?: { thumbnail?: string; extract?: string } | null;
-}
-
-/** `/api/space-weather` as the header and markets panel read it. */
-export interface SpaceWeather {
-  kp_index: number | null;
-  storm_level: string;
-  storm_color: string;
-  solar_flares?: Array<{ class?: string }>;
 }
 
 /** A camera the viewer can open from a map click or a preview tile. */

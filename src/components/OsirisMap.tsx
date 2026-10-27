@@ -24,18 +24,19 @@ import { KOTAMAOPS_FLAME_CODES, KOTAMAOPS_FLAME_FRAMES, KOTAMAOPS_FLAME_FRAME_MS
 import type { ArcGisMapLayer, MapEntity } from '@/lib/dashboard-state';
 import type { ActiveLayers } from '@/lib/layer-feeds';
 import { type AlertPinReport, type CableFeature, type FlightRow, type MapData, type SatellitePoint } from '@/lib/map-data';
-import { conflictFeed, type ScanTarget } from '@/lib/map-overlays';
+import type { ScanTarget } from '@/lib/map-overlays';
 import type { SweepResult } from '@/lib/osint-utils';
 import {
   clickedProperties, pointCoordinates,
-  type AttackPopup, type BalloonPopup, type CameraPopup, type ChokePopup, type ConflictPopup,
-  type CyberPopup, type EarthquakePopup, type FacilityPopup, type FirePopup, type FlightPopup,
+  type AttackPopup, type BalloonPopup, type CameraPopup, type ChokePopup,
+  type CyberPopup, type EarthquakePopup, type FirePopup, type FlightPopup,
   type GdeltEventPopup, type IncidentPopup, type KotamaopsPopup, type MalwarePopup, type NewsPopup,
   type OutagePopup, type PortPopup, type RadiationPopup, type ScanPopup, type SdkLinkPopup,
-  type ShipPopup, type SupplierPopup, type SweepPopup, type WeatherPopup,
+  type ShipPopup, type SweepPopup, type WeatherPopup,
   htmlEsc,
   urlSafe,
 } from '@/lib/map-popup';
+import { applyBasemapTone } from '@/lib/basemap-tone';
 import { applyMapProjection } from '@/lib/map-projection';
 import { computeSolarTerminator } from '@/lib/solar-terminator';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -375,6 +376,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
          may have read it before it had a size, and a map that starts at the
          400x300 fallback never recovers on its own. */
       map.resize();
+      applyBasemapTone(map);
 
       // Theme colors
       const isGhost = theme === 'ghost';
@@ -405,7 +407,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       createDot(map, 'dot-fire', isGhost ? phantomPurple : '#E65100', 10);
       createDot(map, 'dot-cctv', cameraColor, 10);
 
-      const sources = ['flights','military','jets','private-fl','satellites','earthquakes','gdelt','day-night','cctv','cctv-jm','cctv-jakarta','fires','weather','infrastructure','maritime','maritime-choke','maritime-ships','live-news','conflict-zones', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'ip-sweep-devices', 'ip-sweep-pulse', 'ip-sweep-connections', 'scan-targets', 'sdk-entities', 'sdk-links', 'malware-nodes', 'malware-new', 'network-mesh', 'cyber-heads', 'gdelt-events', 'cf-outages', 'cf-attacks', 'alert-pins', 'kotamaops'];
+      const sources = ['flights','military','jets','private-fl','satellites','earthquakes','gdelt','day-night','cctv','cctv-jm','cctv-jakarta','fires','weather','maritime','maritime-choke','maritime-ships','live-news', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'ip-sweep-devices', 'ip-sweep-pulse', 'ip-sweep-connections', 'scan-targets', 'sdk-entities', 'sdk-links', 'malware-nodes', 'malware-new', 'network-mesh', 'cyber-heads', 'gdelt-events', 'cf-outages', 'cf-attacks', 'alert-pins', 'kotamaops'];
       sources.forEach(s => map.addSource(s, { type: 'geojson', data: EMPTY_FC }));
 
       // ── FLIGHT ROUTE VISUALIZATION SOURCES & LAYERS ──
@@ -433,22 +435,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       createWarningIcon('warn-orange', '#E65100');
       createWarningIcon('warn-yellow', '#F9A825');
 
-      map.addLayer({ id: 'conflict-icons', type: 'symbol', source: 'conflict-zones', layout: {
-        'icon-image': ['match', ['get','severity'], 'war','warn-icon', 'high','warn-orange', 'warn-yellow'],
-        'icon-size': ['interpolate',['linear'],['zoom'], 1,0.6, 4,0.8, 8,1],
-        'icon-allow-overlap': true,
-        'text-field': ['get','label'],
-        'text-size': ['interpolate',['linear'],['zoom'], 1,7, 4,9, 8,11],
-        'text-font': ['Open Sans Bold'],
-        'text-offset': [0, 1.4],
-        'text-allow-overlap': false,
-      }, paint: {
-        'text-color': ['match', ['get','severity'], 'war','#D32F2F', 'high','#E65100', '#F9A825'],
-        'text-halo-color': '#000', 'text-halo-width': 1.5, 'text-opacity': 0.9,
-      }});
-
-
-      // Day/Night
       map.addLayer({ id: 'day-night-fill', type: 'fill', source: 'day-night', paint: { 'fill-color': isGhost ? '#0D0030' : '#000022', 'fill-opacity': 0.35 }});
 
       // Earthquakes — amber threat spectrum
@@ -627,29 +613,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         'text-field': ['get','title'], 'text-size': 9, 'text-font': ['Open Sans Regular'],
         'text-offset': [0, 2], 'text-max-width': 14, 'text-allow-overlap': false,
       }, paint: { 'text-color': '#7E57C2', 'text-halo-color': '#000', 'text-halo-width': 1, 'text-opacity': 0.8 }});
-
-      // Nuclear Infrastructure — teal / amber risk
-      map.addLayer({ id: 'infra-glow', type: 'circle', source: 'infrastructure', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,8, 5,14, 10,22],
-        'circle-color': ['case', ['in', 'SEISMIC RISK', ['get', 'status']], '#E65100', '#26A69A'],
-        'circle-opacity': 0.08, 'circle-blur': 1,
-      }});
-      map.addLayer({ id: 'infra-dots', type: 'circle', source: 'infrastructure', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,4, 5,6, 10,10],
-        'circle-color': ['case', 
-          ['in', 'SEISMIC RISK', ['get', 'status']], '#E65100',
-          ['==', ['get','status'], 'Active Conflict Zone'], '#D32F2F', 
-          ['in', 'Decommission', ['get', 'status']], '#546E7A', 
-          ['==', ['get','status'], 'Under Construction'], '#FFA726', 
-          '#26A69A'
-        ],
-        'circle-opacity': 0.75,
-        'circle-stroke-width': 1.5, 'circle-stroke-color': ['case', ['in', 'SEISMIC RISK', ['get', 'status']], '#E65100', '#26A69A'], 'circle-stroke-opacity': 0.35,
-      }});
-      map.addLayer({ id: 'infra-label', type: 'symbol', source: 'infrastructure', minzoom: 5, layout: {
-        'text-field': ['get','name'], 'text-size': 9, 'text-font': ['Open Sans Regular'],
-        'text-offset': [0, 2], 'text-max-width': 14, 'text-allow-overlap': false,
-      }, paint: { 'text-color': ['case', ['in', 'SEISMIC RISK', ['get', 'status']], '#E65100', '#26A69A'], 'text-halo-color': '#000', 'text-halo-width': 1, 'text-opacity': 0.7 }});
 
       // Satellites.
       // Every satellite is drawn once, by the custom 3D layer below, at its
@@ -1046,7 +1009,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       popupRef.current?.remove();
       popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '420px', offset: anchor === 'bottom' ? 12 : 14, anchor }).setLngLat(coords).setHTML(html).addTo(map);
     };
-    const pStyle = `background:rgba(12,14,26,0.95);backdrop-filter:blur(16px);border-radius:10px;padding:16px;font-family:'JetBrains Mono',monospace;`;
+    const pStyle = `background:rgba(21,26,41,0.95);backdrop-filter:blur(16px);border-radius:10px;padding:16px;font-family:'JetBrains Mono',monospace;`;
     const linkStyle = `display:inline-block;margin-top:8px;padding:5px 12px;font-size:10px;letter-spacing:0.12em;text-decoration:none;border-radius:5px;font-family:'JetBrains Mono',monospace;`;
 
     // ── XSS PROTECTION HELPERS ──
@@ -1208,8 +1171,8 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     // ── Satellites (SatNOGS powered) ──
     // Layers with their own click handlers. The satellite pick defers to
     // these, and to nothing else — the basemap is not a click target.
-    const CLICKABLE_LAYERS = new Set(['conflict-icons','cctv-dots','cctv-jm-dots','cctv-jakarta-dots','eq-circles','fires-heat',
-      'gdelt-dots','weather-dots','infra-dots','maritime-dots','choke-dots','news-dots',
+    const CLICKABLE_LAYERS = new Set(['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','eq-circles','fires-heat',
+      'gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots',
       'balloon-dots','rad-dots','ship-dots','sweep-device-dots','scan-targets-dots',
       'sdk-sea','sdk-air','sdk-intel','malware-dots','cyber-heads','gdelt-events-dots',
       'cf-outage-dots','cf-attack-dots','flight-dots','military-dots','jet-dots','private-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame']);
@@ -1456,23 +1419,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       </div>`);
     });
 
-    // ── Global Event / Conflict Markers ──
-    map.on('click', 'conflict-icons', e => {
-      const p = clickedProperties<ConflictPopup>(e);
-      const coords = pointCoordinates(e.features?.[0]?.geometry);
-      if (!p || !coords) return;
-      const color = p.severity === 'war' ? '#FF1744' : p.severity === 'high' ? '#FF9500' : '#FFD500';
-      popup(coords, `<div style="${pStyle}border:1px solid ${color}40;">
-        <div style="color:${color};font-size:12px;font-weight:700;margin-bottom:6px;">⚠️ ${htmlEsc(p.label || 'WARNING EVENT')}</div>
-        <div style="font-size:10px;color:#E8E6E0;margin-bottom:8px;line-height:1.4;">${htmlEsc(p.description || 'Global event detected at this location.')}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9px;margin-bottom:8px;">
-          <div><span style="color:#5C5A54;">SEVERITY</span><br/><span style="color:${color};">${(p.severity||'unknown').toUpperCase()}</span></div>
-          <div><span style="color:#5C5A54;">COORDS</span><br/><span style="color:#E8E6E0;">${coords[1].toFixed(3)}°, ${coords[0].toFixed(3)}°</span></div>
-        </div>
-        ${p.sourceUrl ? `<a href="${urlSafe(p.sourceUrl)}" target="_blank" style="${linkStyle}flex:1;text-align:center;color:${color};border:1px solid ${color}40;background:${color}15;display:inline-block;width:100%;box-sizing:border-box;margin-top:4px;">[ OPEN SOURCE ↗ ]</a>` : ''}
-      </div>`);
-    });
-
 
     // ── OSIRIS SDK link click ──
     const SDK_SOURCE_URLS: Record<string, string> = {
@@ -1542,7 +1488,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     });
 
     // ── Generic hover for clickables ──
-    ['conflict-icons','cctv-dots','cctv-jm-dots','cctv-jakarta-dots','eq-circles','fires-heat','gdelt-dots','weather-dots','infra-dots','maritime-dots','choke-dots','news-dots','balloon-dots','rad-dots','ship-dots','sweep-device-dots','scan-targets-dots','sdk-sea','sdk-sea-glow','sdk-sea-atmo','sdk-air','sdk-air-glow','sdk-air-atmo','sdk-intel','sdk-intel-glow','sdk-intel-atmo','malware-dots','cyber-heads','gdelt-events-dots','cf-outage-dots','cf-attack-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame'].forEach(layer => {
+    ['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','eq-circles','fires-heat','gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots','balloon-dots','rad-dots','ship-dots','sweep-device-dots','scan-targets-dots','sdk-sea','sdk-sea-glow','sdk-sea-atmo','sdk-air','sdk-air-glow','sdk-air-atmo','sdk-intel','sdk-intel-glow','sdk-intel-atmo','malware-dots','cyber-heads','gdelt-events-dots','cf-outage-dots','cf-attack-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame'].forEach(layer => {
       map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
     });
@@ -1559,31 +1505,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
           <div><span style="color:#5C5A54;">TYPE</span><br/><span style="color:#00E5FF;">${htmlEsc(String(p.type || 'UNKNOWN').toUpperCase())}</span></div>
           <div><span style="color:#5C5A54;">COORDS</span><br/><span style="color:#E8E6E0;">${coords[1].toFixed(3)}°, ${coords[0].toFixed(3)}°</span></div>
         </div>
-      </div>`);
-    });
-
-    // ── SCM Suppliers ──
-    map.on('click', 'scm-dots', e => {
-      const p = clickedProperties<SupplierPopup>(e);
-      const coords = pointCoordinates(e.features?.[0]?.geometry);
-      if (!p || !coords) return;
-      const color = p.risk_level === 'CRITICAL' ? '#FF1744' : p.risk_level === 'HIGH' ? '#FF9500' : '#00BCD4';
-      const activeThreats = p.active_threats ? JSON.parse(p.active_threats) : [];
-      
-      let threatsHtml = '';
-      if (activeThreats.length > 0) {
-        threatsHtml = `<div style="margin-top:8px;padding-top:6px;border-top:1px solid ${color}40;color:${color};font-size:9px;font-weight:bold;">
-          ACTIVE THREATS:<br/>${activeThreats.map((t: string) => `⚠ ${htmlEsc(t)}`).join('<br/>')}
-        </div>`;
-      }
-
-      popup(coords, `<div style="${pStyle}border:1px solid ${color}40;">
-        <div style="color:${color};font-size:12px;font-weight:700;margin-bottom:4px;">🏢 ${htmlEsc(p.name)}</div>
-        <div style="font-size:9px;color:#aaa;margin-bottom:8px;">${htmlEsc(p.category)} | ${htmlEsc(p.city)}, ${htmlEsc(p.country)}</div>
-        <div style="display:grid;grid-template-columns:1fr;gap:4px;font-size:11px;">
-          <div><span style="color:#5C5A54;font-size:9px;">SCM RISK LEVEL</span><br/><span style="color:${color};font-weight:bold;">${htmlEsc(String(p.risk_level ?? ''))}</span></div>
-        </div>
-        ${threatsHtml}
       </div>`);
     });
 
@@ -1683,51 +1604,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         </div>
         <div style="display:flex;gap:6px;">
           ${urlSafe(p.source) !== '#' ? `<a href="${urlSafe(p.source)}" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:#E040FB;border:1px solid rgba(224,64,251,0.4);background:rgba(224,64,251,0.1);">📡 SOURCE</a>` : ''}
-        </div>
-      </div>`);
-    });
-
-    // ── Nuclear Infrastructure ──
-    map.on('click', 'infra-dots', e => {
-      const p = clickedProperties<FacilityPopup>(e);
-      const coords = pointCoordinates(e.features?.[0]?.geometry);
-      if (!p || !coords) return;
-      const status = String(p.status ?? '');
-
-      // Same order and colours as the infra-dots paint expression above, so the
-      // popup's accent always matches the dot the user just clicked.
-      const accent =
-        status.includes('SEISMIC RISK') ? '#E65100' :
-        status === 'Active Conflict Zone' ? '#D32F2F' :
-        status.includes('Decommission') ? '#546E7A' :
-        status === 'Under Construction' ? '#FFA726' :
-        '#26A69A';
-
-      // A facility with no reactor (waste storage, enrichment) and a research
-      // reactor rated in thermal MW both carry 0 here — neither is an electrical
-      // figure, so both render as "—" rather than as a real 0 MWe.
-      const row = (label: string, value: string, color = '#E8E6E0') =>
-        `<div><span style="color:#5C5A54;">${label}</span><br/><span style="color:${color};">${value}</span></div>`;
-
-      const ref = p.sourceUrl
-        ? `<a href="${htmlEsc(p.sourceUrl)}" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:${accent};border:1px solid ${accent}66;background:${accent}1A;">REFERENCE</a>`
-        : '';
-
-      popup(coords, `<div style="${pStyle}border:1px solid ${accent}4D;">
-        <div style="color:${accent};font-size:14px;font-weight:700;margin-bottom:2px;">☢️ ${htmlEsc(p.name || 'Nuclear Facility')}</div>
-        <div style="color:#5C5A54;font-size:9px;letter-spacing:0.1em;margin-bottom:10px;">${htmlEsc([p.city, p.country].filter(Boolean).join(', ')) || '—'}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 6px;font-size:9px;">
-          ${row('STATUS', htmlEsc(status) || '—', accent)}
-          ${row('OWNER', htmlEsc(p.owner) || '—')}
-          ${row('REACTORS', p.reactors ? htmlEsc(p.reactors) : '—', accent)}
-          ${row('CAPACITY', p.capacityMW ? `${Number(p.capacityMW).toLocaleString()} MWe` : '—')}
-        </div>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);font-size:9px;color:#5C5A54;">
-          ${coords[1].toFixed(3)}°, ${coords[0].toFixed(3)}°
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${ref}
-          <a href="https://www.google.com/maps/@${coords[1]},${coords[0]},14z/data=!3m1!1e3" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:#8A8880;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.04);">SATELLITE</a>
         </div>
       </div>`);
     });
@@ -2309,11 +2185,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
   useEffect(() => {
     if (!mapReady) return;
-    setGeo('infrastructure', activeLayers.infrastructure && data.infrastructure ? data.infrastructure.map(i => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [i.lng, i.lat] }, properties: { name: i.name, city: i.city, country: i.country, status: i.status, reactors: i.reactors, capacityMW: i.capacityMW, owner: i.owner, sourceUrl: i.sourceUrl ?? null } })) : []);
-  }, [mapReady, data.infrastructure, activeLayers.infrastructure, setGeo]);
-
-  useEffect(() => {
-    if (!mapReady) return;
     setGeo('kotamaops', kotamaopsFeatures(data.kotamaops ?? [], (matra) => !!activeLayers[MATRA_LAYER[matra]]));
   }, [mapReady, data.kotamaops, activeLayers.tni_ad, activeLayers.tni_al, activeLayers.tni_au, setGeo]);
 
@@ -2452,68 +2323,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
   }, [mapReady, activeLayers.alert_pins]);
 
 
-  useEffect(() => {
-    if (!mapReady) return;
-    // 🔴 CONFLICT ZONES - Live from /api/conflicts 🔴
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/conflicts');
-        if (cancelled) return;
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const conflictData = conflictFeed(await res.json());
-        if (cancelled) return;
-
-        // Zone anchor markers (war/high/elevated labels)
-        const zoneFeatures = conflictData.zones.map((z) => ({
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: [z.lng, z.lat] },
-          properties: { 
-            label: z.label, 
-            severity: z.severity, 
-            description: `${z.description}${(z.eventCount ?? 0) > 0 ? ` [${z.eventCount} live events detected]` : ''}`,
-            sourceUrl: z.sourceUrl,
-            eventCount: z.eventCount,
-          },
-        }));
-
-        // Individual live conflict events (scatter dots across conflict zones)
-        const eventFeatures = conflictData.liveEvents
-          .filter((e) => e.lat && e.lng)
-          .map((e) => ({
-            type: 'Feature' as const,
-            geometry: { type: 'Point' as const, coordinates: [e.lng, e.lat] },
-            properties: { 
-              label: (e.title || 'CONFLICT EVENT').substring(0, 60).toUpperCase(),
-              severity: 'war',
-              description: e.title || 'Live conflict event detected by GDELT.',
-              sourceUrl: e.url || '',
-            },
-          }));
-
-        setGeo('conflict-zones', [...zoneFeatures, ...eventFeatures]);
-      } catch (e) {
-        // Fallback: if API fails, use minimal known zones
-        const FALLBACK_ZONES = [
-          { label: 'UKRAINE WAR', severity: 'war', lat: 48.5, lng: 31.2, description: 'Ongoing Russian invasion of Ukraine.', sourceUrl: 'https://liveuamap.com/' },
-          { label: 'GAZA CONFLICT', severity: 'war', lat: 31.35, lng: 34.35, description: 'Active military operations in Gaza.', sourceUrl: 'https://israelpalestine.liveuamap.com/' },
-          { label: 'SUDAN CIVIL WAR', severity: 'war', lat: 15.0, lng: 30.0, description: 'SAF vs RSF armed conflict.', sourceUrl: 'https://sudan.liveuamap.com/' },
-          { label: 'YEMEN WAR', severity: 'war', lat: 15.5, lng: 48.0, description: 'Houthi operations and Red Sea threats.', sourceUrl: 'https://yemen.liveuamap.com/' },
-          { label: 'MYANMAR CONFLICT', severity: 'war', lat: 19.5, lng: 96.5, description: 'Military junta vs opposition forces.', sourceUrl: 'https://myanmar.liveuamap.com/' },
-          { label: 'SYRIA', severity: 'high', lat: 35.0, lng: 38.5, description: 'Ongoing civil conflict.', sourceUrl: 'https://syria.liveuamap.com/' },
-        ];
-        const fallbackFeatures = FALLBACK_ZONES.map(z => ({
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: [z.lng, z.lat] },
-          properties: { label: z.label, severity: z.severity, description: z.description, sourceUrl: z.sourceUrl },
-        }));
-        setGeo('conflict-zones', fallbackFeatures);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [mapReady, setGeo]);
-
-
   // Visibility
   useEffect(() => {
     if (!mapReady) return;
@@ -2543,13 +2352,11 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     setVis(['cctv-jakarta-glow','cctv-jakarta-dots','cctv-jakarta-label'], activeLayers.cctv_jakarta !== false);
     setVis(['fires-heat'], activeLayers.fires);
     setVis(['weather-glow','weather-dots','weather-label'], activeLayers.weather);
-    setVis(['infra-glow','infra-dots','infra-label'], activeLayers.infrastructure);
     setVis(['maritime-glow','maritime-dots','maritime-label'], activeLayers.maritime);
     setVis(['choke-glow','choke-dots','choke-label'], activeLayers.maritime);
     setVis(['ship-dots','ship-label'], activeLayers.maritime);
     setVis(['news-glow','news-dots','news-label'], activeLayers.live_news);
     setVis(['alert-pin-glow','alert-pin-dots','alert-pin-label','alert-pin-pulse','alert-pin-selected'], activeLayers.alert_pins);
-    setVis(['conflict-icons'], activeLayers.conflict_zones !== false);
 
     setVis(['balloon-dots','balloon-label'], activeLayers.balloons);
     setVis(['rad-glow','rad-dots','rad-label'], activeLayers.radiation);
@@ -2662,11 +2469,11 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         if (configureSky && map.getPitch() < 0.5) map.easeTo({ pitch: 20, duration: 1200 });
         try {
           if (configureSky) map.setSky({
-            'sky-color': '#04040A',
+            'sky-color': '#0A0D16',
             'sky-horizon-blend': 0.5,
-            'horizon-color': '#0a0a1a',
+            'horizon-color': '#141a2a',
             'horizon-fog-blend': 0.3,
-            'fog-color': '#04040A',
+            'fog-color': '#0A0D16',
             'fog-ground-blend': 0.9,
           });
         } catch (e) { console.warn('[OSIRIS] Suppressed error:', e instanceof Error ? e.message : e); }

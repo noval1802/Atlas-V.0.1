@@ -15,11 +15,11 @@ export const maxDuration = 60;
  * lightweight stats route safely serves 10k concurrent users instantly.
  */
 
-type Stats = { flights: number; sats: number; cctv: number; weather: number; nuclear: number; incidents: number };
+type Stats = { flights: number; sats: number; cctv: number; weather: number; incidents: number };
 type Snapshot = { stats: Stats; timestamp: string; at: number };
-const EMPTY: Stats = { flights: 0, sats: 0, cctv: 0, weather: 0, nuclear: 0, incidents: 0 };
+const EMPTY: Stats = { flights: 0, sats: 0, cctv: 0, weather: 0, incidents: 0 };
 
-/* One computation serves everyone. Each one pulls six of this app's own feeds —
+/* One computation serves everyone. Each one pulls five of this app's own feeds —
    CCTV alone is ~14MB — and parses them only to count. Next's data cache
    refuses anything over 2MB, so those fetches are `no-store`. The snapshot
    below is the cache: at most one computation per TTL, concurrent callers
@@ -38,12 +38,11 @@ export function clearStatsSnapshot() {
 /** Counts for the feeds that answered; a feed that failed is simply absent. */
 async function computeStats(origin: string): Promise<Partial<Stats>> {
   // Fetch all internal APIs in parallel (they have their own Cache-Control TTLs)
-  const [flightsRes, satsRes, cctvRes, weatherRes, infraRes, gdeltRes] = await Promise.allSettled([
+  const [flightsRes, satsRes, cctvRes, weatherRes, gdeltRes] = await Promise.allSettled([
     fetch(`${origin}/api/flights`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
     fetch(`${origin}/api/satellites`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
     fetch(`${origin}/api/cctv`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
     fetch(`${origin}/api/weather`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
-    fetch(`${origin}/api/infrastructure`, { signal: AbortSignal.timeout(20000), cache: 'no-store' }),
     fetch(`${origin}/api/gdelt`, { signal: AbortSignal.timeout(20000), cache: 'no-store' })
   ]);
 
@@ -71,11 +70,6 @@ async function computeStats(origin: string): Promise<Partial<Stats>> {
   if (weatherRes.status === 'fulfilled' && weatherRes.value.ok) {
     const data = await weatherRes.value.json();
     fresh.weather = data.events?.length || 0;
-  }
-
-  if (infraRes.status === 'fulfilled' && infraRes.value.ok) {
-    const data = await infraRes.value.json();
-    fresh.nuclear = data.infrastructure?.length || 0;
   }
 
   if (gdeltRes.status === 'fulfilled' && gdeltRes.value.ok) {

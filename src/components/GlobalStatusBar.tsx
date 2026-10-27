@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
-interface CryptoPrice { symbol: string; price: number; change24h?: number; }
 interface Earthquake { id: string; magnitude: number; place: string; time: number; depth: number; }
 
 /* ─── Inline SVG Icons ─── */
@@ -15,69 +14,15 @@ const DocsIcon = () => (
   </svg>
 );
 
-const SolanaIcon = () => (
-  <svg className="w-3.5 h-3.5" viewBox="0 0 32 32" fill="none">
-    <path d="M6 10h14l4 3H10l-4-3zm0 9h14l4 3H10l-4-3zm18-6H10l-4 3h14l4-3z" fill="url(#sol_grad_bar)"/>
-    <defs>
-      <linearGradient id="sol_grad_bar" x1="6" y1="13" x2="24" y2="13" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#9945FF"/>
-        <stop offset="1" stopColor="#14F195"/>
-      </linearGradient>
-    </defs>
-  </svg>
-);
-
-const BtcIcon = () => (
-  <svg className="w-3 h-3" viewBox="0 0 32 32" fill="none">
-    <circle cx="16" cy="16" r="16" fill="#F7931A"/>
-    <path d="M22.5 13.5c0-2-1.5-3-3.5-3h-1.5v-2h-2v2h-1.5v-2h-2v2h-2.5v2h1.5c.5 0 1 .5 1 1v6c0 .5-.5 1-1 1h-1.5v2h2.5v2h2v-2h1.5v2h2v-2c2 0 4-1 4-3 0-1.5-.5-2.5-1.5-3 1-.5 1.5-1.5 1.5-2.5zm-5 4c0 1-1 1-1.5 1h-2v-3h2c1 0 1.5 0 1.5 1v1zm-.5-4.5c0 1-1 1-1.5 1h-2v-2.5h2c.5 0 1.5 0 1.5 1v.5z" fill="#FFF"/>
-  </svg>
-);
-
-const EthIcon = () => (
-  <svg className="w-3 h-3" viewBox="0 0 32 32" fill="none">
-    <path d="M15.9 2L7 16.8l8.9 5.3 8.9-5.3L15.9 2z" fill="#627EEA"/>
-    <path d="M15.9 24v6.8l8.9-12.6-8.9 5.8z" fill="#627EEA"/>
-    <path d="M7 18.2l8.9 12.6V24l-8.9-5.8z" fill="#627EEA"/>
-  </svg>
-);
-
-const formatPrice = (price: number) => {
-  if (price >= 1000) return `$${(price / 1000).toFixed(1)}K`;
-  if (price < 0.01) return `$${price.toFixed(5)}`;
-  if (price < 1) return `$${price.toFixed(4)}`;
-  return `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
-
-const formatChange = (change: number | undefined) => {
-  if (change === undefined) return null;
-  const isUp = change >= 0;
-  return (
-    <span className={`text-[9px] ${isUp ? 'text-[#00E676]' : 'text-[#FF3D57]'}`}>
-      {isUp ? '▲' : '▼'}{Math.abs(change).toFixed(1)}%
-    </span>
-  );
-};
-
 /** `revealed` is false while the splash is up; the bar rises when it turns true. */
 export default function GlobalStatusBar({ revealed = true }: { revealed?: boolean }) {
-  const [crypto, setCrypto] = useState<CryptoPrice[]>([]);
   const [quakes, setQuakes] = useState<Earthquake[]>([]);
   const [hoveredQuake, setHoveredQuake] = useState<Earthquake | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [cryptoRes, quakeRes] = await Promise.allSettled([
-          fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true')
-            .then(res => res.ok ? res.json() : Promise.reject('CoinGecko error'))
-            .then(data => {
-              const prices: CryptoPrice[] = [];
-              if (data.bitcoin?.usd) prices.push({ symbol: 'BTC', price: data.bitcoin.usd, change24h: data.bitcoin.usd_24h_change });
-              if (data.ethereum?.usd) prices.push({ symbol: 'ETH', price: data.ethereum.usd, change24h: data.ethereum.usd_24h_change });
-              if (data.solana?.usd) prices.push({ symbol: 'SOL', price: data.solana.usd, change24h: data.solana.usd_24h_change });
-              return { ok: true, json: async () => prices };
-            }),
+        const [quakeRes] = await Promise.allSettled([
           fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson')
             .then(res => res.ok ? res.json() : Promise.reject('USGS error'))
             .then(data => ({
@@ -94,9 +39,6 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
             })),
         ]);
 
-        if (cryptoRes.status === 'fulfilled' && cryptoRes.value.ok) {
-          setCrypto(await cryptoRes.value.json());
-        }
         if (quakeRes.status === 'fulfilled' && quakeRes.value.ok) {
           const quakeData = await quakeRes.value.json();
           const majorQuakes = (quakeData.earthquakes || [])
@@ -112,11 +54,9 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
     return () => clearInterval(iv);
   }, []);
 
-  // Keep the bar mounted even with no feed data — the left-hand community and
-  // docs links must stay reachable when CoinGecko/USGS are rate-limited or down.
-  const hasTicker = crypto.length > 0 || quakes.length > 0;
-
-  const solPrice = crypto.find(c => c.symbol === 'SOL');
+  // Keep the bar mounted even with no feed data — the docs links must stay
+  // reachable when USGS is rate-limited or down.
+  const hasTicker = quakes.length > 0;
 
   return (
     <motion.div
@@ -151,18 +91,6 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
           <div className={`flex items-center animate-ticker whitespace-nowrap ${hasTicker ? '' : 'hidden'}`}>
             {[...Array(4)].map((_, repeatIdx) => (
               <span key={repeatIdx} className="inline-flex items-center">
-                {/* Crypto prices */}
-                {crypto.map(c => (
-                  <span key={`${c.symbol}-${repeatIdx}`} className="inline-flex items-center gap-1 mx-3">
-                    {c.symbol === 'BTC' && <BtcIcon />}
-                    {c.symbol === 'ETH' && <EthIcon />}
-                    {c.symbol === 'SOL' && <SolanaIcon />}
-                    <span className="text-white/80 font-bold">{formatPrice(c.price)}</span>
-                    {formatChange(c.change24h)}
-                  </span>
-                ))}
-                {/* Separator */}
-                <span className="text-white/10 mx-2">│</span>
                 {/* Earthquakes */}
                 {quakes.map(quake => (
                   <span 
@@ -182,7 +110,7 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
           </div>
         </div>
 
-        {/* ── RIGHT: Live SOL Price + Links ── */}
+        {/* ── RIGHT: Status ── */}
         <div className="flex-shrink-0 h-full flex items-center pointer-events-auto border-l border-white/[0.04]">
 
           {/* Status indicator */}

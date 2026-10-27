@@ -24,7 +24,6 @@ export interface ActiveLayers {
   fires: boolean;
   weather: boolean;
   radiation: boolean;
-  infrastructure: boolean;
   global_incidents: boolean;
   alert_pins: boolean;
   war_alerts: boolean;
@@ -49,8 +48,6 @@ export interface ActiveLayers {
    * Absent means the mesh follows the malware layer.
    */
   internet_outages?: boolean;
-  /** Absent means the conflict icons stay visible. There is no toggle for them. */
-  conflict_zones?: boolean;
 }
 
 /** Most layers stay off so the first load stays small. */
@@ -79,7 +76,6 @@ export const DEFAULT_ACTIVE_LAYERS: ActiveLayers = {
   fires: false,
   weather: false,
   radiation: false,
-  infrastructure: false,
   global_incidents: false,
   /* Live Alerts reports pinned to the place they name — see alert-places.
      Off until asked for, like the other threat layers: the map opens with
@@ -113,7 +109,6 @@ export type FeedTransform =
   | 'radiation'
   | 'live-news'
   | 'weather'
-  | 'infrastructure'
   | 'gdelt'
   | 'cyber-attacks'
   | 'gdelt-events'
@@ -177,7 +172,6 @@ const ONCE_RULES: OnceRule[] = [
   { key: 'live_news', url: '/api/live-news', transform: 'live-news', retryOnFailure: false, kind: 'json', when: layers => layers.live_news },
   // The page also loads weather for Live Alerts and marks this key first, so a normal startup does not fetch it twice.
   { key: 'weather', url: '/api/weather', transform: 'weather', retryOnFailure: false, kind: 'json', when: layers => layers.weather },
-  { key: 'infrastructure', url: '/api/infrastructure', transform: 'infrastructure', retryOnFailure: false, kind: 'json', when: layers => layers.infrastructure },
   { key: 'gdelt', url: '/api/gdelt', transform: 'gdelt', retryOnFailure: false, kind: 'json', when: layers => layers.global_incidents },
   { key: 'cables', url: '/data/submarine-cables.json', transform: 'none', retryOnFailure: false, kind: 'static', when: layers => layers.cables },
   { key: 'cyber_attacks', url: '/api/cyber-attacks', transform: 'cyber-attacks', retryOnFailure: false, kind: 'json', when: layers => layers.cyber_attacks },
@@ -259,8 +253,6 @@ export function applyFeedTransform(transform: FeedTransform, payload: unknown): 
       return { live_feeds: body.feeds } as Partial<MapData>;
     case 'weather':
       return { weather_events: body.events } as Partial<MapData>;
-    case 'infrastructure':
-      return { infrastructure: body.infrastructure } as Partial<MapData>;
     case 'gdelt':
       return { gdelt: body.events } as Partial<MapData>;
     case 'cyber-attacks':

@@ -32,7 +32,6 @@ describe('onceFeeds', () => {
       'radiation',
       'live_news',
       'weather',
-      'infrastructure',
       'gdelt',
       'cables',
       'cyber_attacks',
@@ -133,7 +132,6 @@ describe('applyFeedTransform', () => {
     expect(applyFeedTransform('radiation', { stations: [1] })).toEqual({ radiation: [1] });
     expect(applyFeedTransform('live-news', { feeds: [1] })).toEqual({ live_feeds: [1] });
     expect(applyFeedTransform('weather', { events: [1] })).toEqual({ weather_events: [1] });
-    expect(applyFeedTransform('infrastructure', { infrastructure: [1] })).toEqual({ infrastructure: [1] });
     expect(applyFeedTransform('gdelt', { events: [1] })).toEqual({ gdelt: [1] });
     expect(applyFeedTransform('cyber-attacks', { indicators: [1] })).toEqual({ cyber_attacks: [1] });
     expect(applyFeedTransform('gdelt-events', { events: [1] })).toEqual({ gdelt_events: [1] });

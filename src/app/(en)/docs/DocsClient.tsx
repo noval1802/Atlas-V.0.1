@@ -351,7 +351,7 @@ print(len(data["commercial_flights"]), "commercial")`,
             </p>
             <Pre label="Aggregate counters" lang="bash">{`curl -s ${origin}/api/stats
 # { "stats": { "flights": 9241, "sats": 2043, "cctv": 2117,
-#              "weather": 58, "nuclear": 191, "incidents": 412 },
+#              "weather": 58, "incidents": 412 },
 #   "timestamp": "2026-07-29T12:00:00Z" }`}</Pre>
             <p>The OSINT lookups each take one subject, so they compose cleanly in a pipeline:</p>
             <Pre label="Passive subdomain enumeration" lang="bash">{`curl -s "${origin}/api/osint/certs?domain=example.com" | jq -r '.subdomains[]'`}</Pre>
@@ -482,7 +482,6 @@ docker compose up -d`}</Pre>
                 { key: 'F', desc: 'Toggle fullscreen' },
                 { key: 'S', desc: 'Share current view' },
                 { key: 'L', desc: 'Toggle layer panel' },
-                { key: 'M', desc: 'Toggle markets panel' },
                 { key: 'I', desc: 'Toggle intel feed' },
                 { key: 'R', desc: 'Reset to global view' },
                 { key: '?', desc: 'Show help' },

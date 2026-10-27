@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapDataList, marketSection, type MapData, type MarketsSnapshot } from './map-data';
+import { mapDataList, type MapData } from './map-data';
 
 describe('mapDataList', () => {
   const data: MapData = {
@@ -23,20 +23,5 @@ describe('mapDataList', () => {
 
   it('skips a malformed payload instead of counting it', () => {
     expect(mapDataList({ earthquakes: 'not-an-array' }, 'earthquakes')).toBeUndefined();
-  });
-});
-
-describe('marketSection', () => {
-  const markets: MarketsSnapshot = {
-    stocks: { RTX: { name: 'RTX', symbol: 'RTX', price: 100, change_percent: 1, up: true } },
-  };
-
-  it('returns the quotes for a known section', () => {
-    expect(marketSection(markets, 'stocks').RTX.symbol).toBe('RTX');
-  });
-
-  it('treats a missing section and an unknown one as an empty bag', () => {
-    expect(marketSection(markets, 'crypto')).toEqual({});
-    expect(marketSection(markets, 'bonds')).toEqual({});
   });
 });

@@ -106,17 +106,6 @@ export interface WeatherRow extends MapPointRow {
   source?: string;
 }
 
-export interface InfrastructureRow extends MapPointRow {
-  name?: string;
-  city?: string;
-  country?: string;
-  status?: string;
-  reactors?: string | number;
-  capacityMW?: string | number;
-  owner?: string;
-  sourceUrl?: string | null;
-}
-
 export interface GdeltRow extends MapPointRow {
   name?: string;
   url?: string;
@@ -209,15 +198,6 @@ export interface NewsRow {
   coords?: [number, number] | null;
 }
 
-/** A supplier pin the supply-chain panel reads. */
-export interface SupplierRow {
-  name?: string;
-  city?: string;
-  risk_level?: string;
-  /** JSON array string, the same way the map popup stores threats. */
-  active_threats?: string;
-}
-
 /** Fields the satellite layer and its popup read. */
 export interface SatellitePoint {
   name: string;
@@ -291,7 +271,6 @@ export interface MapData {
   earthquakes?: EarthquakeRow[];
   fires?: FireRow[];
   weather_events?: WeatherRow[];
-  infrastructure?: InfrastructureRow[];
   gdelt?: GdeltRow[];
   gdelt_events?: GdeltEventRow[];
   balloons?: BalloonRow[];
@@ -305,51 +284,7 @@ export interface MapData {
   cf_outages?: OutageRow[];
   cf_attack_origins?: AttackOriginRow[];
   submarine_cables?: CableFeature[];
-  scm_suppliers?: SupplierRow[];
   sdk_entities?: MapRecord[];
-  markets?: MarketsSnapshot;
-}
-
-/** One instrument inside a markets section, as the panel and the route both read it. */
-export interface MarketQuote {
-  name: string;
-  symbol: string;
-  price: number;
-  change_percent: number;
-  up: boolean;
-  spark?: number[];
-  currency?: string;
-  market_open?: boolean;
-  group?: string;
-}
-
-/** The markets feed. Sections are quote bags; the other fields are the feed itself. */
-export interface MarketsSnapshot {
-  count?: number;
-  timestamp?: string;
-  error?: string;
-  scm_alerts?: string[];
-  indices?: Record<string, MarketQuote>;
-  stocks?: Record<string, MarketQuote>;
-  oil?: Record<string, MarketQuote>;
-  commodities?: Record<string, MarketQuote>;
-  crypto?: Record<string, MarketQuote>;
-  fx?: Record<string, MarketQuote>;
-}
-
-/** Quotes for one section. An unknown section is an empty bag, same as a missing one. */
-export function marketSection(markets: MarketsSnapshot, key: string): Record<string, MarketQuote> {
-  switch (key) {
-    case 'indices':
-    case 'stocks':
-    case 'oil':
-    case 'commodities':
-    case 'crypto':
-    case 'fx':
-      return markets[key] ?? {};
-    default:
-      return {};
-  }
 }
 
 /**

@@ -6,16 +6,14 @@ import { Sparkles, Loader2, RefreshCw, X, Activity, ArrowLeftRight, CircleDot } 
 import { BLOCS, BLOC_ORDER, timeAgo, type AlertBrief, type AlertThread } from '@/lib/alert-digest';
 
 /**
- * OSIRIS — One-Click AI Overview
- * Drop-in button that generates an intelligence read-out for whatever
- * data payload it's handed. Posts to /api/ai/overview, which works with
- * or without a Gemini key (heuristic analyst fallback), so it always
- * returns something useful. Alerts also get a structured brief whose
- * threads can filter the feed they were built from.
+ * ATLAS — One-Click Alerts Overview
+ * Posts the Live Alerts payload to /api/ai/overview, which builds the
+ * read-out with the built-in heuristic analyst on this server (no external
+ * model). The structured brief's threads can filter the feed they came from.
  */
 
 interface AiOverviewProps {
-  mode: 'alerts' | 'markets';
+  mode: 'alerts';
   payload: unknown;
   accent?: string;
   /** Changes when the underlying feed changes, so a stale read-out can say so. */
@@ -28,7 +26,7 @@ interface AiOverviewProps {
 interface OverviewResult {
   overview: string;
   highlights: string[];
-  generatedBy: 'gemini' | 'analyst';
+  generatedBy: 'analyst';
   generatedAt: string;
   brief?: AlertBrief;
 }
@@ -96,7 +94,7 @@ function AlertsBrief({ result, accent, activeThreadId, onThreadSelect }: {
   activeThreadId?: string | null; onThreadSelect?: (id: string | null) => void;
 }) {
   const { brief } = result;
-  const prose = result.generatedBy === 'gemini' ? result.overview : brief.bottomLine;
+  const prose = brief.bottomLine;
   const quake = brief.seismic?.strongest;
   return (
     <>
@@ -135,9 +133,7 @@ function AlertsBrief({ result, accent, activeThreadId, onThreadSelect }: {
         {brief.coverage.newest && <span>· NEWEST {timeAgo(brief.coverage.newest).toUpperCase()}</span>}
       </div>
       <div className="mt-1 text-[8.5px] leading-snug text-[var(--text-muted)]">
-        {result.generatedBy === 'gemini'
-          ? 'Read-out by Gemini 2.0 Flash from the attributed headlines. Threads: '
-          : 'Heuristic analyst, no model. '}
+        {'Heuristic analyst, no model. '}
         {brief.method}
       </div>
     </>
@@ -219,7 +215,7 @@ export default function AiOverview({
               {/* Header row */}
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-mono tracking-widest text-[9px]" style={{ color: accent }}>
-                  {result ? `ATLAS ${result.generatedBy === 'gemini' ? 'AI' : 'ANALYST'}` : 'ATLAS ANALYST'}
+                  ATLAS ANALYST
                   {result && <span className="text-[var(--text-muted)]"> · {timeAgo(result.generatedAt).toUpperCase()}</span>}
                 </span>
                 <div className="flex items-center gap-2">
@@ -278,7 +274,7 @@ export default function AiOverview({
                   )}
 
                   <div className="mt-2 text-[9px] font-mono text-[var(--text-muted)] tracking-wide">
-                    {result.generatedBy === 'gemini' ? 'GEMINI 2.0 FLASH' : 'HEURISTIC ANALYST'} ·{' '}
+                    HEURISTIC ANALYST ·{' '}
                     {new Date(result.generatedAt).toLocaleTimeString()}
                   </div>
                 </>

@@ -24,7 +24,6 @@ const SERVICES: { service: string; sent: string; when: string }[] = [
   { service: 'crt.sh', sent: 'The domain you search', when: 'Certificate transparency lookups' },
   { service: 'api.github.com', sent: 'The username you search', when: 'GitHub account lookups' },
   { service: 'otx.alienvault.com, cve.circl.lu, cveawg.mitre.org', sent: 'The indicator or CVE you search', when: 'Threat and vulnerability lookups' },
-  { service: 'Google Gemini', sent: 'The feed context you submit for analysis, including Live Alerts headlines', when: 'AI briefing, analysis and overview requests, when the instance has a Gemini key' },
   { service: 'Telegram (cdn*.telesco.pe)', sent: 'Your IP address, as with any image request', when: 'When you expand a Live Alert that has a photo or video preview' },
 ];
 
@@ -100,10 +99,9 @@ export default function PrivacyPage() {
         <section className="mt-8">
           <h2 className="text-sm font-bold tracking-widest">AI FEATURES</h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
-            Briefings and correlation are produced by Google Gemini from the feed context the
-            request carries. Do not paste confidential source material into them. A briefing is a
-            language model&apos;s summary of its input: fluent prose is not verification, and the
-            claims inside still need checking against the underlying feeds.
+            The Live Alerts overview is built on this server by a heuristic analyst. No feed
+            context is sent to an external language model. The overview summarises its input:
+            the claims inside still need checking against the underlying feeds.
           </p>
         </section>
 
