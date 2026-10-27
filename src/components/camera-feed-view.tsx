@@ -239,7 +239,8 @@ export function CameraFeedView({ feed, contain = false }: { feed: CameraFeed; co
           allowFullScreen
           // Camera pages come from feed data: let the player run, but not navigate the top window or open popups.
           sandbox="allow-scripts allow-same-origin allow-presentation"
-          referrerPolicy="no-referrer"
+          // Not no-referrer: YouTube refuses embeds without a Referer (player error 153).
+          referrerPolicy="strict-origin-when-cross-origin"
         />
       ) : imageUrl ? (
         <img

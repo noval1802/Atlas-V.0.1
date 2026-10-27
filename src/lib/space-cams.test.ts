@@ -34,6 +34,15 @@ describe('space cams', () => {
     expect(stored).toEqual({ id: 1, lat: -5.2, lng: 106.8, name: 'CAM 1', feed_url: 'https://cctv.example/snap.jpg' });
   });
 
+  it('keeps same-origin proxy paths, the form most map cameras arrive in', () => {
+    const proxied = '/api/cctv/proxy?url=https%3A%2F%2Fcdn.example%2Flive.jpg';
+    const [stored] = toggleSpaceCam([], cam(1, { feed_url: proxied, stream_url: '//evil.example/x', external_url: '/\\evil.example' }));
+    expect(stored.feed_url).toBe(proxied);
+    expect(stored.stream_url).toBeUndefined();
+    expect(stored.external_url).toBeUndefined();
+    expect(parseSpaceCams(JSON.stringify([stored]))[0].feed_url).toBe(proxied);
+  });
+
   it('parses stored data defensively', () => {
     expect(parseSpaceCams(null)).toEqual([]);
     expect(parseSpaceCams('not json')).toEqual([]);

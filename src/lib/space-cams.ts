@@ -26,6 +26,8 @@ const TEXT_FIELDS = ['name', 'city', 'country', 'source', 'stream_type'] as cons
 
 function httpUrl(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
+  // Most map cameras play through this app's own proxy (/api/cctv/proxy?url=…); dropping those left the multiviewer with nothing to play.
+  if (/^\/(?![/\\])/.test(value) && !value.includes('\\')) return value;
   try {
     const url = new URL(value);
     return url.protocol === 'https:' || url.protocol === 'http:' ? value : undefined;
@@ -34,7 +36,7 @@ function httpUrl(value: unknown): string | undefined {
   }
 }
 
-/** Keeps only the fields the player reads; URLs must be http(s) because they end up in iframe/img/video src. */
+/** Keeps only the fields the player reads; URLs must be http(s) or a same-origin path because they end up in iframe/img/video src. */
 function pickCamera(raw: WatchedCamera): WatchedCamera {
   const camera: WatchedCamera = { lat: raw.lat, lng: raw.lng };
   if (typeof raw.id === 'string' || typeof raw.id === 'number') camera.id = raw.id;
