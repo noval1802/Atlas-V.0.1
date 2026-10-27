@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import { kotamaopsFeatures, kotamaopsIconId, safeKotamaopsLogo, type KotamaopsPoint } from "./kotamaops-points";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-/** Baris seed: [kode, nama, wilayah, lokasi, lintang, bujur, status, personel, dikerahkan, kejadian, matra]. */
-const seedRows = [...readFileSync(path.join(root, "prisma/seed.mjs"), "utf8").matchAll(/^ {2}\["([^"]+)", [^\n]*?, (-?[\d.]+), (-?[\d.]+), "[A-Z]+", [^\n]*"(AD|AL|AU)"\],$/gm)].map(
+/** Baris seed: [kode, nama, wilayah, lokasi, lintang, bujur, matra]. */
+const seedRows = [...readFileSync(path.join(root, "prisma/seed.mjs"), "utf8").matchAll(/^ {2}\["([^"]+)", [^\n]*?, (-?[\d.]+), (-?[\d.]+), "(AD|AL|AU)"\],$/gm)].map(
   ([, code, lat, lng, matra]) => ({ code, lat: Number(lat), lng: Number(lng), matra }),
 );
 
