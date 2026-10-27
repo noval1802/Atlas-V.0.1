@@ -1,18 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
 
 interface Earthquake { id: string; magnitude: number; place: string; time: number; depth: number; }
-
-/* ─── Inline SVG Icons ─── */
-const DocsIcon = () => (
-  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H10a2 2 0 0 1 2 2 2 2 0 0 1 2-2h4.5A1.5 1.5 0 0 1 20 4.5v13a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 0 0-2 2 2 2 0 0 0-2-2H5.5A1.5 1.5 0 0 1 4 17.5z"/>
-    <path d="M12 7v14"/>
-  </svg>
-);
 
 /** `revealed` is false while the splash is up; the bar rises when it turns true. */
 export default function GlobalStatusBar({ revealed = true }: { revealed?: boolean }) {
@@ -22,22 +13,7 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [quakeRes] = await Promise.allSettled([
-          fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson')
-            .then(res => res.ok ? res.json() : Promise.reject('USGS error'))
-            .then(data => ({
-              ok: true,
-              json: async () => ({
-                earthquakes: ((data as { features?: Array<{ id?: string; geometry?: { coordinates?: number[] }; properties?: { mag?: number; place?: string; time?: number } }> }).features || []).map((f): Earthquake => ({
-                  id: f.id ?? '',
-                  depth: f.geometry?.coordinates?.[2] || 0,
-                  magnitude: f.properties?.mag ?? 0,
-                  place: f.properties?.place ?? '',
-                  time: f.properties?.time ?? 0,
-                }))
-              })
-            })),
-        ]);
+        const [quakeRes] = await Promise.allSettled([fetch('/api/earthquakes')]);
 
         if (quakeRes.status === 'fulfilled' && quakeRes.value.ok) {
           const quakeData = await quakeRes.value.json();
@@ -54,8 +30,6 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
     return () => clearInterval(iv);
   }, []);
 
-  // Keep the bar mounted even with no feed data — the docs links must stay
-  // reachable when USGS is rate-limited or down.
   const hasTicker = quakes.length > 0;
 
   return (
@@ -69,23 +43,6 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
         {/* Animated scan line */}
         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[var(--cyan-primary)]/30 to-transparent" style={{ animation: 'hud-scanline 4s linear infinite' }} />
         
-        {/* ── LEFT: Social & Community Links ── */}
-        <div className="flex-shrink-0 h-full flex items-center pointer-events-auto">
-          {/* Documentation & API reference */}
-          <Link href="/docs" prefetch title="Documentation & API Reference" aria-label="Documentation & API Reference"
-            className="h-full px-3 flex items-center gap-1.5 bg-[var(--gold-primary)]/10 text-[var(--gold-primary)]/80 hover:text-[var(--gold-primary)] hover:bg-[var(--gold-primary)]/25 border-r border-white/[0.04] transition-all duration-200"
-          >
-            <DocsIcon />
-            <span className="text-[9px] font-bold tracking-[0.15em] uppercase">Docs</span>
-          </Link>
-          {/* Data & privacy — what leaves this instance, and when */}
-          <Link href="/privacy" title="Data & Privacy" aria-label="Data and Privacy"
-            className="h-full px-3 hidden sm:flex items-center text-white/40 hover:text-white hover:bg-white/[0.04] border-r border-white/[0.04] transition-all duration-200"
-          >
-            <span className="text-[9px] font-bold tracking-[0.15em] uppercase">Privacy</span>
-          </Link>
-        </div>
-
         {/* ── CENTER: Scrolling ticker ── */}
         <div className="flex-1 overflow-hidden relative" style={{ maskImage: 'linear-gradient(to right, transparent, black 3%, black 97%, transparent)' }}>
           <div className={`flex items-center animate-ticker whitespace-nowrap ${hasTicker ? '' : 'hidden'}`}>
@@ -128,7 +85,7 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[11px]">🔴</span>
               <span className="font-bold text-[#FF5722]">Magnitude {hoveredQuake.magnitude.toFixed(1)}</span>
-              <span className="text-white/30 text-[9px] bg-white/5 px-1.5 py-0.5 rounded">USGS</span>
+              <span className="text-white/30 text-[9px] bg-white/5 px-1.5 py-0.5 rounded">BMKG</span>
             </div>
             <div className="text-[10px] text-white font-bold mb-2">
               {hoveredQuake.place}

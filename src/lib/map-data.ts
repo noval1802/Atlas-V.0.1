@@ -1,7 +1,6 @@
 import type { Bloc } from '@/lib/alert-digest';
 import type { CatalogCamera } from '@/lib/camera-catalog';
 import type { KotamaopsPoint } from '@/lib/kotamaops-points';
-import type { LiveDetection } from '@/lib/malware-intel';
 
 /**
  * One map row whose fields differ by feed.
@@ -104,6 +103,8 @@ export interface WeatherRow extends MapPointRow {
   icon?: string;
   severity?: string;
   source?: string;
+  description?: string;
+  infographic?: string;
 }
 
 export interface GdeltRow extends MapPointRow {
@@ -122,39 +123,6 @@ export interface GdeltEventRow extends MapPointRow {
   articles?: number;
   url?: string;
   date?: string;
-}
-
-export interface OutageRow extends MapPointRow {
-  country?: string;
-  country_name?: string;
-  scope?: string;
-  cause?: string;
-  event_type?: string;
-  description?: string;
-  start?: string;
-  end?: string;
-  ongoing?: boolean;
-  url?: string;
-}
-
-export interface AttackOriginRow extends MapPointRow {
-  country?: string;
-  country_name?: string;
-  share?: number;
-}
-
-export interface CyberRow extends MapPointRow {
-  id?: string;
-  ip?: string;
-  port?: number;
-  malware?: string;
-  status?: string;
-  hostname?: string;
-  country?: string;
-  as_number?: string | number;
-  as_name?: string;
-  first_seen?: string;
-  last_online?: string;
 }
 
 export interface BalloonRow extends MapPointRow {
@@ -239,17 +207,6 @@ export interface NewsMeta {
   fetchedAt?: string | null;
 }
 
-/** One feature of the submarine-cable file. */
-export interface CableFeature {
-  geometry?: { type?: string; coordinates?: unknown };
-  properties?: {
-    color?: string;
-    name?: string;
-    landing_points?: string;
-    [key: string]: unknown | undefined;
-  };
-}
-
 /**
  * The dashboard store. Every feed writes one of these fields.
  * A missing field means that feed has not landed yet.
@@ -279,12 +236,6 @@ export interface MapData {
   news?: NewsRow[];
   news_meta?: NewsMeta;
   alert_pins?: AlertPinReport[];
-  malware_threats?: LiveDetection[];
-  cyber_attacks?: CyberRow[];
-  cf_outages?: OutageRow[];
-  cf_attack_origins?: AttackOriginRow[];
-  submarine_cables?: CableFeature[];
-  sdk_entities?: MapRecord[];
 }
 
 /**

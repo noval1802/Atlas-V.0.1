@@ -33,10 +33,7 @@ describe('onceFeeds', () => {
       'live_news',
       'weather',
       'gdelt',
-      'cables',
-      'cyber_attacks',
       'gdelt_events',
-      'cloudflare_radar',
     ]);
     expect(onceFeeds(withEveryLayer(true), new Set(feeds.map(feed => feed.key)))).toEqual([]);
   });
@@ -45,7 +42,7 @@ describe('onceFeeds', () => {
     const layers = withEveryLayer(false);
     layers.military = true;
     expect(onceFeeds(layers, new Set())).toEqual([
-      { key: 'flights', url: '/api/flights', transform: 'none', retryOnFailure: false, kind: 'json' },
+      { key: 'flights', url: '/api/flights', transform: 'none', retryOnFailure: false },
     ]);
   });
 
@@ -57,20 +54,15 @@ describe('onceFeeds', () => {
     expect(feed.url).toBe('/api/satellites');
   });
 
-  it('lets a failed events or Cloudflare load be asked again, and keeps a failed flights load marked', () => {
+  it('lets a failed events load be asked again, and keeps a failed flights load marked', () => {
     const layers = withEveryLayer(false);
     layers.gdelt_events = true;
-    layers.cf_outages = true;
-    layers.cf_attacks = true;
     layers.flights = true;
     const feeds = onceFeeds(layers, new Set());
     expect(feeds.find(feed => feed.key === 'gdelt_events')).toMatchObject({
       url: '/api/gdelt-events?limit=600',
       retryOnFailure: true,
     });
-    expect(feeds.filter(feed => feed.key === 'cloudflare_radar')).toEqual([
-      { key: 'cloudflare_radar', url: '/api/cloudflare-radar', transform: 'cloudflare-radar', retryOnFailure: true, kind: 'json' },
-    ]);
     expect(feeds.find(feed => feed.key === 'flights')?.retryOnFailure).toBe(false);
     expect(onceFeeds(layers, new Set(['gdelt_events'])).some(feed => feed.key === 'gdelt_events')).toBe(false);
   });
@@ -86,9 +78,9 @@ describe('onceFeeds', () => {
     expect(onceFeeds(layers, new Set(['weather'])).map(feed => feed.key)).toEqual(['maritime']);
   });
 
-  it('leaves cameras, earthquakes, malware, and Kotamaops to their own loaders', () => {
+  it('leaves cameras, earthquakes, and Kotamaops to their own loaders', () => {
     const keys = new Set(onceFeeds(withEveryLayer(true), new Set()).map(feed => feed.key));
-    for (const key of ['cctv', 'cctv_jm', 'cctv_jakarta', 'earthquakes', 'malware', 'tni_ad', 'alert_pins', 'war_alerts', 'sdk_sea']) {
+    for (const key of ['cctv', 'cctv_jm', 'cctv_jakarta', 'earthquakes', 'tni_ad', 'alert_pins', 'war_alerts']) {
       expect(keys.has(key)).toBe(false);
     }
   });
@@ -102,10 +94,9 @@ describe('pollFeeds', () => {
     ]);
   });
 
-  it('polls aviation, balloons, radiation, vessels, and botnet servers when they are on', () => {
+  it('polls aviation, balloons, radiation, and vessels when they are on', () => {
     const feeds = pollFeeds(withEveryLayer(true));
-    expect(feeds.map(feed => feed.key)).toEqual(['flights', 'balloons', 'radiation', 'maritime', 'cyber_attacks']);
-    expect(feeds.find(feed => feed.key === 'cyber_attacks')?.refreshFetchedKey).toBe('cyber_attacks');
+    expect(feeds.map(feed => feed.key)).toEqual(['flights', 'balloons', 'radiation', 'maritime']);
     expect(feeds.every(feed => feed.everyMs === LAYER_POLL_MS)).toBe(true);
   });
 
@@ -133,12 +124,6 @@ describe('applyFeedTransform', () => {
     expect(applyFeedTransform('live-news', { feeds: [1] })).toEqual({ live_feeds: [1] });
     expect(applyFeedTransform('weather', { events: [1] })).toEqual({ weather_events: [1] });
     expect(applyFeedTransform('gdelt', { events: [1] })).toEqual({ gdelt: [1] });
-    expect(applyFeedTransform('cyber-attacks', { indicators: [1] })).toEqual({ cyber_attacks: [1] });
     expect(applyFeedTransform('gdelt-events', { events: [1] })).toEqual({ gdelt_events: [1] });
-    expect(applyFeedTransform('cloudflare-radar', {})).toEqual({ cf_outages: [], cf_attack_origins: [] });
-    expect(applyFeedTransform('cloudflare-radar', { outages: [1], attack_origins: [2] })).toEqual({
-      cf_outages: [1],
-      cf_attack_origins: [2],
-    });
   });
 });

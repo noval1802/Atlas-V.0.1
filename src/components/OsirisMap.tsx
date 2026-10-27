@@ -7,7 +7,6 @@ import { installTerrainTileProtocol } from '@/lib/terrain-tiles';
 import { createSatelliteLayer, parseColor, SAT_MAX_ZOOM, type SatPoint } from '@/lib/satellite-layer';
 import { MAP_DEFAULTS, MAP_PALETTE_KEYS, readMapPalette, satColorFor, type MapPalette } from '@/lib/map-palette';
 import { STYLE_EVENT } from '@/lib/style-tokens';
-import { arrivalBeacons } from '@/lib/malware-intel';
 import { ALERT_KINDS, timeAgo, type AlertKind } from '@/lib/alert-digest';
 import SatelliteCard, { type SatelliteDetail } from '@/components/SatelliteCard';
 import CctvPreviews, { type PreviewCamera } from '@/components/CctvPreviews';
@@ -23,16 +22,14 @@ import { KARHUTLA_LAPSIT_AT, formatKarhutlaAmount, formatPersonel, karhutlaRepor
 import { KOTAMAOPS_FLAME_CODES, KOTAMAOPS_FLAME_FRAMES, KOTAMAOPS_FLAME_FRAME_MS, KOTAMAOPS_FLAME_HEIGHT, KOTAMAOPS_FLAME_WIDTH, drawKotamaopsFlame, kotamaopsFlameImageId, nextKotamaopsFlameFrame } from '@/lib/kotamaops-flame';
 import type { ArcGisMapLayer, MapEntity } from '@/lib/dashboard-state';
 import type { ActiveLayers } from '@/lib/layer-feeds';
-import { type AlertPinReport, type CableFeature, type FlightRow, type MapData, type SatellitePoint } from '@/lib/map-data';
-import type { ScanTarget } from '@/lib/map-overlays';
-import type { SweepResult } from '@/lib/osint-utils';
+import { type AlertPinReport, type FlightRow, type MapData, type SatellitePoint } from '@/lib/map-data';
 import {
   clickedProperties, pointCoordinates,
-  type AttackPopup, type BalloonPopup, type CameraPopup, type ChokePopup,
-  type CyberPopup, type EarthquakePopup, type FirePopup, type FlightPopup,
-  type GdeltEventPopup, type IncidentPopup, type KotamaopsPopup, type MalwarePopup, type NewsPopup,
-  type OutagePopup, type PortPopup, type RadiationPopup, type ScanPopup, type SdkLinkPopup,
-  type ShipPopup, type SweepPopup, type WeatherPopup,
+  type BalloonPopup, type CameraPopup, type ChokePopup,
+  type EarthquakePopup, type FirePopup, type FlightPopup,
+  type GdeltEventPopup, type IncidentPopup, type KotamaopsPopup, type NewsPopup,
+  type PortPopup, type RadiationPopup,
+  type ShipPopup, type WeatherPopup,
   htmlEsc,
   urlSafe,
 } from '@/lib/map-popup';
@@ -77,8 +74,6 @@ interface OsirisMapProps {
   onTerrainStatusChange?: (status: TerrainStatus) => void;
 
   mapStyle?: string;
-  sweepData?: SweepResult | null;
-  scanTargets?: ScanTarget[];
   demoMode?: boolean;
   theme?: 'core' | 'ghost';
   drawnPolygons?: Array<{ id: string; name: string; geojson: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.LineString>; color: string }>;
@@ -163,7 +158,7 @@ interface AlertPinFeature {
   properties: AlertPinProps;
 }
 
-function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightClick, onViewStateChange, onReady, flyToLocation, alertPinIds = null, projection = 'globe', terrainEnabled = false, terrainRetry = 0, terrainFocus = 0, onTerrainStatusChange, mapStyle = 'dark', sweepData, scanTargets = [], demoMode = false, theme = 'core', drawnPolygons = [], arcgisLayers = [], drawMode = null, onDrawComplete, onDrawProgress, onDrawCancel, drawCommand = null, onMapCenter, route = null, userLocation = null, followUser = false, onFollowInterrupt, navigating = false, aircraftAirports = {}, tileProxy = null }: OsirisMapProps) {
+function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightClick, onViewStateChange, onReady, flyToLocation, alertPinIds = null, projection = 'globe', terrainEnabled = false, terrainRetry = 0, terrainFocus = 0, onTerrainStatusChange, mapStyle = 'dark', demoMode = false, theme = 'core', drawnPolygons = [], arcgisLayers = [], drawMode = null, onDrawComplete, onDrawProgress, onDrawCancel, drawCommand = null, onMapCenter, route = null, userLocation = null, followUser = false, onFollowInterrupt, navigating = false, aircraftAirports = {}, tileProxy = null }: OsirisMapProps) {
   const tileProxyRef = useRef(tileProxy);
   /* The logo resolver lives in the map-init effect; it reads the latest Kotamaops from here. */
   const kotamaopsRef = useRef(data.kotamaops ?? []);
@@ -407,7 +402,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       createDot(map, 'dot-fire', isGhost ? phantomPurple : '#E65100', 10);
       createDot(map, 'dot-cctv', cameraColor, 10);
 
-      const sources = ['flights','military','jets','private-fl','satellites','earthquakes','gdelt','day-night','cctv','cctv-jm','cctv-jakarta','fires','weather','maritime','maritime-choke','maritime-ships','live-news', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'ip-sweep-devices', 'ip-sweep-pulse', 'ip-sweep-connections', 'scan-targets', 'sdk-entities', 'sdk-links', 'malware-nodes', 'malware-new', 'network-mesh', 'cyber-heads', 'gdelt-events', 'cf-outages', 'cf-attacks', 'alert-pins', 'kotamaops'];
+      const sources = ['flights','military','jets','private-fl','satellites','earthquakes','gdelt','day-night','cctv','cctv-jm','cctv-jakarta','fires','weather','maritime','maritime-choke','maritime-ships','live-news', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'gdelt-events', 'alert-pins', 'kotamaops'];
       sources.forEach(s => map.addSource(s, { type: 'geojson', data: EMPTY_FC }));
 
       // ── FLIGHT ROUTE VISUALIZATION SOURCES & LAYERS ──
@@ -473,82 +468,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       addCameraLayers('cctv-jm', 'cctv-jm');
       addCameraLayers('cctv-jakarta', 'cctv-jakarta');
 
-      // GDELT
-
-
-
-      // ══ NETWORK INTEL — Live Malware (abuse.ch) — crimson threat ══
-      map.addLayer({ id: 'malware-glow', type: 'circle', source: 'malware-nodes', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,6, 5,12, 10,20],
-        'circle-color': '#D32F2F', 'circle-opacity': 0.06, 'circle-blur': 0.5,
-      }});
-      /* Sized by how many live malicious URLs the host serves. A box running
-         forty payloads and one running a single sample were the same dot
-         before, and they are not the same thing. */
-      map.addLayer({ id: 'malware-dots', type: 'circle', source: 'malware-nodes', paint: {
-        /* A zoom expression has to be the top-level input to the interpolate,
-           so the activity scaling lives in the output stops rather than
-           multiplying two curves together. sqrt keeps a host serving 80 URLs
-           from dwarfing the map — it reads about three times the single-URL
-           dot, not eighty. */
-        'circle-radius': ['interpolate',['linear'],['zoom'],
-          1,  ['interpolate',['linear'],['sqrt',['max',['get','url_count'],1]], 1,1.6, 3,2.4, 9,4],
-          5,  ['interpolate',['linear'],['sqrt',['max',['get','url_count'],1]], 1,3.2, 3,4.8, 9,8],
-          10, ['interpolate',['linear'],['sqrt',['max',['get','url_count'],1]], 1,4.8, 3,7.2, 9,12],
-        ],
-        'circle-color': '#D32F2F',
-        'circle-opacity': 0.9,
-        'circle-stroke-width': 1, 'circle-stroke-color': '#000000', 'circle-stroke-opacity': 0.8,
-      }});
-      /* Arrival beacon — expands and fades over the minute after a detection
-         is pushed, then the feature drops out of the source entirely. */
-      map.addLayer({ id: 'malware-new-ring', type: 'circle', source: 'malware-new', paint: {
-        'circle-radius': 8,
-        'circle-color': 'transparent',
-        'circle-stroke-color': '#FF1744',
-        'circle-stroke-width': 2,
-        'circle-stroke-opacity': ['interpolate',['linear'],['get','age'], 0,0.9, 1,0],
-      }});
-      map.addLayer({ id: 'malware-label', type: 'symbol', source: 'malware-nodes', minzoom: 5, layout: {
-        'text-field': ['get','malware'], 'text-size': 8, 'text-font': ['JetBrains Mono Bold', 'Open Sans Bold'],
-        'text-offset': [0, 1.5], 'text-max-width': 10, 'text-allow-overlap': false,
-      }, paint: { 'text-color': '#D32F2F', 'text-halo-color': '#111', 'text-halo-width': 1.5, 'text-opacity': 0.85 }});
-
-      // ── NETWORK INTEL MESH (SDK STYLE) ──
-      map.addLayer({ id: 'network-mesh-atmo', type: 'line', source: 'network-mesh', paint: {
-
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 2, 5, 4, 10, 8],
-        'line-opacity': 0.08,
-        'line-blur': 4,
-      }});
-      map.addLayer({ id: 'network-mesh-glow', type: 'line', source: 'network-mesh', paint: {
-
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 1, 5, 2, 10, 4],
-        'line-opacity': 0.2,
-        'line-blur': 1.5,
-      }});
-      map.addLayer({ id: 'network-mesh-core', type: 'line', source: 'network-mesh', paint: {
-
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 0.2, 5, 0.5, 10, 1.5],
-        'line-opacity': 0.4,
-      }});
-
-      /* ══ BOTNET C2 INFRASTRUCTURE — one dot per listed server ══
-         Feodo Tracker lists where a C2 is hosted and whether it still
-         answers. It records no attacker, no victim and no attack, so there is
-         nothing here to draw an arc between: a dot at the hosting country,
-         coloured by the reported status, is the whole of what is observed. */
-      map.addLayer({ id: 'cyber-heads', type: 'circle', source: 'cyber-heads', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,2.5, 5,4, 10,6],
-        'circle-color': ['case', ['==', ['get','status'], 'online'], '#FF6D00', '#555555'],
-        'circle-opacity': 0.95,
-        'circle-stroke-width': 1.5, 'circle-stroke-color': '#333', 'circle-stroke-opacity': 0.9,
-      }});
-      map.addLayer({ id: 'cyber-labels', type: 'symbol', source: 'cyber-heads', minzoom: 3, layout: {
-        'text-field': ['get','malware'], 'text-size': 9, 'text-font': ['JetBrains Mono Bold', 'Open Sans Bold'],
-        'text-offset': [0, 1.5], 'text-max-width': 10, 'text-allow-overlap': false,
-      }, paint: { 'text-color': '#333333', 'text-halo-color': '#000', 'text-halo-width': 1.5, 'text-opacity': 0.85 }});
-
       map.addLayer({ id: 'gdelt-dots', type: 'circle', source: 'gdelt', paint: {
         'circle-radius': 4, 'circle-color': '#D32F2F', 'circle-opacity': 0.5, 'circle-stroke-width': 1, 'circle-stroke-color': '#D32F2F', 'circle-stroke-opacity': 0.25,
       }});
@@ -568,35 +487,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         'circle-stroke-color': '#000000',
         'circle-stroke-opacity': 0.6,
       }});
-
-      /* ── Cloudflare Radar — internet outages (country-scoped) ── */
-      map.addLayer({ id: 'cf-outage-halo', type: 'circle', source: 'cf-outages', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,14, 5,26, 10,40],
-        'circle-color': '#FFB300', 'circle-opacity': 0.12, 'circle-blur': 0.9,
-      }});
-      map.addLayer({ id: 'cf-outage-dots', type: 'circle', source: 'cf-outages', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,4, 5,6, 10,9],
-        // Resolved outages read cooler than ongoing ones.
-        'circle-color': ['case',['get','ongoing'],'#FFB300','#8B7325'],
-        'circle-opacity': 0.9,
-        'circle-stroke-width': 1.5, 'circle-stroke-color': '#000000', 'circle-stroke-opacity': 0.7,
-      }});
-      map.addLayer({ id: 'cf-outage-label', type: 'symbol', source: 'cf-outages', minzoom: 3, layout: {
-        'text-field': ['get','country_name'], 'text-size': 9, 'text-font': ['JetBrains Mono Bold', 'Open Sans Bold'],
-        'text-offset': [0, 1.4], 'text-max-width': 12, 'text-allow-overlap': false,
-      }, paint: { 'text-color': '#FFB300', 'text-halo-color': '#000', 'text-halo-width': 1.5, 'text-opacity': 0.85 }});
-
-      /* ── Cloudflare Radar — layer-3 attack origin share ── */
-      map.addLayer({ id: 'cf-attack-dots', type: 'circle', source: 'cf-attacks', paint: {
-        'circle-radius': ['interpolate',['linear'],['get','share'], 0,4, 5,9, 20,16, 50,24],
-        'circle-color': '#FF3D3D', 'circle-opacity': 0.35, 'circle-blur': 0.3,
-        'circle-stroke-width': 1, 'circle-stroke-color': '#FF3D3D', 'circle-stroke-opacity': 0.7,
-      }});
-      map.addLayer({ id: 'cf-attack-label', type: 'symbol', source: 'cf-attacks', minzoom: 2, layout: {
-        'text-field': ['concat',['get','country'],' ',['to-string',['get','share']],'%'],
-        'text-size': 9, 'text-font': ['JetBrains Mono Bold', 'Open Sans Bold'],
-        'text-offset': [0, 1.6], 'text-allow-overlap': false,
-      }, paint: { 'text-color': '#FF6B6B', 'text-halo-color': '#000', 'text-halo-width': 1.5, 'text-opacity': 0.9 }});
 
       // Weather Events (NASA EONET) — deep violet
       map.addLayer({ id: 'weather-glow', type: 'circle', source: 'weather', paint: {
@@ -714,47 +604,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-max-width': 12, 'text-allow-overlap': false,
       }, paint: { 'text-color': alertColor, 'text-halo-color': '#000', 'text-halo-width': 1.2, 'text-opacity': 0.9 }});
 
-      // ══ IP SWEEP — Neighborhood device visualization ══
-      map.addLayer({ id: 'sweep-connections', type: 'line', source: 'ip-sweep-connections', paint: {
-        'line-color': ['get', 'color'], 'line-width': 1, 'line-opacity': 0.3, 'line-dasharray': [2, 4],
-      }});
-      map.addLayer({ id: 'sweep-pulse-ring', type: 'circle', source: 'ip-sweep-pulse', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 8,40, 12,80, 16,160],
-        'circle-color': 'transparent', 'circle-opacity': 0.6,
-        'circle-stroke-width': 2, 'circle-stroke-color': '#FF3D3D', 'circle-stroke-opacity': 0.4,
-      }});
-      map.addLayer({ id: 'sweep-device-glow', type: 'circle', source: 'ip-sweep-devices', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 8,8, 12,16, 16,30],
-        'circle-color': ['get', 'color'], 'circle-opacity': 0.15, 'circle-blur': 1,
-      }});
-      map.addLayer({ id: 'sweep-device-dots', type: 'circle', source: 'ip-sweep-devices', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 8,3, 12,6, 16,10],
-        'circle-color': ['get', 'color'], 'circle-opacity': 0.95,
-        'circle-stroke-width': 1.5, 'circle-stroke-color': '#FFFFFF', 'circle-stroke-opacity': 0.6,
-      }});
-      map.addLayer({ id: 'sweep-device-labels', type: 'symbol', source: 'ip-sweep-devices', minzoom: 13, layout: {
-        'text-field': ['concat', ['get', 'device_type'], '\n', ['get', 'ip']],
-        'text-size': 9, 'text-font': ['Open Sans Regular'],
-        'text-offset': [0, 2.2], 'text-max-width': 12, 'text-allow-overlap': false,
-      }, paint: {
-        'text-color': ['get', 'color'], 'text-halo-color': '#000', 'text-halo-width': 1.5, 'text-opacity': 0.9,
-      }});
-
-      // ══ SCAN TARGETS — Geolocated individual scans ══
-      map.addLayer({ id: 'scan-targets-glow', type: 'circle', source: 'scan-targets', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,12, 5,25, 10,40],
-        'circle-color': '#D32F2F', 'circle-opacity': 0.15, 'circle-blur': 1,
-      }});
-      map.addLayer({ id: 'scan-targets-dots', type: 'circle', source: 'scan-targets', paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,5, 5,8, 10,12],
-        'circle-color': '#D32F2F', 'circle-opacity': 0.9,
-        'circle-stroke-width': 1.5, 'circle-stroke-color': '#ECEFF1', 'circle-stroke-opacity': 0.7,
-      }});
-      map.addLayer({ id: 'scan-targets-label', type: 'symbol', source: 'scan-targets', layout: {
-        'text-field': ['get', 'id'], 'text-size': 11, 'text-font': ['Open Sans Bold'],
-        'text-offset': [0, 2], 'text-max-width': 14, 'text-allow-overlap': false,
-      }, paint: { 'text-color': '#D32F2F', 'text-halo-color': '#000', 'text-halo-width': 1.5, 'text-opacity': 0.9 }});
-
       // Flight layers (WebGL symbol — GPU rendered, handles 50K+ smooth)
       const flightLayers = [
         { id: 'fl-commercial', src: 'flights', icon: 'plane-cyan' },
@@ -799,55 +648,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         'text-field': ['concat', ['to-string', ['get','reading']], ' nSv/h'], 'text-size': 9, 'text-font': ['Open Sans Bold'],
         'text-offset': [0, 1.5], 'text-allow-overlap': false,
       }, paint: { 'text-color': ['match', ['get','status'], 'DANGER','#D32F2F', 'WARNING','#E65100', '#7E57C2'], 'text-halo-color': '#000', 'text-halo-width': 1 }});
-
-      // ══ OSIRIS SDK — Lattice Intelligence Mesh ══
-      // Polybolos Style: Delicate, translucent, steel-blue splined mesh
-
-      // ── SEA domain (Distinct Solid Lines) ──
-      // Removed glow to match the clean, diagrammatic look of submarinecablemap.com
-      map.addLayer({ id: 'sdk-sea', type: 'line', source: 'sdk-links', filter: ['==',['get','domain'],'SEA'], paint: {
-        'line-color': ['coalesce', ['get', 'color'], '#1976D2'], // Single solid color from properties
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 0.8, 5, 1.5, 10, 2.5],
-        'line-opacity': ['interpolate',['linear'],['zoom'], 1, 0.3, 5, 0.5, 10, 0.7],
-      }});
-
-      // ── AIR domain (Steel Gray / Cyan) ──
-      map.addLayer({ id: 'sdk-air-atmo', type: 'line', source: 'sdk-links', filter: ['==',['get','domain'],'AIR'], paint: {
-        'line-color': '#4DD0E1',
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 1.5, 5, 5, 10, 8],
-        'line-opacity': 0.04,
-        'line-blur': 3,
-      }});
-      map.addLayer({ id: 'sdk-air-glow', type: 'line', source: 'sdk-links', filter: ['==',['get','domain'],'AIR'], paint: {
-        'line-color': '#80DEEA',
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 0.8, 5, 2, 10, 4],
-        'line-opacity': ['interpolate',['linear'],['zoom'], 1, 0.08, 5, 0.12, 10, 0.18],
-        'line-blur': 1,
-      }});
-      map.addLayer({ id: 'sdk-air', type: 'line', source: 'sdk-links', filter: ['==',['get','domain'],'AIR'], paint: {
-        'line-color': '#B2EBF2',
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 0.15, 5, 0.6, 10, 1.2],
-        'line-opacity': ['interpolate',['linear'],['zoom'], 1, 0.2, 5, 0.35, 10, 0.5],
-      }});
-
-      // ── INTEL domain (Deep Steel / Violet) ──
-      map.addLayer({ id: 'sdk-intel-atmo', type: 'line', source: 'sdk-links', filter: ['==',['get','domain'],'INTEL'], paint: {
-        'line-color': '#7986CB',
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 2.5, 5, 7, 10, 12],
-        'line-opacity': 0.06,
-        'line-blur': 5,
-      }});
-      map.addLayer({ id: 'sdk-intel-glow', type: 'line', source: 'sdk-links', filter: ['==',['get','domain'],'INTEL'], paint: {
-        'line-color': '#9FA8DA',
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 1.2, 5, 3, 10, 6],
-        'line-opacity': ['interpolate',['linear'],['zoom'], 1, 0.12, 5, 0.18, 10, 0.25],
-        'line-blur': 2,
-      }});
-      map.addLayer({ id: 'sdk-intel', type: 'line', source: 'sdk-links', filter: ['==',['get','domain'],'INTEL'], paint: {
-        'line-color': '#C5CAE9',
-        'line-width': ['interpolate',['linear'],['zoom'], 1, 0.3, 5, 1, 10, 2],
-        'line-opacity': ['interpolate',['linear'],['zoom'], 1, 0.3, 5, 0.45, 10, 0.7],
-      }});
 
       // Maritime Ships (moving entities) — ocean teal family
       map.addLayer({ id: 'ship-dots', type: 'circle', source: 'maritime-ships', paint: {
@@ -1152,7 +952,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     map.on('click', 'cctv-jm-dots', openCamera);
     map.on('click', 'cctv-jakarta-dots', openCamera);
 
-    // ── Earthquakes (with USGS link) ──
+    // ── Earthquakes (BMKG) ──
     map.on('click', 'eq-circles', e => {
       const p = clickedProperties<EarthquakePopup>(e);
       const coords = pointCoordinates(e.features?.[0]?.geometry);
@@ -1164,7 +964,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
           <div><span style="color:#5C5A54;">DEPTH</span><br/><span style="color:#E8E6E0;">${htmlEsc(String(p.depth||'—'))}km</span></div>
           <div><span style="color:#5C5A54;">COORDS</span><br/><span style="color:#E8E6E0;">${coords[1].toFixed(3)}, ${coords[0].toFixed(3)}</span></div>
         </div>
-        <a href="${p.source === 'NIGGG-BAS' ? 'https://ndc.niggg.bas.bg/' : `https://earthquake.usgs.gov/earthquakes/eventpage/${encodeURIComponent(p.id||'')}`}" target="_blank" style="${linkStyle}color:#FF9500;border:1px solid rgba(255,149,0,0.4);background:rgba(255,149,0,0.1);">📊 ${p.source === 'NIGGG-BAS' ? 'NIGGG-BAS' : 'USGS DETAILS'}</a>
+        <a href="${urlSafe(p.url || 'https://data.bmkg.go.id/gempabumi/')}" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:#FF9500;border:1px solid rgba(255,149,0,0.4);background:rgba(255,149,0,0.1);">📊 ${htmlEsc(p.source || 'BMKG')}</a>
       </div>`);
     });
 
@@ -1173,9 +973,8 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     // these, and to nothing else — the basemap is not a click target.
     const CLICKABLE_LAYERS = new Set(['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','eq-circles','fires-heat',
       'gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots',
-      'balloon-dots','rad-dots','ship-dots','sweep-device-dots','scan-targets-dots',
-      'sdk-sea','sdk-air','sdk-intel','malware-dots','cyber-heads','gdelt-events-dots',
-      'cf-outage-dots','cf-attack-dots','flight-dots','military-dots','jet-dots','private-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame']);
+      'balloon-dots','rad-dots','ship-dots','gdelt-events-dots',
+     'flight-dots','military-dots','jet-dots','private-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame']);
 
     // Satellites are picked on the GPU: the pick pass runs the same vertex
     // shader as the visible one, so the target is always exactly where the
@@ -1274,41 +1073,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       </div>`);
     });
 
-    // ── Malware Threats (Abuse.ch) ──
-    map.on('click', 'malware-dots', e => {
-      const p = clickedProperties<MalwarePopup>(e);
-      const coords = pointCoordinates(e.features?.[0]?.geometry);
-      if (!p || !coords) return;
-      const tType = (p.threat_type || 'malware').replace(/_/g, ' ').toUpperCase();
-      const statusColor = p.status === 'online' ? '#39FF14' : '#FF1744';
-      const place = [p.city, p.country].filter(Boolean).join(', ') || 'UNKNOWN';
-      const host = p.as_name ? `AS${p.asn} ${p.as_name}` : '';
-      const urls = Number(p.url_count) || 1;
-      // Every field below is observed. Where the old popup linked to a generic
-      // browse page, this links to the specific URLhaus report behind the node.
-      const ref = urlSafe(p.reference);
-
-      popup(coords, `<div style="${pStyle}border:1px solid rgba(255,23,68,0.4);box-shadow:inset 0 0 12px rgba(255,23,68,0.1);min-width:250px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,23,68,0.3);padding-bottom:6px;margin-bottom:8px;">
-          <div style="color:#FF1744;font-size:12px;font-weight:700;letter-spacing:0.1em;text-shadow:0 0 4px rgba(255,23,68,0.5);">[ ${htmlEsc(tType)} ]</div>
-          <div style="color:#5C5A54;font-size:9px;">${htmlEsc(place)}</div>
-        </div>
-        <div style="color:#E8E6E0;font-size:11px;font-weight:bold;margin-bottom:2px;">${htmlEsc(p.malware || 'Unclassified payload')}</div>
-        ${host ? `<div style="color:#5C5A54;font-size:9px;margin-bottom:10px;">${htmlEsc(host)}</div>` : '<div style="margin-bottom:10px;"></div>'}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:9px;margin-bottom:8px;background:rgba(0,0,0,0.3);padding:6px;border-radius:4px;">
-          <div><span style="color:#5C5A54;">HOST</span><br/><span style="color:#00E5FF;font-family:monospace;">${htmlEsc(p.ip)}:${htmlEsc(String(p.port ?? 0))}</span></div>
-          <div><span style="color:#5C5A54;">STATUS</span><br/><span style="color:${statusColor};">${htmlEsc((p.status||'unknown').toUpperCase())}</span></div>
-          <div><span style="color:#5C5A54;">LIVE URLS</span><br/><span style="color:#E8E6E0;">${urls}</span></div>
-          <div><span style="color:#5C5A54;">LAST REPORT</span><br/><span style="color:#E8E6E0;">${htmlEsc((p.last_seen || '').split(' ')[0] || '—')}</span></div>
-        </div>
-        <div style="color:#5C5A54;font-size:9px;margin-bottom:10px;">First seen ${htmlEsc((p.first_seen || '').split(' ')[0] || '—')}${p.reporter ? ` · reported by ${htmlEsc(p.reporter)}` : ''}</div>
-        <div style="display:flex;gap:6px;">
-          ${ref ? `<a href="${ref}" target="_blank" style="${linkStyle}flex:1;text-align:center;color:#E8E6E0;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.05);">URLHAUS REPORT ↗</a>` : ''}
-        </div>
-      </div>`);
-    });
-
-
     // ── GDELT 2.0 Events ──
     const QUAD_COLOR: Record<string, string> = { '1': '#00E676', '2': '#00E5FF', '3': '#FF9500', '4': '#FF3D3D' };
     map.on('click', 'gdelt-events-dots', e => {
@@ -1333,58 +1097,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         </div>
         <div style="margin-top:8px;font-size:9px;color:#5C5A54;">GDELT 2.0 · ${htmlEsc(String(p.date).slice(0, 16).replace('T', ' '))}Z</div>
         ${src !== '#' ? `<a href="${src}" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:${accent};border:1px solid ${accent}66;background:${accent}1a;">SOURCE ARTICLE</a>` : ''}
-      </div>`);
-    });
-
-    // ── Cloudflare Radar: internet outage ──
-    map.on('click', 'cf-outage-dots', e => {
-      const p = clickedProperties<OutagePopup>(e);
-      const coords = pointCoordinates(e.features?.[0]?.geometry);
-      if (!p || !coords) return;
-      // MapLibre serialises feature properties, so booleans can arrive as strings.
-      const ongoing = p.ongoing === true || p.ongoing === 'true';
-      const accent = ongoing ? '#FFB300' : '#8B7325';
-      const src = urlSafe(p.url);
-      popup(coords, `
-      <div style="${pStyle}border:1px solid ${accent}66;min-width:250px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="width:7px;height:7px;border-radius:50%;background:${accent};box-shadow:0 0 8px ${accent};"></span>
-          <span style="color:${accent};font-size:10px;font-weight:700;letter-spacing:0.15em;">
-            ${ongoing ? 'ONGOING OUTAGE' : 'RESOLVED OUTAGE'}
-          </span>
-        </div>
-        <div style="color:#E8E6E0;font-size:12px;font-weight:700;margin-bottom:8px;">${htmlEsc(p.country_name)}</div>
-        ${p.description ? `<div style="color:#9B978E;font-size:10px;line-height:1.6;margin-bottom:8px;">${htmlEsc(p.description)}</div>` : ''}
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:10px;color:#9B978E;">
-          <span style="opacity:0.6;">Cause</span><span style="color:#E8E6E0;">${htmlEsc(p.cause || 'Unspecified')}</span>
-          <span style="opacity:0.6;">Scope</span><span style="color:#E8E6E0;">${htmlEsc(p.scope || 'Nationwide')}</span>
-          <span style="opacity:0.6;">Started</span><span style="color:#E8E6E0;">${htmlEsc(String(p.start).slice(0, 16).replace('T', ' '))}</span>
-          ${p.end ? `<span style="opacity:0.6;">Ended</span><span style="color:#E8E6E0;">${htmlEsc(String(p.end).slice(0, 16).replace('T', ' '))}</span>` : ''}
-        </div>
-        <div style="margin-top:8px;font-size:9px;color:#5C5A54;">Cloudflare Radar</div>
-        ${src !== '#' ? `<a href="${src}" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:${accent};border:1px solid ${accent}66;background:${accent}1a;">RADAR DETAIL</a>` : ''}
-      </div>`);
-    });
-
-    // ── Cloudflare Radar: attack origin share ──
-    map.on('click', 'cf-attack-dots', e => {
-      const p = clickedProperties<AttackPopup>(e);
-      const coords = pointCoordinates(e.features?.[0]?.geometry);
-      if (!p || !coords) return;
-      popup(coords, `
-      <div style="${pStyle}border:1px solid rgba(255,61,61,0.4);min-width:230px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="width:7px;height:7px;border-radius:50%;background:#FF3D3D;box-shadow:0 0 8px #FF3D3D;"></span>
-          <span style="color:#FF3D3D;font-size:10px;font-weight:700;letter-spacing:0.15em;">L3 ATTACK ORIGIN</span>
-        </div>
-        <div style="color:#E8E6E0;font-size:12px;font-weight:700;margin-bottom:8px;">${htmlEsc(p.country_name)}</div>
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:10px;color:#9B978E;">
-          <span style="opacity:0.6;">Share</span><span style="color:#FF6B6B;font-weight:700;">${htmlEsc(p.share)}%</span>
-          <span style="opacity:0.6;">Code</span><span style="color:#E8E6E0;">${htmlEsc(p.country)}</span>
-        </div>
-        <div style="margin-top:8px;font-size:9px;color:#5C5A54;line-height:1.5;">
-          Share of observed layer-3 attack traffic by origin · Cloudflare Radar
-        </div>
       </div>`);
     });
 
@@ -1420,114 +1132,10 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     });
 
 
-    // ── OSIRIS SDK link click ──
-    const SDK_SOURCE_URLS: Record<string, string> = {
-      'AIS Maritime': 'https://www.marinetraffic.com',
-      'AIS Stream': 'https://aisstream.io',
-      'AIS → Lattice': 'https://aisstream.io',
-      'ADS-B / OpenSky': 'https://opensky-network.org',
-      'ADS-B → Lattice': 'https://opensky-network.org',
-      'Naval Intelligence': 'https://www.odni.gov',
-    };
-    ['sdk-sea','sdk-sea-glow','sdk-air','sdk-air-glow','sdk-intel','sdk-intel-glow'].forEach(layer => {
-      map.on('click', layer, e => {
-        const p = clickedProperties<SdkLinkPopup>(e);
-        if (!p) return;
-        const coords = e.lngLat;
-        const srcUrl = p.url || (p.source ? SDK_SOURCE_URLS[p.source] : undefined) || '';
-        const domainLabel = p.domain === 'SEA' ? '⚓ MARITIME' : p.domain === 'AIR' ? '✈ AIR CORRIDOR' : '🛡 NAVAL INTEL';
-        const domainColor = p.domain === 'SEA' ? '#4FC3F7' : p.domain === 'AIR' ? '#B3E5FC' : '#81D4FA';
-        const linkStyle = 'text-decoration:none;padding:3px 8px;border-radius:4px;font-size:9px;font-weight:700;letter-spacing:0.05em;';
-        popup([coords.lng, coords.lat], `<div style="${pStyle}border:1px solid ${domainColor}40;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:${domainColor};box-shadow:0 0 8px ${domainColor};"></div>
-            <span style="color:${domainColor};font-size:11px;font-weight:700;letter-spacing:0.1em;">${domainLabel}</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:9px;margin-bottom:8px;">
-            <div><span style="color:#5C5A54;">FROM</span><br/><span style="color:#E8E6E0;">${htmlEsc(p.fromName || 'Origin')}</span></div>
-            <div><span style="color:#5C5A54;">TO</span><br/><span style="color:#E8E6E0;">${htmlEsc(p.toName || 'Destination')}</span></div>
-            <div><span style="color:#5C5A54;">DOMAIN</span><br/><span style="color:${domainColor};">${htmlEsc(String(p.domain ?? ''))}</span></div>
-            <div><span style="color:#5C5A54;">SOURCE</span><br/>${srcUrl ? `<a href="${urlSafe(srcUrl)}" target="_blank" style="color:${domainColor};text-decoration:underline;cursor:pointer;">${htmlEsc(p.source || 'ATLAS')}</a>` : htmlEsc(p.source || 'ATLAS')}</div>
-          </div>
-          ${srcUrl ? `<a href="${urlSafe(srcUrl)}" target="_blank" style="${linkStyle}color:${domainColor};border:1px solid ${domainColor}40;background:${domainColor}18;display:inline-block;margin-top:4px;">OPEN SOURCE ↗</a>` : ''}
-        </div>`);
-      });
-    });
-
-    /* ── Botnet C2 infrastructure (abuse.ch Feodo Tracker) ──
-       Every field below is read off the blocklist row. The popup used to lead
-       with a randomly chosen attack verb and a fabricated attacker origin;
-       what a row actually supports is an address, a family, a hosting
-       country and two observation timestamps. */
-    map.on('click', 'cyber-heads', e => {
-      const p = clickedProperties<CyberPopup>(e);
-      const coords = pointCoordinates(e.features?.[0]?.geometry);
-      if (!p || !coords) return;
-      const online = p.status === 'online';
-      const c = online ? '#FF6D00' : '#8A8880';
-      const row = (label: string, value: string, color = '#E8E6E0', mono = false) =>
-        `<div><span style="color:#5C5A54;font-size:7px;letter-spacing:0.1em;">${label}</span><br/><span style="color:${color};${mono ? 'font-family:monospace;' : ''}">${value}</span></div>`;
-      popup(coords, `<div style="${pStyle}border:1px solid ${c}40;">
-        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${c}30;padding-bottom:6px;margin-bottom:8px;">
-          <div style="color:${c};font-size:12px;font-weight:700;letter-spacing:0.12em;">BOTNET C2 SERVER</div>
-          <div style="font-size:8px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:0.1em;background:${c}20;color:${c};border:1px solid ${c}50;">${htmlEsc((p.status || 'unknown').toUpperCase())}</div>
-        </div>
-        <div style="color:#E8E6E0;font-size:11px;font-weight:bold;margin-bottom:10px;">${htmlEsc(p.malware || 'Family not reported')}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:9px;margin-bottom:8px;background:rgba(0,0,0,0.35);padding:8px;border-radius:4px;border:1px solid rgba(255,255,255,0.04);">
-          ${row('C2 ADDRESS', htmlEsc(p.ip || '—'), '#00E5FF', true)}
-          ${row('PORT', htmlEsc(String(p.port ?? '—')), '#FFD600', true)}
-          ${row('HOSTED IN', htmlEsc(p.country || 'Not reported'))}
-          ${row('AS', htmlEsc(p.as_number ? `AS${p.as_number}` : '—'), '#E8E6E0', true)}
-          ${row('FIRST SEEN', htmlEsc(p.first_seen || 'Not reported'))}
-          ${row('LAST ONLINE', htmlEsc(p.last_online || 'Not reported'))}
-        </div>
-        ${p.hostname ? `<div style="font-size:9px;color:#8A8880;margin-bottom:8px;font-family:monospace;word-break:break-all;">${htmlEsc(p.hostname)}</div>` : ''}
-        <div style="font-size:8px;color:#5C5A54;line-height:1.5;margin-bottom:8px;">Blocklist entry, not an observed attack. Marker sits at the hosting country's centroid, not the host's location.</div>
-        <div style="font-size:7px;color:#5C5A54;text-align:center;letter-spacing:0.1em;">SOURCE: <a href="${urlSafe(p.source_url || 'https://feodotracker.abuse.ch/browse/')}" target="_blank" style="color:${c};text-decoration:underline;">ABUSE.CH FEODO TRACKER ↗</a></div>
-      </div>`);
-    });
-
     // ── Generic hover for clickables ──
-    ['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','eq-circles','fires-heat','gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots','balloon-dots','rad-dots','ship-dots','sweep-device-dots','scan-targets-dots','sdk-sea','sdk-sea-glow','sdk-sea-atmo','sdk-air','sdk-air-glow','sdk-air-atmo','sdk-intel','sdk-intel-glow','sdk-intel-atmo','malware-dots','cyber-heads','gdelt-events-dots','cf-outage-dots','cf-attack-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame'].forEach(layer => {
+    ['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','eq-circles','fires-heat','gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots','balloon-dots','rad-dots','ship-dots','gdelt-events-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame'].forEach(layer => {
       map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
-    });
-
-    // ── Scan Targets click ──
-    map.on('click', 'scan-targets-dots', e => {
-      const p = clickedProperties<ScanPopup>(e);
-      const coords = pointCoordinates(e.features?.[0]?.geometry);
-      if (!p || !coords) return;
-      popup(coords, `<div style="${pStyle}border:1px solid rgba(255,61,61,0.5);">
-        <div style="color:#FF3D3D;font-size:12px;font-weight:700;margin-bottom:6px;">🎯 TARGET: ${htmlEsc(p.id)}</div>
-        <div style="font-size:9px;color:#E8E6E0;margin-bottom:8px;">${htmlEsc(p.city || 'Unknown')}, ${htmlEsc(p.country || 'Unknown')} — ${htmlEsc(p.isp || 'Unknown ISP')}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9px;">
-          <div><span style="color:#5C5A54;">TYPE</span><br/><span style="color:#00E5FF;">${htmlEsc(String(p.type || 'UNKNOWN').toUpperCase())}</span></div>
-          <div><span style="color:#5C5A54;">COORDS</span><br/><span style="color:#E8E6E0;">${coords[1].toFixed(3)}°, ${coords[0].toFixed(3)}°</span></div>
-        </div>
-      </div>`);
-    });
-
-    // ── IP Sweep device click ──
-    map.on('click', 'sweep-device-dots', e => {
-      const p = clickedProperties<SweepPopup>(e);
-      const coords = pointCoordinates(e.features?.[0]?.geometry);
-      if (!p || !coords) return;
-      const ports = JSON.parse(p.ports || '[]');
-      const vulns = JSON.parse(p.vulns || '[]');
-      const hostnames = JSON.parse(p.hostnames || '[]');
-      const riskColors: Record<string, string> = { CRITICAL: '#FF3D3D', HIGH: '#FF6B00', MEDIUM: '#FFD700', LOW: '#76FF03', INFO: '#5C5A54' };
-      popup(coords, `<div style="font-family:monospace;font-size:11px;color:#E8E6E0;">
-        <div style="font-size:13px;font-weight:bold;margin-bottom:6px;color:${htmlEsc(String(p.color ?? ''))};">${htmlEsc(String(p.device_type ?? ''))}</div>
-        <div style="font-size:12px;margin-bottom:8px;color:#fff;">${htmlEsc(String(p.ip ?? ''))}</div>
-        ${hostnames.length > 0 ? `<div style="font-size:9px;color:#8A8880;margin-bottom:6px;">${htmlEsc(hostnames.join(', '))}</div>` : ''}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
-          <div><span style="color:#5C5A54;">PORTS</span><br/><span style="color:#E8E6E0;">${Number(ports.length) || 0}</span></div>
-          <div><span style="color:#5C5A54;">RISK</span><br/><span style="color:${(p.risk_level && riskColors[p.risk_level]) || '#666'};">${htmlEsc(String(p.risk_level ?? ''))}</span></div>
-        </div>
-        <div style="font-size:9px;color:#8A8880;margin-bottom:6px;">Open: ${htmlEsc(ports.slice(0, 12).join(', '))}${ports.length > 12 ? ' ...' : ''}</div>
-        ${vulns.length > 0 ? `<div style="font-size:9px;color:#FF3D3D;margin-bottom:6px;">⚠ CVEs: ${htmlEsc(vulns.slice(0, 5).join(', '))}${vulns.length > 5 ? ` +${vulns.length - 5} more` : ''}</div>` : ''}
-      </div>`);
     });
 
     // ── Balloons / Sondes ──
@@ -1589,7 +1197,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       </div>`);
     });
 
-    // ── Weather Events (NASA EONET + NOAA/NWS + GDACS) ──
+    // ── Weather Events (BMKG + NASA EONET + GDACS) ──
     map.on('click', 'weather-dots', e => {
       const p = clickedProperties<WeatherPopup>(e);
       const coords = pointCoordinates(e.features?.[0]?.geometry);
@@ -1598,11 +1206,13 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       popup(coords, `<div style="${pStyle}border:1px solid rgba(224,64,251,0.3);">
         <div style="color:#E040FB;font-size:14px;font-weight:700;margin-bottom:6px;">${iconEmoji} ${htmlEsc(p.type || 'Weather Event')}</div>
         <div style="font-size:10px;color:#E8E6E0;margin-bottom:8px;line-height:1.4;">${htmlEsc(p.title || 'Unknown event')}</div>
+        ${p.description ? `<div style="font-size:9px;color:#B0ACA3;margin-bottom:8px;line-height:1.5;max-height:140px;overflow-y:auto;white-space:pre-line;">${htmlEsc(p.description)}</div>` : ''}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9px;margin-bottom:8px;">
           <div><span style="color:#5C5A54;">SEVERITY</span><br/><span style="color:${p.severity === 'high' ? '#FF1744' : '#FFD700'};">${(p.severity||'low').toUpperCase()}</span></div>
           <div><span style="color:#5C5A54;">COORDS</span><br/><span style="color:#E8E6E0;">${coords[1].toFixed(3)}°, ${coords[0].toFixed(3)}°</span></div>
         </div>
         <div style="display:flex;gap:6px;">
+          ${urlSafe(p.infographic) !== '#' ? `<a href="${urlSafe(p.infographic)}" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:#E040FB;border:1px solid rgba(224,64,251,0.4);background:rgba(224,64,251,0.1);">🖼 INFOGRAFIS BMKG</a>` : ''}
           ${urlSafe(p.source) !== '#' ? `<a href="${urlSafe(p.source)}" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:#E040FB;border:1px solid rgba(224,64,251,0.4);background:rgba(224,64,251,0.1);">📡 SOURCE</a>` : ''}
         </div>
       </div>`);
@@ -2012,148 +1622,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     })) : []);
   }, [mapReady, data.gdelt_events, activeLayers.gdelt_events, setGeo]);
 
-  /* ── Cloudflare Radar: outages ── */
-  useEffect(() => {
-    if (!mapReady) return;
-    setGeo('cf-outages', activeLayers.cf_outages && data.cf_outages ? data.cf_outages.map(o => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [o.lng, o.lat] },
-      properties: {
-        country: o.country, country_name: o.country_name, scope: o.scope, cause: o.cause,
-        event_type: o.event_type, description: o.description, start: o.start, end: o.end,
-        ongoing: !!o.ongoing, url: o.url,
-      },
-    })) : []);
-  }, [mapReady, data.cf_outages, activeLayers.cf_outages, setGeo]);
-
-  /* ── Cloudflare Radar: attack origins ── */
-  useEffect(() => {
-    if (!mapReady) return;
-    setGeo('cf-attacks', activeLayers.cf_attacks && data.cf_attack_origins ? data.cf_attack_origins.map(a => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [a.lng, a.lat] },
-      properties: { country: a.country, country_name: a.country_name, share: a.share },
-    })) : []);
-  }, [mapReady, data.cf_attack_origins, activeLayers.cf_attacks, setGeo]);
-
-  // Malware Threats
-  useEffect(() => {
-    if (!mapReady) return;
-    setGeo('malware-nodes', activeLayers.malware && data.malware_threats ? data.malware_threats.map(t => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [t.lng, t.lat] },
-      properties: {
-        ip: t.ip, malware: t.malware, status: t.status, threat_type: t.threat_type,
-        country: t.country, city: t.city, port: t.port,
-        asn: t.asn, as_name: t.as_name,
-        // How many live malicious URLs this host serves — the dot is sized by
-        // it, so a box distributing forty payloads reads bigger than one.
-        url_count: t.url_count ?? 1,
-        first_seen: t.first_seen, last_seen: t.last_seen,
-        reference: t.reference, reporter: t.reporter,
-        detected_at: t.detected_at ?? 0,
-      },
-    })) : []);
-  }, [mapReady, data.malware_threats, activeLayers.malware, setGeo]);
-
-  /* Detections that landed while the operator was watching get a ring for a
-     minute. Without it a pushed feed is indistinguishable from a static one —
-     nodes simply appear, and the thing that makes it live goes unseen. */
-  useEffect(() => {
-    if (!mapReady || !mapRef.current || !activeLayers.malware) return;
-    const map = mapRef.current;
-
-    /* Arrivals are rare — a handful an hour — so the common case is that there
-       is nothing to draw. Tracking whether the last tick drew anything keeps
-       this from pushing an empty collection into the source five times a
-       second for the entire time the layer is on. */
-    let drawing = false;
-
-    const tick = () => {
-      const now = Date.now();
-      const beacons = arrivalBeacons(data.malware_threats ?? [], now);
-
-      if (beacons.length === 0) {
-        if (drawing) { setGeo('malware-new', []); drawing = false; }
-        return;
-      }
-
-      setGeo('malware-new', beacons.map(b => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [b.lng, b.lat] },
-        properties: { age: b.age },
-      })));
-      drawing = true;
-
-      try {
-        // One shared pulse, so the ring reads as a beacon rather than each
-        // node breathing on its own schedule.
-        map.setPaintProperty('malware-new-ring', 'circle-radius',
-          ['interpolate', ['linear'], ['get', 'age'], 0, 6 + Math.sin(now / 200) * 2, 1, 26]);
-      } catch { /* style not settled yet */ }
-    };
-
-    tick();
-    const timer = setInterval(tick, 200);
-    return () => { clearInterval(timer); setGeo('malware-new', []); };
-  }, [mapReady, data.malware_threats, activeLayers.malware, setGeo]);
-
-  // Network Mesh Generation (Nearest Neighbor Lattice)
-  useEffect(() => {
-    if (!mapReady) return;
-    const meshLinks: Array<{
-      type: 'Feature';
-      geometry: { type: 'LineString'; coordinates: [[number, number], [number, number]] };
-      properties: { threat_type: 'malware' };
-    }> = [];
-    
-    // Generate Malware Botnet Mesh
-    if (activeLayers.malware && data.malware_threats && data.malware_threats.length > 1) {
-      const nodes = data.malware_threats;
-      for (let i = 0; i < nodes.length; i++) {
-        // Connect each to next 2 for a global web
-        for (let j = 1; j <= 2; j++) {
-          const target = nodes[(i + j) % nodes.length];
-          meshLinks.push({
-            type: 'Feature',
-            geometry: { type: 'LineString', coordinates: [[nodes[i].lng, nodes[i].lat], [target.lng, target.lat]] },
-            properties: { threat_type: 'malware' }
-          });
-        }
-      }
-    }
-    setGeo('network-mesh', meshLinks);
-  }, [mapReady, activeLayers.malware, data.malware_threats, setGeo]);
-
-  /* ══ BOTNET C2 INFRASTRUCTURE ══
-     Static dots, no animation. The arcs that used to fly across this layer
-     were drawn between a fabricated attacker origin and the C2's country, and
-     the marching-ants animation read as traffic that no source had observed.
-     A blocklist has no motion in it. */
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
-    const indicators = data.cyber_attacks;
-
-    if (!activeLayers.cyber_attacks || !indicators?.length) {
-      setGeo('cyber-heads', []);
-      return;
-    }
-
-    // A C2 whose hosting country is unknown has no honest position on a map.
-    const dots = indicators
-      .filter(c => typeof c.lng === 'number' && typeof c.lat === 'number')
-      .map(c => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [c.lng, c.lat] },
-        properties: {
-          id: c.id, ip: c.ip, port: c.port, malware: c.malware, status: c.status,
-          hostname: c.hostname, country: c.country, as_number: c.as_number, as_name: c.as_name,
-          first_seen: c.first_seen, last_online: c.last_online,
-        },
-      }));
-
-    setGeo('cyber-heads', dots);
-  }, [mapReady, activeLayers.cyber_attacks, data.cyber_attacks, setGeo]);
 
 
 
@@ -2180,7 +1648,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
   useEffect(() => {
     if (!mapReady) return;
-    setGeo('weather', activeLayers.weather && data.weather_events ? data.weather_events.map(w => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [w.lng, w.lat] }, properties: { title: w.title, type: w.type, icon: w.icon, severity: w.severity, source: w.source, id: w.id } })) : []);
+    setGeo('weather', activeLayers.weather && data.weather_events ? data.weather_events.map(w => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [w.lng, w.lat] }, properties: { title: w.title, type: w.type, icon: w.icon, severity: w.severity, source: w.source, id: w.id, description: w.description, infographic: w.infographic } })) : []);
   }, [mapReady, data.weather_events, activeLayers.weather, setGeo]);
 
   useEffect(() => {
@@ -2204,52 +1672,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     if (!mapReady) return;
     setGeo('radiation', activeLayers.radiation && data.radiation ? data.radiation.map(r => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [r.lng, r.lat] }, properties: { name: r.name, city: r.city, country: r.country, reading: r.reading, status: r.status, network: r.network } })) : []);
   }, [mapReady, data.radiation, activeLayers.radiation, setGeo]);
-
-  // ══ OSIRIS SDK — Lattice Sensor Mesh ══
-  // Uses real submarine cable data for SEA domain, curated routes for AIR/INTEL
-  useEffect(() => {
-    if (!mapReady) return;
-    setGeo('sdk-entities', []);
-
-    const anySDK = activeLayers.sdk_sea || activeLayers.sdk_air || activeLayers.sdk_naval;
-    if (!anySDK) {
-      setGeo('sdk-links', []);
-      return;
-    }
-
-    const links: Array<{
-      type: 'Feature';
-      geometry: NonNullable<CableFeature['geometry']>;
-      properties: Record<string, unknown>;
-    }> = [];
-
-    // ── SEA DOMAIN: Real submarine cable data (1-for-1 Match) ──
-    if (activeLayers.sdk_sea && data.submarine_cables) {
-      const ignoredColors = new Set(['#9BB5CC', '#A0B8CD', '#8EABC2', '#9bb5cc', '#a0b8cd', '#8eabc2']);
-      for (const cable of data.submarine_cables) {
-        if (!cable.geometry) continue;
-        
-        // Remove the light blue background arcs
-        if (cable.properties?.color && ignoredColors.has(cable.properties.color)) continue;
-        
-        links.push({
-          type: 'Feature',
-          geometry: cable.geometry, // Raw topographic paths exactly from Submarine Map
-          properties: {
-            domain: 'SEA',
-            fromName: cable.properties?.name || 'Submarine Cable',
-            toName: cable.properties?.landing_points || '',
-            source: 'Global Subsea Cable Network',
-            url: 'https://www.submarinecablemap.com/',
-            ...cable.properties,
-            color: '#1976D2', // Darker blue as requested, more transparent in layer paint
-          },
-        });
-      }
-    }
-
-    setGeo('sdk-links', links);
-  }, [mapReady, activeLayers.sdk_sea, activeLayers.sdk_air, activeLayers.sdk_naval, data.submarine_cables, setGeo]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -2307,7 +1729,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
   }, [mapReady, data.alert_pins, activeLayers.alert_pins, alertPinIds, setGeo]);
 
   /* The newest reports pulse, so something that just landed catches the eye
-     without the other pins moving. Same 200ms tick the malware ring uses. */
+     without the other pins moving. */
   useEffect(() => {
     if (!mapReady || !mapRef.current || !activeLayers.alert_pins) return;
     const map = mapRef.current;
@@ -2336,12 +1758,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     if (!anySat) { satRowsRef.current = []; satLayerRef.current?.setPoints([]); }
     setVis(['gdelt-dots'], activeLayers.global_incidents);
     setVis(['gdelt-events-dots'], activeLayers.gdelt_events);
-    setVis(['cf-outage-halo','cf-outage-dots','cf-outage-label'], activeLayers.cf_outages);
-    setVis(['cf-attack-dots','cf-attack-label'], activeLayers.cf_attacks);
-
-    setVis(['malware-glow','malware-dots','malware-label','malware-new-ring'], activeLayers.malware);
-    setVis(['network-mesh-atmo', 'network-mesh-glow', 'network-mesh-core'], activeLayers.internet_outages || activeLayers.malware);
-    setVis(['cyber-heads','cyber-labels'], activeLayers.cyber_attacks);
     setVis(['day-night-fill'], activeLayers.day_night);
     setVis(['fl-commercial'], activeLayers.flights);
     setVis(['fl-private'], activeLayers.private);
@@ -2360,98 +1776,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
     setVis(['balloon-dots','balloon-label'], activeLayers.balloons);
     setVis(['rad-glow','rad-dots','rad-label'], activeLayers.radiation);
-    setVis(['sdk-sea','sdk-sea-glow','sdk-sea-atmo'], activeLayers.sdk_sea !== false);
-    setVis(['sdk-air','sdk-air-glow','sdk-air-atmo'], activeLayers.sdk_air !== false);
-    setVis(['sdk-intel','sdk-intel-glow','sdk-intel-atmo'], activeLayers.sdk_naval !== false);
-    // Sweep layers always visible when data is present (controlled by useEffect)
-    setVis(['sweep-connections','sweep-pulse-ring','sweep-device-glow','sweep-device-dots','sweep-device-labels'], true);
   }, [mapReady, activeLayers, setVis]);
-
-  // IP Sweep visualization
-  useEffect(() => {
-    if (!mapReady) return;
-    if (!sweepData?.devices?.length) {
-      setGeo('ip-sweep-devices', []);
-      setGeo('ip-sweep-pulse', []);
-      setGeo('ip-sweep-connections', []);
-      return;
-    }
-
-    const map = mapRef.current;
-    if (!map) return;
-
-    const { center, devices } = sweepData;
-    const centerCoord: [number, number] = [center.lng, center.lat];
-
-    // Switch to globe and fly to the sweep location
-    try {
-      applyMapProjection(map, 'globe');
-      map.setSky({ 'sky-color': '#0A0A0F', 'sky-horizon-blend': 0.02, 'horizon-color': '#0A0A0F', 'horizon-fog-blend': 0.02 });
-    } catch { /* projection may not be supported */ }
-
-    map.flyTo({ center: centerCoord, zoom: 14, pitch: 50, bearing: -20, duration: 3000, essential: true });
-
-    // Set center pulse
-    setGeo('ip-sweep-pulse', [{
-      type: 'Feature' as const,
-      geometry: { type: 'Point' as const, coordinates: centerCoord },
-      properties: { ip: sweepData.target_ip },
-    }]);
-
-    // Build device features spread in a circle around center
-    const allDeviceFeatures = devices.map((d, i) => {
-      const angle = (i / devices.length) * Math.PI * 2;
-      const radius = 0.001 + ((i % 7 + 1) * 0.0004);
-      const dLng = centerCoord[0] + Math.cos(angle) * radius * (1 / Math.cos(center.lat * Math.PI / 180));
-      const dLat = centerCoord[1] + Math.sin(angle) * radius;
-      return {
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [dLng, dLat] },
-        properties: {
-          ip: d.ip, device_type: d.device_type, device_icon: d.device_icon,
-          color: d.device_color, risk_level: d.risk_level,
-          ports: JSON.stringify(d.ports), hostnames: JSON.stringify(d.hostnames),
-          vulns: JSON.stringify(d.vulns), cpes: JSON.stringify(d.cpes), tags: JSON.stringify(d.tags),
-        },
-      };
-    });
-
-    // Connection lines from center to each device
-    const connectionFeatures = allDeviceFeatures.map((f) => ({
-      type: 'Feature' as const,
-      geometry: { type: 'LineString' as const, coordinates: [centerCoord, f.geometry.coordinates] },
-      properties: { color: f.properties.color },
-    }));
-
-    // Stagger the appearance after 3s flyTo completes
-    const timer = setTimeout(() => {
-      setGeo('ip-sweep-connections', connectionFeatures);
-      const batchSize = 5;
-      const batches = Math.ceil(allDeviceFeatures.length / batchSize);
-      for (let b = 0; b < batches; b++) {
-        setTimeout(() => {
-          setGeo('ip-sweep-devices', allDeviceFeatures.slice(0, (b + 1) * batchSize));
-        }, b * 100);
-      }
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [mapReady, sweepData, setGeo]);
-
-  // Scan Targets visualization
-  useEffect(() => {
-    if (!mapReady || !mapRef.current || !scanTargets) return;
-    const map = mapRef.current;
-    
-    const features = scanTargets.map(t => ({
-      type: 'Feature' as const,
-      geometry: { type: 'Point' as const, coordinates: [t.lng, t.lat] },
-      properties: { ...t }
-    }));
-    
-    const src = map.getSource('scan-targets') as maplibregl.GeoJSONSource;
-    if (src) src.setData({ type: 'FeatureCollection', features });
-  }, [scanTargets, mapReady]);
 
   // Projection changes are independent of terrain. Toggling elevation must not
   // zoom, tilt, or reposition the camera the user has already chosen.

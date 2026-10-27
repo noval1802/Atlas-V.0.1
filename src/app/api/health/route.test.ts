@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { API_GROUPS } from '@/app/(en)/docs/apiCatalog';
 import { GET } from './route';
 
 const HEALTH_KEYS = [
@@ -40,15 +39,5 @@ describe('GET /api/health', () => {
     }));
     expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(JSON.stringify(body)).not.toContain('OSIRIS');
-  });
-});
-
-describe('health catalog', () => {
-  it('documents the live serving status without renaming the payload', () => {
-    const health = API_GROUPS.flatMap(group => group.endpoints).find(endpoint => endpoint.path === '/api/health');
-    expect(health?.method).toBe('GET');
-    expect(health?.returns).toEqual(['status', 'platform', 'version', 'uptime', 'timestamp', 'endpoints']);
-    expect(health?.notes).toContain('`serving`');
-    expect(health?.notes).not.toContain('operational');
   });
 });

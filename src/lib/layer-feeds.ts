@@ -28,26 +28,13 @@ export interface ActiveLayers {
   alert_pins: boolean;
   war_alerts: boolean;
   day_night: boolean;
-  cables: boolean;
-  sdk_sea: boolean;
-  sdk_air: boolean;
-  sdk_naval: boolean;
   /** Absent on the original map page. The monitoring dashboard sets this. */
   tni_ad?: boolean;
   tni_al?: boolean;
   tni_au?: boolean;
   terrain_3d: boolean;
   terrain_elevation: boolean;
-  malware: boolean;
-  cyber_attacks: boolean;
   gdelt_events: boolean;
-  cf_outages: boolean;
-  cf_attacks: boolean;
-  /**
-   * Read by the map, never written by the dashboard.
-   * Absent means the mesh follows the malware layer.
-   */
-  internet_outages?: boolean;
 }
 
 /** Most layers stay off so the first load stays small. */
@@ -83,21 +70,13 @@ export const DEFAULT_ACTIVE_LAYERS: ActiveLayers = {
   alert_pins: false,
   war_alerts: false,
   day_night: false,
-  cables: false,
-  sdk_sea: false,
-  sdk_air: false,
-  sdk_naval: false,
   /* Peta operasi dibuka hanya dengan Kotamaops per matra; layer lain dinyalakan sendiri oleh pengguna. */
   tni_ad: true,
   tni_al: true,
   tni_au: true,
   terrain_3d: false,
   terrain_elevation: false,
-  malware: false,
-  cyber_attacks: false,
   gdelt_events: false,
-  cf_outages: false,
-  cf_attacks: false,
 };
 
 /** How an upstream JSON body is stored on the map data object. */
@@ -110,9 +89,7 @@ export type FeedTransform =
   | 'live-news'
   | 'weather'
   | 'gdelt'
-  | 'cyber-attacks'
-  | 'gdelt-events'
-  | 'cloudflare-radar';
+  | 'gdelt-events';
 
 export interface OnceFeed {
   /** Key in the page's already-fetched set. Not always the layer name. */
@@ -125,8 +102,6 @@ export interface OnceFeed {
    * double-fetch, and a failed request does not leave the layer empty forever.
    */
   retryOnFailure: boolean;
-  /** `static` is the cable file. Everything else goes through the JSON fetcher. */
-  kind: 'json' | 'static';
 }
 
 export interface PollFeed {
@@ -158,25 +133,21 @@ interface OnceRule {
   url: string;
   transform: FeedTransform;
   retryOnFailure: boolean;
-  kind: 'json' | 'static';
   when: (layers: ActiveLayers) => boolean;
 }
 
 const ONCE_RULES: OnceRule[] = [
-  { key: 'flights', url: '/api/flights', transform: 'none', retryOnFailure: false, kind: 'json', when: layers => anyOn(layers, FLIGHT_LAYERS) },
-  { key: 'satellites', url: '/api/satellites', transform: 'satellites', retryOnFailure: false, kind: 'json', when: layers => anyOn(layers, SATELLITE_LAYERS) },
-  { key: 'fires', url: '/api/fires', transform: 'none', retryOnFailure: false, kind: 'json', when: layers => layers.fires },
-  { key: 'maritime', url: '/api/maritime', transform: 'maritime', retryOnFailure: false, kind: 'json', when: layers => layers.maritime },
-  { key: 'balloons', url: '/api/balloons', transform: 'balloons', retryOnFailure: false, kind: 'json', when: layers => layers.balloons },
-  { key: 'radiation', url: '/api/radiation', transform: 'radiation', retryOnFailure: false, kind: 'json', when: layers => layers.radiation },
-  { key: 'live_news', url: '/api/live-news', transform: 'live-news', retryOnFailure: false, kind: 'json', when: layers => layers.live_news },
+  { key: 'flights', url: '/api/flights', transform: 'none', retryOnFailure: false, when: layers => anyOn(layers, FLIGHT_LAYERS) },
+  { key: 'satellites', url: '/api/satellites', transform: 'satellites', retryOnFailure: false, when: layers => anyOn(layers, SATELLITE_LAYERS) },
+  { key: 'fires', url: '/api/fires', transform: 'none', retryOnFailure: false, when: layers => layers.fires },
+  { key: 'maritime', url: '/api/maritime', transform: 'maritime', retryOnFailure: false, when: layers => layers.maritime },
+  { key: 'balloons', url: '/api/balloons', transform: 'balloons', retryOnFailure: false, when: layers => layers.balloons },
+  { key: 'radiation', url: '/api/radiation', transform: 'radiation', retryOnFailure: false, when: layers => layers.radiation },
+  { key: 'live_news', url: '/api/live-news', transform: 'live-news', retryOnFailure: false, when: layers => layers.live_news },
   // The page also loads weather for Live Alerts and marks this key first, so a normal startup does not fetch it twice.
-  { key: 'weather', url: '/api/weather', transform: 'weather', retryOnFailure: false, kind: 'json', when: layers => layers.weather },
-  { key: 'gdelt', url: '/api/gdelt', transform: 'gdelt', retryOnFailure: false, kind: 'json', when: layers => layers.global_incidents },
-  { key: 'cables', url: '/data/submarine-cables.json', transform: 'none', retryOnFailure: false, kind: 'static', when: layers => layers.cables },
-  { key: 'cyber_attacks', url: '/api/cyber-attacks', transform: 'cyber-attacks', retryOnFailure: false, kind: 'json', when: layers => layers.cyber_attacks },
-  { key: 'gdelt_events', url: '/api/gdelt-events?limit=600', transform: 'gdelt-events', retryOnFailure: true, kind: 'json', when: layers => layers.gdelt_events },
-  { key: 'cloudflare_radar', url: '/api/cloudflare-radar', transform: 'cloudflare-radar', retryOnFailure: true, kind: 'json', when: layers => layers.cf_outages || layers.cf_attacks },
+  { key: 'weather', url: '/api/weather', transform: 'weather', retryOnFailure: false, when: layers => layers.weather },
+  { key: 'gdelt', url: '/api/gdelt', transform: 'gdelt', retryOnFailure: false, when: layers => layers.global_incidents },
+  { key: 'gdelt_events', url: '/api/gdelt-events?limit=600', transform: 'gdelt-events', retryOnFailure: true, when: layers => layers.gdelt_events },
 ];
 
 /** Feeds still needed for the layers that are on and not already fetched. */
@@ -189,7 +160,6 @@ export function onceFeeds(layers: ActiveLayers, fetched: ReadonlySet<string>): O
       url: rule.url,
       transform: rule.transform,
       retryOnFailure: rule.retryOnFailure,
-      kind: rule.kind,
     });
   }
   return due;
@@ -210,7 +180,6 @@ const POLL_RULES: PollRule[] = [
   { key: 'balloons', url: '/api/balloons', transform: 'balloons', everyMs: LAYER_POLL_MS, schedule: 'interval', when: layers => layers.balloons },
   { key: 'radiation', url: '/api/radiation', transform: 'radiation', everyMs: LAYER_POLL_MS, schedule: 'interval', when: layers => layers.radiation },
   { key: 'maritime', url: '/api/maritime', transform: 'maritime', everyMs: LAYER_POLL_MS, schedule: 'maritime', when: layers => layers.maritime },
-  { key: 'cyber_attacks', url: '/api/cyber-attacks', transform: 'cyber-attacks', everyMs: LAYER_POLL_MS, schedule: 'interval', refreshFetchedKey: 'cyber_attacks', when: layers => layers.cyber_attacks },
 ];
 
 /** Repeating loads for layers that are on. The page owns the timers. */
@@ -255,11 +224,7 @@ export function applyFeedTransform(transform: FeedTransform, payload: unknown): 
       return { weather_events: body.events } as Partial<MapData>;
     case 'gdelt':
       return { gdelt: body.events } as Partial<MapData>;
-    case 'cyber-attacks':
-      return { cyber_attacks: body.indicators } as Partial<MapData>;
     case 'gdelt-events':
       return { gdelt_events: body.events } as Partial<MapData>;
-    case 'cloudflare-radar':
-      return { cf_outages: body.outages ?? [], cf_attack_origins: body.attack_origins ?? [] } as Partial<MapData>;
   }
 }

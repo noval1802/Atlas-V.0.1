@@ -2,7 +2,7 @@ import { sessionMatchesUser } from "./access";
 import { opsDb } from "./db";
 import { readSession, sessionSecret } from "./session";
 
-/** Akun, sandi, dan webhook yang memang dipanggil tanpa sesi. */
+/** Akun dan sandi yang memang dipanggil tanpa sesi. */
 const PUBLIC_API = new Set([
   "/api/health",
   "/api/health/ready",
@@ -11,16 +11,11 @@ const PUBLIC_API = new Set([
   "/api/ops/register",
   "/api/ops/password/forgot",
   "/api/ops/password/reset",
-  "/api/github-webhook",
 ]);
 
-/**
- * True when this request must stay reachable without an OSIRIS session.
- * SDK ingest POST carries its own key. The GET on that path lists entities and stays closed.
- */
-export function isPublicApi(pathname: string, method: string): boolean {
-  if (PUBLIC_API.has(pathname)) return true;
-  return pathname === "/api/sdk/ingest" && method.toUpperCase() === "POST";
+/** True when this request must stay reachable without a session. */
+export function isPublicApi(pathname: string): boolean {
+  return PUBLIC_API.has(pathname);
 }
 
 /** User administration and the CCTV token store. Situation writes are not in this list. */
@@ -35,15 +30,10 @@ export function isAdminApi(pathname: string): boolean {
   );
 }
 
-/** Active reconnaissance and OSINT lookups. Viewer and monitoring roles are refused. */
-export function isOperatorApi(pathname: string): boolean {
-  return pathname === "/api/scanner" || pathname.startsWith("/api/scanner/") || pathname.startsWith("/api/osint/");
-}
-
 /**
  * A state-changing request sent by another site. SameSite=Lax already withholds the
  * cookie on cross-site POSTs; this also refuses same-site subdomains and old browsers.
- * Server-to-server callers (webhook, SDK ingest) send no Origin and pass.
+ * Server-to-server callers send no Origin and pass.
  */
 export function crossSiteWrite(method: string, headers: Headers): boolean {
   if (["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())) return false;

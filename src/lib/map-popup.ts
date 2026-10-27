@@ -62,23 +62,6 @@ export interface FirePopup extends Record<string, unknown> {
   brightness?: number | string;
 }
 
-export interface MalwarePopup extends Record<string, unknown> {
-  threat_type?: string;
-  status?: string;
-  city?: string;
-  country?: string;
-  as_name?: string;
-  asn?: string | number;
-  url_count?: number | string;
-  reference?: string;
-  malware?: string;
-  ip?: string;
-  port?: number | string;
-  last_seen?: string;
-  first_seen?: string;
-  reporter?: string;
-}
-
 export interface GdeltEventPopup extends Record<string, unknown> {
   quad?: string | number;
   quad_label?: string;
@@ -91,66 +74,10 @@ export interface GdeltEventPopup extends Record<string, unknown> {
   url?: string;
 }
 
-export interface OutagePopup extends Record<string, unknown> {
-  ongoing?: boolean | string;
-  url?: string;
-  country_name?: string;
-  description?: string;
-  cause?: string;
-  scope?: string;
-  start?: string;
-  end?: string;
-}
-
-export interface AttackPopup extends Record<string, unknown> {
-  country_name?: string;
-  share?: number | string;
-  country?: string;
-}
-
 export interface IncidentPopup extends Record<string, unknown> {
   url?: string;
   kind?: string;
   name?: string;
-}
-
-export interface SdkLinkPopup extends Record<string, unknown> {
-  url?: string;
-  source?: string;
-  domain?: string;
-  fromName?: string;
-  toName?: string;
-}
-
-export interface CyberPopup extends Record<string, unknown> {
-  status?: string;
-  malware?: string;
-  ip?: string;
-  port?: number | string;
-  country?: string;
-  as_number?: string | number;
-  first_seen?: string;
-  last_online?: string;
-  hostname?: string;
-  source_url?: string;
-}
-
-export interface ScanPopup extends Record<string, unknown> {
-  id?: string;
-  city?: string;
-  country?: string;
-  isp?: string;
-  type?: string;
-}
-
-export interface SweepPopup extends Record<string, unknown> {
-  ports?: string;
-  vulns?: string;
-  hostnames?: string;
-  color?: string;
-  device_type?: string;
-  ip?: string;
-  risk_level?: string;
 }
 
 export interface BalloonPopup extends Record<string, unknown> {
@@ -189,6 +116,8 @@ export interface WeatherPopup extends Record<string, unknown> {
   title?: string;
   severity?: string;
   source?: string;
+  description?: string;
+  infographic?: string;
 }
 
 export interface KotamaopsPopup extends Record<string, unknown> {

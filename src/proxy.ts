@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest, NextFetchEvent } from 'next/server';
-import { canManageUsers, canWriteSituation, deniedPage } from './lib/ops/access';
-import { crossSiteWrite, isAdminApi, isOperatorApi, isProtectedPage, isPublicApi, sessionAccount } from './lib/ops/gate';
+import { canManageUsers, deniedPage } from './lib/ops/access';
+import { crossSiteWrite, isAdminApi, isProtectedPage, isPublicApi, sessionAccount } from './lib/ops/gate';
 import { OPS_COOKIE } from './lib/ops/session';
 import { trackPageView } from './lib/umami-analytics';
 
@@ -15,13 +15,10 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
     if (crossSiteWrite(request.method, request.headers)) {
       return NextResponse.json({ error: 'Permintaan lintas situs ditolak.' }, { status: 403 });
     }
-    if (isPublicApi(path, request.method)) return NextResponse.next();
+    if (isPublicApi(path)) return NextResponse.next();
     const account = await sessionAccount(request.cookies.get(OPS_COOKIE)?.value);
     if (!account) return NextResponse.json({ error: 'Masuk diperlukan.' }, { status: 401 });
     if (isAdminApi(path) && !canManageUsers(account.role)) {
-      return NextResponse.json({ error: 'Peran ini tidak memiliki izin.' }, { status: 403 });
-    }
-    if (isOperatorApi(path) && !canWriteSituation(account.role)) {
       return NextResponse.json({ error: 'Peran ini tidak memiliki izin.' }, { status: 403 });
     }
     return NextResponse.next();

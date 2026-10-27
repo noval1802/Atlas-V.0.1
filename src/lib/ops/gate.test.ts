@@ -1,26 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { crossSiteWrite, isAdminApi, isOperatorApi, isProtectedPage, isPublicApi } from "./gate";
+import { crossSiteWrite, isAdminApi, isProtectedPage, isPublicApi } from "./gate";
 
 describe("ops gate", () => {
-  it("leaves login, health, and keyed ingest open", () => {
-    expect(isPublicApi("/api/ops/login", "POST")).toBe(true);
-    expect(isPublicApi("/api/ops/register", "POST")).toBe(true);
-    expect(isPublicApi("/api/ops/password/forgot", "POST")).toBe(true);
-    expect(isPublicApi("/api/ops/password/reset", "POST")).toBe(true);
-    expect(isPublicApi("/api/health", "GET")).toBe(true);
-    expect(isPublicApi("/api/health/ready", "GET")).toBe(true);
-    expect(isPublicApi("/api/github-webhook", "POST")).toBe(true);
-    expect(isPublicApi("/api/sdk/ingest", "POST")).toBe(true);
+  it("leaves login and health open", () => {
+    expect(isPublicApi("/api/ops/login")).toBe(true);
+    expect(isPublicApi("/api/ops/register")).toBe(true);
+    expect(isPublicApi("/api/ops/password/forgot")).toBe(true);
+    expect(isPublicApi("/api/ops/password/reset")).toBe(true);
+    expect(isPublicApi("/api/health")).toBe(true);
+    expect(isPublicApi("/api/health/ready")).toBe(true);
   });
 
-  it("closes monitoring feeds and the ingest listing", () => {
-    expect(isPublicApi("/api/maritime", "GET")).toBe(false);
-    expect(isPublicApi("/api/cctv", "GET")).toBe(false);
-    expect(isPublicApi("/api/flights", "GET")).toBe(false);
-    expect(isPublicApi("/api/proxy-tiles", "GET")).toBe(false);
-    expect(isPublicApi("/api/ops/situations", "GET")).toBe(false);
-    expect(isPublicApi("/api/ops/users", "GET")).toBe(false);
-    expect(isPublicApi("/api/sdk/ingest", "GET")).toBe(false);
+  it("closes monitoring feeds and removed integrations", () => {
+    expect(isPublicApi("/api/maritime")).toBe(false);
+    expect(isPublicApi("/api/cctv")).toBe(false);
+    expect(isPublicApi("/api/flights")).toBe(false);
+    expect(isPublicApi("/api/proxy-tiles")).toBe(false);
+    expect(isPublicApi("/api/ops/situations")).toBe(false);
+    expect(isPublicApi("/api/ops/users")).toBe(false);
+    expect(isPublicApi("/api/sdk/ingest")).toBe(false);
+    expect(isPublicApi("/api/github-webhook")).toBe(false);
   });
 
   it("marks user administration and token changes as admin APIs", () => {
@@ -41,14 +40,6 @@ describe("ops gate", () => {
     expect(isProtectedPage("/masuk")).toBe(false);
     expect(isProtectedPage("/daftar")).toBe(false);
     expect(isProtectedPage("/docs")).toBe(false);
-  });
-
-  it("marks active recon and OSINT lookups as operator APIs", () => {
-    expect(isOperatorApi("/api/scanner")).toBe(true);
-    expect(isOperatorApi("/api/osint/whois")).toBe(true);
-    expect(isOperatorApi("/api/osint/leaks")).toBe(true);
-    expect(isOperatorApi("/api/osintx")).toBe(false);
-    expect(isOperatorApi("/api/cctv")).toBe(false);
   });
 
   it("refuses state-changing requests from another site", () => {

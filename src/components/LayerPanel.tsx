@@ -4,10 +4,9 @@ import { memo, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plane, Satellite, Sun, AlertTriangle, Camera,
-  CloudLightning, Ship, Network, Database, Ghost,
-  Flame, Tv, Radio, Mountain, Anchor, Megaphone, SlidersHorizontal, Shield
+  CloudLightning, Ship, Database, Ghost,
+  Flame, Tv, Radio, Mountain, Anchor, Shield
 } from 'lucide-react';
-import StyleStudio from './StyleStudio';
 import type { ActiveLayers } from '@/lib/layer-feeds';
 import { mapDataList, type MapData } from '@/lib/map-data';
 import type { Matra } from '@/lib/kotamaops-points';
@@ -20,9 +19,6 @@ interface LayerPanelProps {
   isMobile?: boolean;
   theme?: 'core' | 'ghost';
   setTheme?: (theme: 'core' | 'ghost') => void;
-  /** Server-side capabilities, e.g. { cloudflare: true }. Layers declaring a
-   *  `requires` key stay hidden until the matching capability is present. */
-  capabilities?: Record<string, boolean>;
   terrainStatus?: TerrainStatus;
   onTerrainRetry?: () => void;
   onTerrainFocus?: () => void;
@@ -40,8 +36,6 @@ interface LayerDef {
   catKey?: string;
   /** Counts only the Kotamaops of this matra. */
   matra?: Matra;
-  /** Capability that must be configured server-side for this layer to appear. */
-  requires?: string;
   /** Key of the layer this one modifies. Renders indented beneath it. */
   parent?: keyof ActiveLayers;
   /** The row stays usable while any of these layers is on. Defaults to the parent. */
@@ -68,14 +62,6 @@ const LAYER_GROUPS: LayerGroupDef[] = [
       { key: 'tni_ad', label: 'TNI AD', dataKey: 'kotamaops', matra: 'AD' },
       { key: 'tni_al', label: 'TNI AL', dataKey: 'kotamaops', matra: 'AL' },
       { key: 'tni_au', label: 'TNI AU', dataKey: 'kotamaops', matra: 'AU' },
-    ],
-  },
-  {
-    label: 'SDK',
-    fullLabel: 'ATLAS SDK',
-    icon: Network,
-    layers: [
-      { key: 'sdk_sea', label: 'Maritime Lines', dataKey: 'sdk_entities' },
     ],
   },
   {
@@ -143,24 +129,6 @@ const LAYER_GROUPS: LayerGroupDef[] = [
     ],
   },
   {
-    label: 'NETWORK',
-    fullLabel: 'NETWORK INTEL',
-    icon: Network,
-    layers: [
-      { key: 'malware', label: 'Live Malware', dataKey: 'malware_threats' },
-      { key: 'cyber_attacks', label: 'Botnet C2 Servers', dataKey: 'cyber_attacks' },
-    ],
-  },
-  {
-    label: 'NETINTEL',
-    fullLabel: 'NET & EVENT INTEL',
-    icon: Megaphone,
-    layers: [
-      { key: 'cf_outages', label: 'Internet Outages', dataKey: 'cf_outages', requires: 'cloudflare' },
-      { key: 'cf_attacks', label: 'Attack Origins', dataKey: 'cf_attack_origins', requires: 'cloudflare' },
-    ],
-  },
-  {
     label: 'DISPLAY',
     fullLabel: 'DISPLAY',
     icon: Sun,
@@ -221,7 +189,7 @@ function SubLayerStem() {
   );
 }
 
-function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'core', setTheme, capabilities = {}, terrainStatus = 'idle', onTerrainRetry, onTerrainFocus, on3DModeSelected, revealed = true }: LayerPanelProps) {
+function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'core', setTheme, terrainStatus = 'idle', onTerrainRetry, onTerrainFocus, on3DModeSelected, revealed = true }: LayerPanelProps) {
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   /**
    * A pinned group stays open when the pointer leaves. Hover-only flyouts are
@@ -229,7 +197,6 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
    * far edge closes the thing you were reaching for.
    */
   const [pinnedGroup, setPinnedGroup] = useState<string | null>(null);
-  const [studioOpen, setStudioOpen] = useState(false);
 
   useEffect(() => {
     if (!pinnedGroup) return;
@@ -263,12 +230,7 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
     });
   };
 
-  /* Drop layers whose backing capability is not configured, then drop any group
-     left with nothing to show. */
-  const visibleGroups = LAYER_GROUPS.map(g => ({
-    ...g,
-    layers: g.layers.filter(l => !l.requires || capabilities[l.requires]),
-  })).filter(g => g.layers.length > 0);
+  const visibleGroups = LAYER_GROUPS;
 
   const getCount = (layer: LayerDef): number | null => {
     if (!layer.dataKey) return null;
@@ -337,25 +299,6 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
             </div>
           </div>
         ))}
-
-        {/* MOBILE STYLE STUDIO */}
-        <div className="flex items-center justify-between mt-2 pt-3 border-t border-white/[0.06] px-1">
-          <span className="text-[10px] font-mono tracking-[0.2em] text-white/25 uppercase">Style Studio</span>
-          <button
-            onClick={() => setStudioOpen(o => !o)}
-            aria-pressed={studioOpen}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-            style={{
-              background: studioOpen ? 'var(--hover-accent)' : 'transparent',
-              boxShadow: studioOpen ? '0 0 12px var(--gold-glow)' : 'none',
-            }}
-          >
-            <SlidersHorizontal className="w-4 h-4" style={{ color: studioOpen ? 'var(--gold-primary)' : 'rgba(255,255,255,0.25)' }} />
-          </button>
-        </div>
-        <AnimatePresence>
-          {studioOpen && <StyleStudio isMobile onClose={() => setStudioOpen(false)} />}
-        </AnimatePresence>
 
         {/* MOBILE GHOST TOGGLE */}
         {setTheme && (
@@ -536,28 +479,6 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
 
       {/* Subtle separator */}
       <div className="w-5 h-px bg-white/[0.06] my-2" />
-
-      {/* Style Studio */}
-      <button
-        onClick={() => setStudioOpen(o => !o)}
-        aria-pressed={studioOpen}
-        className="w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-500 cursor-pointer"
-        style={{ background: studioOpen ? 'var(--hover-accent)' : 'transparent' }}
-        title="Style Studio"
-      >
-        <SlidersHorizontal
-          className="transition-all duration-500"
-          style={{
-            width: 15,
-            height: 15,
-            color: studioOpen ? 'var(--gold-primary)' : 'rgba(255,255,255,0.15)',
-            filter: studioOpen ? 'drop-shadow(0 0 6px var(--gold-glow))' : 'none',
-          }}
-        />
-      </button>
-      <AnimatePresence>
-        {studioOpen && <StyleStudio onClose={() => setStudioOpen(false)} />}
-      </AnimatePresence>
 
       {/* Ghost Protocol Toggle */}
       {setTheme && (

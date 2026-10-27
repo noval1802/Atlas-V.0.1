@@ -3,22 +3,19 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layers, Newspaper, Search, X, Globe, MapPinned, Route, Radar, Satellite, Moon, ExternalLink, AlertTriangle, Activity, Database, Wifi, Play, Network, Crosshair, Pentagon, PenLine, Cctv } from 'lucide-react';
+import { Layers, Newspaper, Search, X, Globe, MapPinned, Route, Satellite, Moon, ExternalLink, AlertTriangle, Activity, Database, Wifi, Play, Network, Crosshair, Pentagon, PenLine, Cctv } from 'lucide-react';
 import { type TerrainStatus } from '@/lib/map-terrain';
 import { dropCamerasFromSource, loadCameraCatalog, mergeCameraCatalog } from '@/lib/camera-catalog';
 import { applyLayerQuery, serializeLayers } from '@/lib/cctv-layers';
 import { applyFeedTransform, DEFAULT_ACTIVE_LAYERS, maritimePollGapMs, onceFeeds, pollFeeds, type ActiveLayers } from '@/lib/layer-feeds';
 import type { ArcGisLayer, GlobalStats, MapEntity, RegionDossier, WatchedCamera } from '@/lib/dashboard-state';
 import type { EarthquakeRow, MapData } from '@/lib/map-data';
-import type { ScanTarget } from '@/lib/map-overlays';
-import type { SweepResult } from '@/lib/osint-utils';
 import IntelFeed from '@/components/IntelFeed';
 import SearchBar from '@/components/SearchBar';
 import DirectionsBar, { type RouteResult, type LiveLocation } from '@/components/DirectionsBar';
 import NavigationView from '@/components/NavigationView';
 import FlightWatchPanel, { type WatchedFlight, type FlightTelemetry, type AircraftDetail, type Airport } from '@/components/FlightWatchPanel';
 import type { NavProgress } from '@/lib/navigation';
-import type { LiveDetection } from '@/lib/malware-intel';
 import ScaleBar from '@/components/ScaleBar';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { applySettings, loadSavedSettings } from '@/lib/style-tokens';
@@ -34,7 +31,6 @@ const OsirisMap = dynamic(() => import('@/components/OsirisMap'), { ssr: false }
 const LayerPanel = dynamic(() => import('@/components/LayerPanel'));
 const SpaceCam = dynamic(() => import('@/components/SpaceCam'), { ssr: false });
 const CameraViewer = dynamic(() => import('@/components/CameraViewer'));
-const OsintPanel = dynamic(() => import('@/components/OsintPanel'));
 const DrawingToolbar = dynamic(() => import('@/components/DrawingToolbar'), { ssr: false });
 const DrawHud = dynamic(() => import('@/components/DrawHud'), { ssr: false });
 // The measurement helpers are pure functions — importing them directly keeps
@@ -61,22 +57,6 @@ const UptimeClock = () => {
   }, [startTime]);
   return <span className="hidden lg:inline">UPTIME: <span className="text-[var(--gold-primary)]">{uptime}</span></span>;
 };
-
-
-interface UsgsQuake {
-  id?: string;
-  geometry?: { coordinates?: number[] };
-  properties?: {
-    mag?: number;
-    place?: string;
-    time?: number;
-    url?: string;
-    tsunami?: number;
-    type?: string;
-    felt?: number;
-    alert?: string | null;
-  };
-}
 
 
 /* One version label for the splash and the header, which used to disagree. */
@@ -129,7 +109,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
   /* CCTV this viewer chose for the SPACE multiviewer; shared with the multiviewer tab through this browser's storage. */
   const spaceCams = useSpaceCams();
   const toggleSpace = useCallback((camera: WatchedCamera) => writeSpaceCams(toggleSpaceCam(spaceCams, camera)), [spaceCams]);
-  const [showIntel, setShowIntel] = useState(false);
   const [catalogNonce, setCatalogNonce] = useState(0);
   const replaceTokenCameras = useCallback((id: string) => {
     const source = id === 'jakarta' ? 'TPT CCTV' : id === 'jasamarga' ? 'Jasa Marga' : '';
@@ -238,14 +217,12 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
   const [arcgisLayers, setArcgisLayers] = useState<ArcGisLayer[]>([]);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number; bounds?: { west: number; south: number; east: number; north: number } } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [mobilePanel, setMobilePanel] = useState<'layers'|'intel'|'search'|'recon'|null>(null);
+  const [mobilePanel, setMobilePanel] = useState<'layers'|'intel'|'search'|null>(null);
   const [mapProjection, setMapProjection] = useState<'globe'|'mercator'>('globe');
   const [terrainFocus, setTerrainFocus] = useState(0);
   const [terrainStatus, setTerrainStatus] = useState<TerrainStatus>('idle');
   const [terrainRetry, setTerrainRetry] = useState(0);
   const [mapStyle, setMapStyle] = useState<'dark'|'satellite'>('dark');
-  const [sweepData, setSweepData] = useState<SweepResult | null>(null);
-  const [scanTargets, setScanTargets] = useState<ScanTarget[]>([]);
   const [drawnPolygons, setDrawnPolygons] = useState<DrawnShape[]>([]);
   const [demoMode, setDemoMode] = useState(false);
   const [osirisTheme, setOsirisTheme] = useState<'core'|'ghost'>('core');
@@ -278,7 +255,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
     onTerrainRetry: () => setTerrainRetry(value => value + 1),
     onTerrainFocus: () => setTerrainFocus(value => value + 1),
   };
-  const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
   const [liveFeedUrl, setLiveFeedUrl] = useState<string | null>(null);
   const [liveFeedName, setLiveFeedName] = useState('');
   const [liveFeedEmbedAllowed, setLiveFeedEmbedAllowed] = useState(true);
@@ -327,13 +303,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
       setActiveLayers(prev => applyLayerQuery(prev, layers));
     }
 
-    // Probe which credential-gated feeds this deployment has configured, so the
-    // layer panel can hide toggles that could never return data.
-    fetch('/api/cloudflare-radar?probe=1')
-      .then(r => (r.ok ? r.json() : null))
-      .then(p => { if (p) setCapabilities(c => ({ ...c, cloudflare: !!p.configured })); })
-      .catch(() => { /* leave the layer hidden */ });
-
     // Once the user interacts, the post-splash fly-in to NKRI must not steal the camera back.
     const cancelAutoLocate = () => { autoLocateCancelled.current = true; };
     window.addEventListener('pointerdown', cancelAutoLocate, { once: true });
@@ -376,8 +345,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
         else document.documentElement.requestFullscreen();
       }
       if (e.key === 'l') setShowLayers(p => !p);
-      if (e.key === 'i') setShowIntel(p => !p);
-      if (e.key === 's') { setShowDesktopSearch(p => !p); setShowIntel(false); setShowAlerts(false); setShowSpaceCam(false); }
+      if (e.key === 's') { setShowDesktopSearch(p => !p); setShowAlerts(false); setShowSpaceCam(false); }
       if (e.key === 'r' && !e.ctrlKey && !e.metaKey) setFlyToLocation({ ...NKRI_CENTER, zoom: nkriZoom(window.innerWidth), ts: Date.now() });
       if (e.key === 'g') {
         setActiveLayers(prev => ({ ...prev, terrain_elevation: false, terrain_3d: false }));
@@ -385,7 +353,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
-        setShowDesktopSearch(true); setShowIntel(false); setShowAlerts(false); setShowSpaceCam(false);
+        setShowDesktopSearch(true); setShowAlerts(false); setShowSpaceCam(false);
       }
     };
     const fsHandler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -550,28 +518,12 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
   // ── PROGRESSIVE DATA LOADING (request-optimized) ──
   useEffect(() => {
     // Priority 1: Core feeds (always needed for panels)
-    const eqUrl = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson';
+    const eqUrl = '/api/earthquakes';
     const weatherTransform = (payload: unknown): Partial<MapData> => {
       const body = payload as { events?: MapData['weather_events'] };
       return { weather_events: body.events };
     };
-    const eqTransform = (payload: unknown): { earthquakes: EarthquakeRow[] } => {
-      const body = payload as { features?: UsgsQuake[] };
-      return { earthquakes: (body.features ?? []).map(f => ({
-        id: f.id,
-        lat: f.geometry?.coordinates?.[1] || 0,
-        lng: f.geometry?.coordinates?.[0] || 0,
-        depth: f.geometry?.coordinates?.[2] || 0,
-        magnitude: f.properties?.mag,
-        place: f.properties?.place,
-        time: f.properties?.time,
-        url: f.properties?.url,
-        tsunami: f.properties?.tsunami,
-        type: f.properties?.type,
-        felt: f.properties?.felt,
-        alert: f.properties?.alert,
-      })) };
-    };
+    const eqTransform = (payload: unknown): Partial<MapData> => ({ earthquakes: (payload as { earthquakes?: EarthquakeRow[] }).earthquakes ?? [] });
     // eslint-disable-next-line react-hooks/set-state-in-effect -- false positive: fetchEndpoint only sets state after its first await
     fetchEndpoint(eqUrl, eqTransform);
     fetchEndpoint('/api/news', newsTransform);
@@ -603,25 +555,8 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
     }, () => console.warn('[OSIRIS] Camera catalogue load failed; bounded retry scheduled'));
   }, [activeLayers.cctv, activeLayers.cctv_jm, activeLayers.cctv_jakarta, catalogNonce, updateData]);
 
-  // Live Malware is pushed over SSE below. Cameras use the catalogue loader above.
   useEffect(() => {
     for (const feed of onceFeeds(activeLayers, layerFetchedRef.current)) {
-      if (feed.kind === 'static') {
-        const ts = Date.now();
-        (async () => {
-          try {
-            const res = await fetch(`${feed.url}?v=${ts}`);
-            if (res.ok) {
-              const cablesData = await res.json();
-              updateData(prev => ({ ...prev, submarine_cables: cablesData.features }));
-            }
-          } catch {
-            console.warn('Cables fetch failed');
-          }
-        })();
-        layerFetchedRef.current.add(feed.key);
-        continue;
-      }
       const transform = feed.transform === 'none' ? undefined : (body: unknown) => applyFeedTransform(feed.transform, body);
       if (feed.retryOnFailure) {
         layerFetchedRef.current.add(feed.key);
@@ -671,155 +606,12 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
     return () => { intervals.forEach(clearInterval); stopFns.forEach(stop => stop()); };
   }, [activeLayers, fetchEndpoint]);
 
-  /* ── LIVE MALWARE — pushed over SSE while the layer is on ──
-     Detections arrive when URLhaus reports them rather than on a timer, so
-     there is no poll interval to tune and no request that re-downloads the
-     same rows to discover nothing changed. The connection also carries the
-     progressive geolocation fill, which is why a cold server paints the map in
-     batches instead of staying empty and then snapping to full. */
-  useEffect(() => {
-    if (!activeLayers.malware) return;
-
-    const source = new EventSource('/api/malware/stream');
-    // Keyed by address: a host re-reported with a new payload updates its node
-    // rather than stacking a second dot on the same coordinates.
-    const byIp = new Map<string, LiveDetection>();
-    // The server sends `status` at the end of every poll, so the first one
-    // marks the end of the initial fill — anything after it is genuinely new
-    // and worth drawing attention to.
-    let filled = false;
-
-    const commit = () => {
-      updateData(prev => ({ ...prev, malware_threats: [...byIp.values()] }));
-    };
-
-    source.onmessage = ev => {
-      try {
-        const event = JSON.parse(ev.data);
-        if (event.type === 'snapshot') {
-          byIp.clear();
-          for (const d of event.detections) byIp.set(d.ip, d);
-          commit();
-        } else if (event.type === 'detections') {
-          // Only a first sighting is an arrival. An existing host that served
-          // another payload arrives with fresh:false and keeps whatever beacon
-          // state it already had, so it does not re-flag itself as new.
-          const beacon = filled && event.fresh;
-          for (const d of event.detections) {
-            byIp.set(d.ip, beacon ? { ...d, detected_at: Date.now() } : { ...d, detected_at: byIp.get(d.ip)?.detected_at });
-          }
-          commit();
-        } else if (event.type === 'status') {
-          filled = true;
-          // Hosts that have gone dark since the last poll. The store prunes
-          // these; without mirroring it here the map would only ever grow.
-          if (event.retired?.length) {
-            for (const ip of event.retired) byIp.delete(ip);
-            commit();
-          }
-        }
-        setBackendStatus('connected');
-      } catch {
-        // One malformed frame must not tear down the subscription.
-      }
-    };
-
-    /* EventSource reconnects on its own, firing `error` on each attempt, and
-       the store replays a snapshot on connect so a drop self-heals. Only a
-       readyState of CLOSED means it has given up — reporting the transient
-       ones would flag the backend as down every time a connection recycles. */
-    source.onopen = () => setBackendStatus('connected');
-    source.onerror = () => {
-      if (source.readyState === EventSource.CLOSED) setBackendStatus('error');
-    };
-
-    return () => source.close();
-  }, [activeLayers.malware, updateData]);
 
   // CCTV: loaded once on layer toggle via layerFetchedRef (no viewport polling)
 
   // Reactive layer fetch: handled by layerFetchedRef above (no duplicate)
 
-  // ── OSIRIS SDK — Intelligence Fusion Layer ──
-  // Produces node coordinates for the SDK network mesh visualization.
-  // Does NOT duplicate existing layer visuals — SDK layer is LINES ONLY.
-  // Cameras are excluded — they have their own dedicated layer.
-  const sdkEntities = useMemo(() => {
-    const anyActive = activeLayers.sdk_sea || activeLayers.sdk_air || activeLayers.sdk_naval;
-    if (!anyActive) return [];
-
-    const sdkEntities: Array<{
-      type: 'Feature';
-      geometry: { type: 'Point'; coordinates: [number, number] };
-      properties: { domain: string; name: string; source: string };
-    }> = [];
-
-    // Air domain (nodes only — no visual duplication)
-    const allFlights = [
-      ...(mapData.commercial_flights || []),
-      ...(mapData.private_flights || []),
-      ...(mapData.private_jets || []),
-      ...(mapData.military_flights || []),
-    ];
-    // Sample flights to keep it clean (every Nth)
-    const flightStep = Math.max(1, Math.floor(allFlights.length / 60));
-    for (let i = 0; i < allFlights.length; i += flightStep) {
-      const f = allFlights[i];
-      if (!f.lat || !f.lng) continue;
-      sdkEntities.push({
-        type: 'Feature', geometry: { type: 'Point', coordinates: [f.lng, f.lat] },
-        properties: { domain: 'AIR', name: f.callsign?.trim() || 'TRACK', source: 'ADS-B / OpenSky' },
-      });
-    }
-
-    // Sea domain
-    const ships = mapData.maritime_ships || [];
-    const shipStep = Math.max(1, Math.floor(ships.length / 60));
-    for (let i = 0; i < ships.length; i += shipStep) {
-      const s = ships[i];
-      if (!s.lat || !s.lng) continue;
-      sdkEntities.push({
-        type: 'Feature', geometry: { type: 'Point', coordinates: [s.lng, s.lat] },
-        properties: { domain: 'SEA', name: s.name || `MMSI-${s.mmsi}`, source: 'AIS Stream' },
-      });
-    }
-
-    // Events — Earthquakes
-    if (mapData.earthquakes?.length) {
-      for (const eq of mapData.earthquakes) {
-        if (!eq.lat || !eq.lng) continue;
-        sdkEntities.push({
-          type: 'Feature', geometry: { type: 'Point', coordinates: [eq.lng, eq.lat] },
-          properties: { domain: 'LAND', name: `M${eq.magnitude} ${eq.place || ''}`, source: 'USGS' },
-        });
-      }
-    }
-
-    // GDELT events
-    if (mapData.gdelt?.length) {
-      for (const g of mapData.gdelt) {
-        if (!g.lat || !g.lng) continue;
-        sdkEntities.push({
-          type: 'Feature', geometry: { type: 'Point', coordinates: [g.lng, g.lat] },
-          properties: { domain: 'INTEL', name: g.name || 'GDELT Event', source: 'GDELT Project' },
-        });
-      }
-    }
-
-    // News intel
-    if (mapData.news?.length) {
-      for (const n of mapData.news) {
-        if (!n.coords || n.coords.length < 2) continue;
-        sdkEntities.push({
-          type: 'Feature', geometry: { type: 'Point', coordinates: [n.coords[1], n.coords[0]] },
-          properties: { domain: 'INTEL', name: n.title || 'SIGINT', source: n.source || 'RSS Feed' },
-        });
-      }
-    }
-
-    return sdkEntities;
-  }, [mapData, activeLayers.sdk_sea, activeLayers.sdk_air, activeLayers.sdk_naval]);
-  const data = useMemo(() => ({ ...mapData, sdk_entities: sdkEntities }), [mapData, sdkEntities]);
+  const data = mapData;
 
   const totalFlights = useMemo(() => (
     (data.commercial_flights?.length||0)+(data.private_flights?.length||0)+(data.private_jets?.length||0)+(data.military_flights?.length||0)
@@ -1038,8 +830,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
           onReady={() => setMapReady(true)}
           flyToLocation={flyToLocation}
           alertPinIds={pinnedAlertIds}
-          sweepData={sweepData}
-          scanTargets={scanTargets}
           demoMode={demoMode}
           theme={osirisTheme}
           arcgisLayers={arcgisLayers.filter(l => l.visible).map(l => ({ id: l.id, title: l.title, geojson: l.geojson, color: l.color, opacity: l.opacity }))}
@@ -1228,7 +1018,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
 
 
       {/* ── NEW SIDEBAR (Root Level) ── */}
-      {showLayers && !isMobile && <LayerPanel {...terrainPanelProps} revealed={revealed} data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} theme={osirisTheme} setTheme={setOsirisTheme} capabilities={capabilities} />}
+      {showLayers && !isMobile && <LayerPanel {...terrainPanelProps} revealed={revealed} data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} theme={osirisTheme} setTheme={setOsirisTheme} />}
 
 
 
@@ -1236,33 +1026,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
       {!isMobile && <motion.div initial={{ opacity: 0, x: 12 }} animate={revealed ? { opacity: 1, x: 0 } : { opacity: 0, x: 12 }} transition={hudIn(0.3)} className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[250] pointer-events-auto bg-black/40 backdrop-blur-sm p-1 rounded-full border border-white/5">
         <CctvTokenButton onSaved={replaceTokenCameras} />
         <div className="relative group">
-          <button onClick={() => { setShowIntel(!showIntel); setShowAlerts(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showIntel ? 'bg-[var(--cyan-primary)]/20' : 'hover:bg-white/10'}`} title="OSINT Recon — IP lookup, network sweep, geolocation" aria-label="OSINT Recon" aria-expanded={showIntel}>
-            <Radar className={`w-4 h-4 ${showIntel ? 'text-[var(--cyan-primary)]' : 'text-white/60'}`} />
-            {showIntel && (
-              <span
-                aria-hidden="true"
-                className="absolute -right-1 top-1/2 -translate-y-1/2 h-4 w-[2px] rounded-full bg-current text-[var(--cyan-primary)]"
-              />
-            )}
-          </button>
-          <span className="absolute right-11 top-1/2 -translate-y-1/2 px-2 py-1 text-[9px] font-mono tracking-wider text-white/80 bg-black/80 backdrop-blur-sm rounded whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none">RECON</span>
-          <AnimatePresence>
-            {showIntel && (
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="absolute right-12 top-1/2 -translate-y-1/2 w-80">
-                <OsintPanel onSweepVisualize={setSweepData} onScanGeolocate={(target, data) => {
-                  setScanTargets(prev => {
-                    const existing = prev.filter(t => t.id !== target);
-                    return [{ id: target, timestamp: Date.now(), ...data }, ...existing].slice(0, 10);
-                  });
-                  setFlyToLocation({ lat: data.lat, lng: data.lng, ts: Date.now() });
-                }} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="relative group">
-          <button onClick={() => { setShowIntel(false); setShowAlerts(false); setShowSpaceCam(v => !v); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showSpaceCam ? 'bg-[#00E5FF]/20' : 'hover:bg-white/10'}`} title="SPACE — multiviewer CCTV pilihan Anda" aria-label="SPACE: CCTV terpilih" aria-expanded={showSpaceCam}>
+          <button onClick={() => { setShowAlerts(false); setShowSpaceCam(v => !v); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showSpaceCam ? 'bg-[#00E5FF]/20' : 'hover:bg-white/10'}`} title="SPACE — multiviewer CCTV pilihan Anda" aria-label="SPACE: CCTV terpilih" aria-expanded={showSpaceCam}>
             <Cctv className={`w-4 h-4 ${showSpaceCam ? 'text-[#00E5FF]' : 'text-white/60'}`} />
             {showSpaceCam && (
               <span
@@ -1283,7 +1047,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
 
 
         <div className="relative group">
-          <button onClick={() => { setShowAlerts(!showAlerts); setShowIntel(false); setShowDrawing(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showAlerts ? 'bg-[#FF3D3D]/20' : 'hover:bg-white/10'}`} title="Live Alerts — earthquakes, conflicts, breaking news" aria-label="Live Alerts" aria-expanded={showAlerts}>
+          <button onClick={() => { setShowAlerts(!showAlerts); setShowDrawing(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showAlerts ? 'bg-[#FF3D3D]/20' : 'hover:bg-white/10'}`} title="Live Alerts — earthquakes, conflicts, breaking news" aria-label="Live Alerts" aria-expanded={showAlerts}>
             <AlertTriangle className={`w-4 h-4 ${showAlerts ? 'text-[#FF3D3D]' : 'text-white/60'}`} />
             {showAlerts && (
               <span
@@ -1303,7 +1067,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
         </div>
 
         <div className="relative group">
-          <button onClick={() => { setShowDrawing(!showDrawing); setShowIntel(false); setShowAlerts(false); setShowSpaceCam(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showDrawing ? 'bg-[#00E5FF]/20' : 'hover:bg-white/10'}`} title="Draw — measure areas of interest on the map" aria-label="Draw" aria-expanded={showDrawing}>
+          <button onClick={() => { setShowDrawing(!showDrawing); setShowAlerts(false); setShowSpaceCam(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showDrawing ? 'bg-[#00E5FF]/20' : 'hover:bg-white/10'}`} title="Draw — measure areas of interest on the map" aria-label="Draw" aria-expanded={showDrawing}>
             <PenLine className={`w-4 h-4 ${showDrawing ? 'text-[#00E5FF]' : 'text-white/60'}`} />
             {showDrawing && (
               <span
@@ -1316,7 +1080,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
         </div>
 
         <div className="relative group">
-          <button onClick={() => { setShowDirections(!showDirections); if (showDirections) { setActiveRoute(null); } setShowDesktopSearch(false); setShowIntel(false); setShowAlerts(false); setShowSpaceCam(false); setShowDrawing(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showDirections ? 'bg-[var(--gold-primary)]/20' : 'hover:bg-white/10'}`} title="Directions — turn-by-turn routing" aria-label="Directions" aria-expanded={showDirections}>
+          <button onClick={() => { setShowDirections(!showDirections); if (showDirections) { setActiveRoute(null); } setShowDesktopSearch(false); setShowAlerts(false); setShowSpaceCam(false); setShowDrawing(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showDirections ? 'bg-[var(--gold-primary)]/20' : 'hover:bg-white/10'}`} title="Directions — turn-by-turn routing" aria-label="Directions" aria-expanded={showDirections}>
             <Route className={`w-4 h-4 ${showDirections ? 'text-[var(--gold-primary)]' : 'text-white/60'}`} />
             {showDirections && (
               <span
@@ -1329,7 +1093,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
         </div>
 
         <div className="relative group">
-          <button onClick={() => { setShowDesktopSearch(!showDesktopSearch); setShowIntel(false); setShowAlerts(false); setShowSpaceCam(false); setShowDrawing(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showDesktopSearch ? 'bg-[var(--gold-primary)]/20' : 'hover:bg-white/10'}`} title="Search — find locations, cities, coordinates" aria-label="Search" aria-expanded={showDesktopSearch}>
+          <button onClick={() => { setShowDesktopSearch(!showDesktopSearch); setShowAlerts(false); setShowSpaceCam(false); setShowDrawing(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showDesktopSearch ? 'bg-[var(--gold-primary)]/20' : 'hover:bg-white/10'}`} title="Search — find locations, cities, coordinates" aria-label="Search" aria-expanded={showDesktopSearch}>
             <Search className={`w-4 h-4 ${showDesktopSearch ? 'text-[var(--gold-primary)]' : 'text-white/60'}`} />
             {showDesktopSearch && (
               <span
@@ -1481,7 +1245,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
               {[
                 { id: 'layers' as const, icon: Layers, label: 'LAYERS' },
                 { id: 'intel' as const, icon: Newspaper, label: 'INTEL' },
-                { id: 'recon' as const, icon: Radar, label: 'RECON' },
                 { id: 'search' as const, icon: Search, label: 'SEARCH' },
                 // Routing was reachable only from the desktop tool rail, so a
                 // phone could not open it at all. It sits next to SEARCH
@@ -1516,8 +1279,8 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
                     disabled={isRoute && Boolean(navSession)}
                     className={`mobile-nav-btn ${active ? 'active' : ''}`}
                   >
-                    <tab.icon className={`w-4 h-4 ${tab.id === 'recon' ? 'text-[var(--cyan-primary)]' : ''}`} />
-                    <span className={tab.id === 'recon' ? 'text-[var(--cyan-primary)]' : ''}>{tab.label}</span>
+                    <tab.icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
                   </button>
                 );
               })}
@@ -1537,7 +1300,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
                 <div className="px-3 pb-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="hud-text text-[10px] text-[var(--text-primary)]">
-                      {mobilePanel === 'layers' ? 'LAYERS & STATS' : mobilePanel === 'intel' ? 'INTEL FEED' : mobilePanel === 'recon' ? 'ATLAS RECON' : 'SEARCH'}
+                      {mobilePanel === 'layers' ? 'LAYERS & STATS' : mobilePanel === 'intel' ? 'INTEL FEED' : 'SEARCH'}
                     </span>
                     <button onClick={() => setMobilePanel(null)} className="text-[var(--text-muted)] p-1"><X className="w-4 h-4" /></button>
                   </div>
@@ -1551,7 +1314,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
                           <div><div className="hud-label" style={{fontSize:'9px'}}>WX</div><div className="hud-value text-[10px]" style={{color:'var(--accent-weather)'}}>{(data.weather_events?.length||0)}</div></div>
                         </div>
                       </div>
-                      <LayerPanel {...terrainPanelProps} data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} isMobile={true} theme={osirisTheme} setTheme={setOsirisTheme} capabilities={capabilities} />
+                      <LayerPanel {...terrainPanelProps} data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} isMobile={true} theme={osirisTheme} setTheme={setOsirisTheme} />
                       <div className="mt-8">
                         <ViewPresets onNavigate={(lat, lng, zoom) => { setFlyToLocation({ lat, lng, zoom, ts: Date.now() }); setMobilePanel(null); }} />
                       </div>
@@ -1562,11 +1325,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
                     <div className="space-y-2">
                       <SearchBar center={mapCenter} onLocate={(lat, lng, zoom) => { setFlyToLocation({ lat, lng, zoom, ts: Date.now() }); setMobilePanel(null); }} />
                       <SharePanel mapView={mapView} activeLayers={activeLayers} mouseCoords={null} />
-                    </div>
-                  )}
-                  {mobilePanel === 'recon' && (
-                    <div className="space-y-2">
-                      <OsintPanel isOpen={true} onClose={() => setMobilePanel(null)} isMobile={true} onSweepVisualize={setSweepData} />
                     </div>
                   )}
                 </div>
