@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { stealthFetch } from '@/lib/stealthFetch';
 import { cachedSource } from '@/lib/sourceCache';
+import { BMKG_HEADERS, BMKG_WARNING_URL, parseNowcastCap, parseWarningList } from '@/lib/bmkg';
 
 /**
- * OSIRIS — Severe Weather & Anomalies API
- * Fetches active natural events from NASA EONET (global storms/volcanoes/sea ice),
- * NOAA/NWS active alerts (U.S. only), and GDACS (global cyclones/floods/droughts).
- * NWS alone only covers the U.S.; GDACS fills the rest of the world with the same
- * severity/coordinate shape so the map layer shows weather events everywhere.
+ * ATLAS — Severe Weather & Anomalies API
+ * BMKG Peringatan Dini Cuaca (nowcast CAP) for Indonesia, plus NASA EONET
+ * (storms/volcanoes) and GDACS (cyclones/floods/droughts) for the region around it.
  */
 
 type Severity = 'low' | 'medium' | 'high';
@@ -24,8 +23,10 @@ type WeatherEvent = {
   date?: string;
   expires?: string;
   area?: string;
+  description?: string;
+  infographic?: string;
   source: string;
-  provider: 'NASA EONET' | 'NOAA/NWS' | 'GDACS';
+  provider: 'NASA EONET' | 'BMKG' | 'GDACS';
 };
 
 type EonetEvent = {
@@ -49,41 +50,8 @@ type EonetResponse = {
   events?: EonetEvent[];
 };
 
-type NwsGeometry =
-  | {
-      type: 'Point';
-      coordinates: number[];
-    }
-  | {
-      type: 'Polygon';
-      coordinates?: number[][][];
-    }
-  | {
-      type: 'MultiPolygon';
-      coordinates?: number[][][][];
-    };
-
-type NwsFeature = {
-  geometry?: NwsGeometry | null;
-  properties?: {
-    '@id'?: string;
-    id?: string;
-    headline?: string;
-    event?: string;
-    severity?: string;
-    effective?: string;
-    sent?: string;
-    expires?: string;
-    areaDesc?: string;
-  };
-};
-
-type NwsResponse = {
-  features?: NwsFeature[];
-};
-
 // GDACS event types we surface here. EQ (earthquakes) and WF (wildfires) are already
-// covered by the dedicated /api/earthquakes (USGS) and /api/fires (FIRMS) routes.
+// covered by the dedicated /api/earthquakes (BMKG) and /api/fires (FIRMS) routes.
 const GDACS_TYPE_MAP: Record<string, { type: string; icon: string }> = {
   TC: { type: 'Tropical Cyclone', icon: 'cyclone' },
   FL: { type: 'Flood', icon: 'flood' },
@@ -149,7 +117,7 @@ function parseGdacsRss(xml: string): WeatherEvent[] {
  *
  * Live Alerts lists these warnings, so every open dashboard now asks for them
  * every five minutes — without this, each of those asks would be three more
- * requests to NASA, the National Weather Service and GDACS. The cache also
+ * requests to NASA, BMKG and GDACS. The cache also
  * keeps the last good list when a provider has a bad minute, which matters
  * more here than anywhere else in the app: an empty warnings panel reads as
  * "nothing is happening", and that is not the same as "we could not ask".
@@ -174,17 +142,11 @@ export async function GET() {
 
 async function collectEvents(): Promise<WeatherEvent[]> {
   {
-    const [eonetRes, nwsRes, gdacsRes] = await Promise.allSettled([
+    const [eonetRes, bmkgRes, gdacsRes] = await Promise.allSettled([
       stealthFetch('https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=100', {
         signal: AbortSignal.timeout(10000),
       }),
-      fetch('https://api.weather.gov/alerts/active?status=actual&message_type=alert', {
-        headers: {
-          Accept: 'application/geo+json',
-          'User-Agent': 'OSIRIS Severe Weather Layer',
-        },
-        signal: AbortSignal.timeout(10000),
-      }),
+      fetch(BMKG_WARNING_URL, { headers: BMKG_HEADERS, signal: AbortSignal.timeout(10000) }),
       stealthFetch('https://www.gdacs.org/xml/rss.xml', {
         signal: AbortSignal.timeout(10000),
       }),
@@ -248,34 +210,38 @@ async function collectEvents(): Promise<WeatherEvent[]> {
       }
     }
 
-    if (nwsRes.status === 'fulfilled' && nwsRes.value.ok) {
+    if (bmkgRes.status === 'fulfilled' && bmkgRes.value.ok) {
       try {
-        const data = (await nwsRes.value.json()) as NwsResponse;
+        // The bulletin list carries no coordinates; each CAP file has the warning polygon.
+        const bulletins = parseWarningList(await bmkgRes.value.json()).slice(0, 60);
+        const caps = await Promise.allSettled(bulletins.map(async bulletin => {
+          const res = await fetch(bulletin.capUrl, { headers: BMKG_HEADERS, signal: AbortSignal.timeout(10000) });
+          return { bulletin, alert: res.ok ? parseNowcastCap(await res.text()) : null };
+        }));
         providerSucceeded = true;
-
-        for (const feature of data.features || []) {
-          const props = feature.properties || {};
-          const coords = getRepresentativePoint(feature.geometry);
-          if (!coords) continue;
-
+        for (const cap of caps) {
+          if (cap.status !== 'fulfilled' || !cap.value.alert) continue;
+          const a = cap.value.alert;
           events.push({
-            id: `nws-${props.id || props['@id'] || props.event || coords.lat}`,
-            title: props.headline || props.event || 'NWS Weather Alert',
+            id: a.id,
+            title: a.headline,
             category: 'weatherAlerts',
-            type: props.event || 'Weather Alert',
+            type: a.event,
             icon: 'weather',
-            severity: normalizeNwsSeverity(props.severity),
-            lat: coords.lat,
-            lng: coords.lng,
-            date: props.effective || props.sent,
-            expires: props.expires,
-            area: props.areaDesc,
-            source: props['@id'] || 'https://api.weather.gov/alerts/active',
-            provider: 'NOAA/NWS',
+            severity: a.severity,
+            lat: a.lat,
+            lng: a.lng,
+            date: a.effective,
+            expires: a.expires,
+            area: a.area,
+            description: cap.value.bulletin.description,
+            infographic: cap.value.bulletin.infographic,
+            source: cap.value.bulletin.capUrl,
+            provider: 'BMKG',
           });
         }
       } catch (error) {
-        console.error('NOAA/NWS normalization error:', error);
+        console.error('BMKG nowcast normalization error:', error);
       }
     }
 
@@ -293,57 +259,8 @@ async function collectEvents(): Promise<WeatherEvent[]> {
        serves the last good warnings instead of an empty panel. */
     if (!providerSucceeded) throw new Error('no weather provider answered');
 
-    // NWS can list the same alert twice; the panel keys rows by id, so keep the first of each.
+    // A provider can list the same alert twice; the panel keys rows by id, so keep the first of each.
     const seen = new Set<string>();
     return events.filter((event) => !seen.has(event.id) && Boolean(seen.add(event.id)));
   }
-}
-
-function normalizeNwsSeverity(severity?: string): Severity {
-  switch (severity) {
-    case 'Extreme':
-    case 'Severe':
-      return 'high';
-    case 'Moderate':
-      return 'medium';
-    default:
-      return 'low';
-  }
-}
-
-function getRepresentativePoint(geometry?: NwsGeometry | null) {
-  if (!geometry) return null;
-
-  if (geometry.type === 'Point') {
-    const [lng, lat] = geometry.coordinates;
-    return { lat, lng };
-  }
-
-  if (geometry.type === 'Polygon') {
-    return averageCoordinates(geometry.coordinates?.[0]);
-  }
-
-  if (geometry.type === 'MultiPolygon') {
-    return averageCoordinates(geometry.coordinates?.[0]?.[0]);
-  }
-
-  return null;
-}
-
-function averageCoordinates(coords?: number[][]) {
-  if (!coords || coords.length === 0) return null;
-
-  const totals = coords.reduce(
-    (acc, coord) => {
-      acc.lng += coord[0];
-      acc.lat += coord[1];
-      return acc;
-    },
-    { lat: 0, lng: 0 }
-  );
-
-  return {
-    lat: totals.lat / coords.length,
-    lng: totals.lng / coords.length,
-  };
 }

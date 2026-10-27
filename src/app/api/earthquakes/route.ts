@@ -1,64 +1,32 @@
-
 import { NextResponse } from 'next/server';
-import type { EarthquakeRow } from '@/lib/map-data';
-
-interface UsgsFeature {
-  id?: string;
-  geometry?: { coordinates?: number[] };
-  properties?: {
-    mag?: number;
-    place?: string;
-    time?: number;
-    url?: string;
-    tsunami?: number;
-    type?: string;
-    felt?: number;
-    alert?: string | null;
-  };
-}
+import { BMKG_HEADERS, BMKG_QUAKE_URLS, mergeQuakes, parseBmkgQuakes } from '@/lib/bmkg';
+import { cachedSource } from '@/lib/sourceCache';
 
 /**
- * OSIRIS — Earthquake Data API
- * Fetches real-time seismic events from USGS (last 24h, M2.5+)
- * No API key required
+ * ATLAS — Earthquake Data API
+ * BMKG InaTEWS: the latest M5+ list and the felt list, merged.
+ * Indonesia and its surroundings only; this replaced the global USGS feed.
  */
+
+const loadQuakes = cachedSource('earthquakes:bmkg', async () => {
+  const results = await Promise.allSettled(BMKG_QUAKE_URLS.map(async url => {
+    const res = await fetch(url, { headers: BMKG_HEADERS, signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`BMKG ${res.status}`);
+    return parseBmkgQuakes(await res.json());
+  }));
+  const lists = results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : []));
+  // Throwing keeps the last good list in the cache instead of an empty map.
+  if (!lists.length) throw new Error('BMKG unavailable');
+  return mergeQuakes(lists);
+}, 60_000);
 
 export async function GET() {
   try {
-    const url = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson';
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!res.ok) {
-      return NextResponse.json({ earthquakes: [], error: 'USGS unavailable' });
-    }
-
-    const data = await res.json() as { features?: UsgsFeature[] };
-    const features = data.features || [];
-
-    const earthquakes: EarthquakeRow[] = features.map((f) => {
-      const coords = f.geometry?.coordinates || [0, 0, 0];
-      const props = f.properties || {};
-      return {
-        id: f.id,
-        lat: coords[1],
-        lng: coords[0],
-        depth: coords[2],
-        magnitude: props.mag,
-        place: props.place,
-        time: props.time,
-        url: props.url,
-        tsunami: props.tsunami,
-        type: props.type,
-        felt: props.felt,
-        alert: props.alert,
-      };
-    });
-
+    const earthquakes = await loadQuakes();
     return NextResponse.json({
       earthquakes,
       total: earthquakes.length,
+      source: 'BMKG',
       timestamp: new Date().toISOString(),
     }, {
       headers: {
@@ -67,7 +35,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Earthquake fetch error:', error);
-    return NextResponse.json({ earthquakes: [], error: 'Failed to fetch earthquake data' }, { status: 500 });
+    return NextResponse.json({ earthquakes: [], error: 'BMKG unavailable' }, { status: 502 });
   }
 }
-
