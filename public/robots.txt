@@ -1,14 +1,3 @@
-# ATLAS — Advanced Tactical Location & Analytics System
-# Public origin is not set. Do not advertise another deployment.
-
+# ATLAS — sistem internal Pusdalops TNI. Tidak untuk diindeks.
 User-agent: *
-Allow: /
-Disallow: /api/
-Disallow: /api/scanner
-Disallow: /api/osint/*
-
-# Allow search engines to index the main page
-Allow: /api/health
-
-# Crawl-delay for respectful indexing
-Crawl-delay: 10
+Disallow: /
