@@ -5,6 +5,7 @@ import { readSession, sessionSecret } from "./session";
 /** Akun, sandi, dan webhook yang memang dipanggil tanpa sesi. */
 const PUBLIC_API = new Set([
   "/api/health",
+  "/api/health/ready",
   "/api/ops/login",
   "/api/ops/logout",
   "/api/ops/register",

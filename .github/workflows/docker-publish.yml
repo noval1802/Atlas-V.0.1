@@ -1,9 +1,8 @@
 name: Publish Docker image
 
+# Manual only. A push to master used to publish the image to ghcr.io on its own;
+# an operations system must not be published as a side effect of a commit.
 on:
-  push:
-    branches: [master]
-    tags: ["v*.*.*"]
   workflow_dispatch:
 
 # Two quick pushes to master must not race to overwrite the `latest` tag.

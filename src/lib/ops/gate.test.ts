@@ -8,6 +8,7 @@ describe("ops gate", () => {
     expect(isPublicApi("/api/ops/password/forgot", "POST")).toBe(true);
     expect(isPublicApi("/api/ops/password/reset", "POST")).toBe(true);
     expect(isPublicApi("/api/health", "GET")).toBe(true);
+    expect(isPublicApi("/api/health/ready", "GET")).toBe(true);
     expect(isPublicApi("/api/github-webhook", "POST")).toBe(true);
     expect(isPublicApi("/api/sdk/ingest", "POST")).toBe(true);
   });

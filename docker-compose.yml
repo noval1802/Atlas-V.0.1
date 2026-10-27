@@ -1,46 +1,93 @@
 name: osiris
+
+# Every service rotates its JSON logs instead of growing them until the disk fills.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+# Inside the stack the app reaches Postgres by service name. This overrides any
+# DATABASE_URL in .env (which points at 127.0.0.1:5433 for host-side tools).
+# Use a URL-safe password, e.g. `openssl rand -hex 24`.
+x-database-url: &database-url "postgresql://osiris:${OSIRIS_POSTGRES_PASSWORD:?set OSIRIS_POSTGRES_PASSWORD in .env}@osiris-postgres:5432/osiris_ops"
+
 services:
   osiris:
-    # Builds locally from the Dockerfile so you always run the cloned code.
-    # To use the prebuilt image instead, replace the `build:` block below with
-    # `image: ghcr.io/simplifaisoul/osiris:latest`.
     build:
       context: .
       dockerfile: Dockerfile
     container_name: osiris
-    # Host port is configurable via OSIRIS_PORT in .env (defaults to 3000).
+    # Loopback only: users come in through osiris-cache (HTTPS). This port is for
+    # checks on the host itself.
     ports:
-      - "${OSIRIS_PORT:-3000}:3000"
-    # Optional API keys / scanner backend — copy .env.template to .env and
-    # fill in what you need. Missing file is ignored (keyless feeds still work).
+      - "127.0.0.1:${OSIRIS_PORT:-3000}:3000"
     env_file:
       - path: .env
         required: false
     environment:
-      - NODE_OPTIONS=--dns-result-order=ipv4first
-      - NODE_ENV=production
-      - PORT=3000
-      - HOSTNAME=0.0.0.0
+      NODE_OPTIONS: --dns-result-order=ipv4first
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      DATABASE_URL: *database-url
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      osiris-postgres:
+        condition: service_healthy
+      osiris-migrate:
+        condition: service_completed_successfully
+    # Ready means Postgres answers too: without it every session lookup fails.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health/ready >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging: *logging
     restart: unless-stopped
-    networks:
-      - default
-      - umami_default
+
+  # One-shot: applies migrations and seeds missing rows, then exits. The app waits for it.
+  osiris-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    container_name: osiris-migrate
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: *database-url
+    depends_on:
+      osiris-postgres:
+        condition: service_healthy
+    logging: *logging
+    restart: "no"
 
   osiris-cache:
     image: nginx:alpine
     container_name: osiris-cache
+    # 8443 serves HTTPS; 8080 only redirects to it. nginx/nginx.conf hard-codes
+    # 8443 in that redirect, so change both together.
     ports:
+      - "8443:8443"
       - "8080:8080"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
       - nginx-cache:/var/cache/nginx
     depends_on:
-      - osiris
+      osiris:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/nginx-health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *logging
     restart: unless-stopped
-    networks:
-      - default
 
   osiris-intel:
     build:
@@ -49,16 +96,15 @@ services:
     container_name: osiris-intel
     ports:
       - "127.0.0.1:4000:4000"  # only the app calls intel; it has no auth of its own
+    logging: *logging
     restart: unless-stopped
-    networks:
-      - default
 
   osiris-postgres:
     image: postgres:16-alpine
     container_name: osiris-postgres
     environment:
       POSTGRES_USER: osiris
-      POSTGRES_PASSWORD: ${OSIRIS_POSTGRES_PASSWORD:-change-me}
+      POSTGRES_PASSWORD: ${OSIRIS_POSTGRES_PASSWORD:?set OSIRIS_POSTGRES_PASSWORD in .env}
       POSTGRES_DB: osiris_ops
     ports:
       - "127.0.0.1:5433:5432"
@@ -69,69 +115,31 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    logging: *logging
+    restart: unless-stopped
+
+  # Daily pg_dump into ${BACKUP_PATH} on this host. Restore: ops/backup/restore.sh.
+  # Copy that directory off this server as well; a backup on the same disk does
+  # not survive losing the disk.
+  osiris-backup:
+    image: postgres:16-alpine
+    container_name: osiris-backup
+    entrypoint: ["sh", "/ops/backup.sh"]
+    environment:
+      PGHOST: osiris-postgres
+      PGUSER: osiris
+      PGDATABASE: osiris_ops
+      PGPASSWORD: ${OSIRIS_POSTGRES_PASSWORD:?set OSIRIS_POSTGRES_PASSWORD in .env}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./ops/backup:/ops:ro
+      - ${BACKUP_PATH:-./backups}:/backups
+    depends_on:
+      osiris-postgres:
+        condition: service_healthy
+    logging: *logging
     restart: unless-stopped
 
 volumes:
   nginx-cache:
   osiris-postgres-data:
-
-networks:
-  umami_default:
-    external: true
-
-# ── CasaOS app-store metadata (ignored by plain Docker Compose) ──
-x-casaos:
-  architectures:
-    - amd64
-    - arm64
-  main: osiris
-  author: simplifaisoul
-  developer: simplifaisoul
-  category: Network
-  description:
-    en_us: >-
-      OSIRIS is a production-grade open-source OSINT situational-awareness
-      dashboard. It aggregates real-time global intelligence across aviation,
-      maritime, CCTV networks, seismic activity, wildfires, news feeds,
-      weather, space weather, cyber threats (CVEs) and conflict zones into a
-      single GPU-accelerated MapLibre interface. Most features work with no
-      API keys.
-  tagline:
-    en_us: Real-time global OSINT intelligence dashboard
-  title:
-    en_us: OSIRIS
-  icon: https://raw.githubusercontent.com/simplifaisoul/osiris/master/public/casaos-icon.png
-  thumbnail: https://raw.githubusercontent.com/simplifaisoul/osiris/master/public/og-image.png
-  screenshot_link:
-    - https://raw.githubusercontent.com/simplifaisoul/osiris/master/public/og-image.png
-  scheme: http
-  hostname: ""
-  port_map: "3000"
-  index: /
-  webui_port: 3000
-  envs:
-    - container: SCANNER_URL
-      description:
-        en_us: "(Optional) RECON scanner backend URL, e.g. http://scanner:7700"
-    - container: SCANNER_KEY
-      description:
-        en_us: "(Optional) RECON scanner shared secret (must match backend OSIRIS_KEY)."
-    - container: FIRMS_API_KEY
-      description:
-        en_us: "(Optional) NASA FIRMS API key for active-fire data."
-    - container: AIS_API_KEY
-      description:
-        en_us: "(Optional) aisstream.io key for maritime vessel tracking."
-    - container: OPENSKY_CLIENT_ID
-      description:
-        en_us: "(Optional) OpenSky OAuth2 client id for higher aircraft rate limits."
-    - container: OPENSKY_CLIENT_SECRET
-      description:
-        en_us: "(Optional) OpenSky OAuth2 client secret."
-    - container: N2YO_API_KEY
-      description:
-        en_us: "(Optional) N2YO key for satellite tracking."
-  ports:
-    - container: "3000"
-      description:
-        en_us: "Web UI (HTTP)."
