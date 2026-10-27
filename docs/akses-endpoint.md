@@ -11,33 +11,38 @@ Semua peran aktif boleh memanggil endpoint ini: `SUPER_ADMIN`, `ADMIN`, `OPERATO
 Peta dan monitoring, semuanya `GET` kecuali disebut lain:
 
 - `/api/flights`, `/api/aircraft`, `/api/flight-route`, `/api/maritime`, `/api/satellites`, `/api/satellites/orbit`
-- `/api/earthquakes`, `/api/fires`, `/api/weather`, `/api/air-quality`, `/api/space-weather`
-- `/api/news`, `/api/live-news`, `/api/gdelt`, `/api/gdelt-events`, `/api/conflicts`, `/api/frontlines`
-- `/api/infrastructure`, `/api/radar`, `/api/country-risk`, `/api/region-dossier`, `/api/stats`
-- `/api/markets`, `/api/markets/history`, `/api/crypto`, `/api/directions`
+- `/api/earthquakes`, `/api/fires`, `/api/weather`, `/api/air-quality`
+- `/api/news`, `/api/live-news`, `/api/gdelt`, `/api/gdelt-events`
+- `/api/radar`, `/api/region-dossier`, `/api/stats`, `/api/directions`
 - `/api/geo`, `/api/geo/reverse`, `/api/geosearch`, `/api/proxy-tiles`
 - `/api/malware`, `/api/malware/stream`, `/api/cyber-attacks`, `/api/cyber-threats`
-- `/api/cloudflare-radar`, `/api/sentinel`, `/api/chain/daily`, `/api/entity/expand`, `/api/scm-suppliers`, `/api/arcgis`
+- `/api/cloudflare-radar`, `/api/sentinel`, `/api/entity/expand`, `/api/arcgis`
 
 CCTV dan media, `GET`:
 
 - `/api/cctv`, `/api/cctv/proxy`, `/api/cctv/resolve`, `/api/cctv/stream-status`
 - `/api/cctv/tpt/media`, `/api/cctv/texas/snapshot`
 
-Berita dan OSINT, `GET`:
+## Admin dan Operator
 
-- `/api/osint/bgp`, `/api/osint/certs`, `/api/osint/crypto`, `/api/osint/cve`, `/api/osint/dns`
+`SUPER_ADMIN`, `ADMIN`, `OPERATOR_PUSDALOPS`, dan `OPERATOR_KODAM`. Peran lain menerima 403 dari `src/proxy.ts` (`isOperatorApi`).
+
+OSINT, `GET`:
+
+- `/api/osint/bgp`, `/api/osint/certs`, `/api/osint/cve`, `/api/osint/dns`
 - `/api/osint/fingerprint`, `/api/osint/github`, `/api/osint/hudsonrock`, `/api/osint/ip`
 - `/api/osint/leaks`, `/api/osint/mac`, `/api/osint/phone`, `/api/osint/sanctions`
 - `/api/osint/shodan`, `/api/osint/sweep`, `/api/osint/threats`, `/api/osint/username`, `/api/osint/whois`
 
-AI, `POST`, dengan batas laju di handler:
-
-- `/api/ai/analyze`, `/api/ai/briefing`, `/api/ai/overview`
-
 Pemindai, `GET`:
 
 - `/api/scanner`
+
+## Kembali ke semua peran
+
+AI, `POST`, dengan batas laju di handler. Ringkasan dibuat di server ini tanpa model eksternal:
+
+- `/api/ai/overview`
 
 Situasi, baca:
 

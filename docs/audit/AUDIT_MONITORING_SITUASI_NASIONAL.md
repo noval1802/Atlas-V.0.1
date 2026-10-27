@@ -261,7 +261,58 @@ Angka acuan dari pengukuran sebelumnya, satu proses Node: `/api/health` 316 req/
 | **5. Alur kerja Pusdalops** | Log kejadian, persetujuan berjenjang, ekspor lapsit PDF, notifikasi eskalasi, buku piket. | 2.5, U14 |
 | **6. Ruang operasi** | Mode kiosk, preset multiviewer bersama, relay CCTV, observability, multi-instance. | U8, U9, S12–S19 |
 
-## 7. Batasan audit
+## 7. Status pelaksanaan
+
+### Tahap 0: bersih-bersih (24 Okt 2026)
+
+**Selesai:**
+- **Dihapus:** WorldRemote (pemindaian port lokal dan Bluetooth), TokenPanel `$OSIRIS`, SupportMenu, MarketsPanel/MarketChart beserta `/api/markets`, CHAIN INTEL/ChainBrief beserta `/api/chain/daily`, `/api/osint/crypto` dan `/api/crypto`, ScmPanel beserta `/api/scm-suppliers`, layer konflik luar negeri (`/api/conflicts`, `/api/frontlines`), layer fasilitas nuklir (`/api/infrastructure`), space weather (`/api/space-weather`), dan `/api/country-risk`. Ticker kripto di bar bawah (panggilan langsung ke CoinGecko dari browser) juga dihapus.
+- **Gemini dimatikan.** `/api/ai/analyze` dan `/api/ai/briefing` dihapus, `/api/ai/overview` hanya memakai analis heuristik di server, dan dependensi `@google/generative-ai` dicabut.
+- **Deploy.** `deploy.sh` dihapus. Workflow `docker-publish.yml` hanya bisa dipicu manual.
+- **Branding dan metadata.**
+  - Kata kunci SEO OSINT dan Open Graph dihapus.
+  - Mesin pencari dilarang mengindeks (`robots` noindex, `robots.txt` Disallow semua).
+  - `manifest.json`, `og-image.png`, `osiris-icon.png`, `casaos-icon.png`, screenshot OSIRIS, dan metadata CasaOS di compose dihapus.
+  - README dan DOCKER.md ditulis ulang untuk ATLAS.
+
+**Belum (ditunda sesuai keputusan):**
+- **CCTV luar negeri** tetap dipertahankan untuk sementara.
+- **Halaman `/docs`** masih katalog API berbahasa Inggris. Akan ditulis ulang saat Tahap 3 (Bahasa Indonesia).
+- **Logo dan lambang Pusdalops TNI** belum dipasang karena file resminya belum tersedia. Favicon lama masih dipakai.
+
+### Tahap 1: fondasi operasi (24 Okt 2026)
+
+**Selesai:**
+- **Compose (S5).**
+  - Aplikasi memakai `osiris-postgres:5432`.
+  - `depends_on` menunggu layanan sehat.
+  - Network `umami_default` dihapus.
+  - Password Postgres wajib diisi, tanpa default.
+  - Port aplikasi hanya `127.0.0.1`.
+  - Rotasi log 5 × 10 MB di semua layanan (S10).
+- **Health check (S6).**
+  - `/api/health/ready` memeriksa koneksi Postgres dengan timeout 3 detik dan menjawab 503 bila gagal.
+  - Healthcheck sekarang ada untuk aplikasi dan nginx.
+- **Migrasi (S7).** Stage `migrator` dan layanan `osiris-migrate` menjalankan `prisma migrate deploy` dan seed sebelum aplikasi start.
+- **TLS (S3).**
+  - nginx melayani HTTPS di 8443 (TLS 1.2/1.3, HTTP/2), dan 8080 dialihkan ke HTTPS.
+  - Sertifikat sementara dibuat dengan `ops/tls/self-signed.sh`.
+- **Backup (S4).**
+  - Layanan `osiris-backup` membuat `pg_dump` harian dengan retensi 14 hari.
+  - `ops/backup/restore.sh` menolak file rusak sebelum menyentuh database.
+- **Seed (S8).** Angka personel dan status fiktif dihapus. Baris baru dibuat dengan catatan "Belum ada laporan", dan baris yang sudah ada tidak ditimpa.
+
+**Diverifikasi:**
+- Backup lalu restore ke database percobaan memberi jumlah baris yang identik.
+- Retensi menghapus dump berumur lebih dari 14 hari.
+- Konfigurasi nginx lulus `nginx -t`.
+- nginx dijalankan lokal di depan dev server: redirect 301, HTTPS dengan HTTP/2, readiness 200, login same-origin lolos, dan origin asing 403.
+
+**Belum diverifikasi:** `docker compose up` sungguhan, karena Docker tidak tersedia di mesin pengembangan.
+
+**Catatan:** database lokal pengembangan masih berisi angka contoh dari seed lama, karena seed tidak menimpa baris yang ada.
+
+## 8. Batasan audit
 
 - Aplikasi tidak diuji dengan akun per peran dan tidak dicoba di layar 1080p atau 4K maupun video wall.
 - Jumlah string Inggris dan kelas huruf kecil adalah hitungan grep kasar.

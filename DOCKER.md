@@ -1,154 +1,97 @@
-# Self-Hosting ATLAS with Docker
+# Deploy ATLAS dengan Docker
 
-ATLAS — Advanced Tactical Location & Analytics System ships as a self-contained Next.js standalone build. The display name does not change container names. This guide covers
-running it with Docker / Docker Compose, deploying it as a [CasaOS](https://casaos.io)
-app, and configuring the optional API keys.
+ATLAS dibangun sebagai Next.js `standalone` di atas `node:22-alpine`. Proses berjalan sebagai user non-root `nextjs` di port 3000.
 
-> **TL;DR:** ATLAS runs fully **without any API keys**. All core feeds
-> (aviation, satellites, fires, earthquakes, weather, news, CVEs) use public
-> keyless sources. Keys only matter for the optional RECON scanner backend and
-> for raising rate limits on a few feeds.
+> **Penting:** jangan memakai image `ghcr.io/simplifaisoul/osiris`. Itu image proyek asal OSIRIS, bukan ATLAS. Selalu bangun dari repo ini.
 
----
+## Layanan di `docker-compose.yml`
 
-## 1. Docker Compose (recommended)
+| Layanan | Port host | Fungsi |
+|---|---|---|
+| `osiris-cache` | **`8443`** (HTTPS), `8080` | nginx: pintu masuk pengguna. 8080 hanya mengalihkan ke 8443. Juga cache tile peta. |
+| `osiris` | `127.0.0.1:3000` | Aplikasi ATLAS. Tidak dibuka ke jaringan; akses lewat nginx. |
+| `osiris-migrate` | – | Sekali jalan setiap start: migrasi database lalu seed baris yang belum ada. Aplikasi menunggu sampai selesai. |
+| `osiris-postgres` | `127.0.0.1:5433` | Database operasi (PostgreSQL 16) |
+| `osiris-backup` | – | `pg_dump` harian ke `BACKUP_PATH` (default `./backups`), simpan 14 hari |
+| `osiris-intel` | `127.0.0.1:4000` | Layanan entitas internal |
 
-```bash
-cd /home/localhost/osiris
+Nama kontainer masih `osiris-*` agar volume dan konfigurasi lama tetap jalan. Semua log Docker dibatasi 5 × 10 MB per layanan.
 
-# optional: configure keys / scanner backend
-cp .env.template .env        # then edit .env
-
-docker compose up -d
-```
-
-Open <http://localhost:3000>.
-
-What the compose file does:
-
-- **`build:`** — compose builds the image locally from the `Dockerfile`, so
-  you always run the code you just cloned. To run the prebuilt registry image
-  instead, add `image: ghcr.io/simplifaisoul/osiris:latest` to the `osiris`
-  service and drop the `build:` block.
-- **`env_file: .env` (`required: false`)** — if a `.env` file exists its
-  values are injected into the container; if it's missing, ATLAS still starts
-  with the keyless feeds.
-- **`ports: ${OSIRIS_PORT:-3000}:3000`** — the web UI. The container always
-  listens on 3000; the published **host** port is `OSIRIS_PORT` (default
-  `3000`). Set `OSIRIS_PORT` in `.env` to remap it, e.g. `OSIRIS_PORT=3005`
-  when 3000 is already in use — no need to edit the compose file.
-- **`restart: unless-stopped`** — survives reboots.
-
-Common commands:
+## Pemasangan pertama
 
 ```bash
-docker compose logs -f          # follow logs
-docker compose up -d --build    # rebuild locally after pulling new code
-docker compose down             # stop & remove
+# 1. Konfigurasi
+cp .env.example .env
+#    isi: OSIRIS_POSTGRES_PASSWORD, OPS_SESSION_SECRET, OPS_ADMIN_USERNAME,
+#    OPS_ADMIN_PASSWORD, OPS_PUBLIC_URL (lihat tabel di bawah)
+
+# 2. Sertifikat HTTPS sementara (self-signed), sampai CA satuan menerbitkan yang resmi
+ops/tls/self-signed.sh <nama-host> [alamat-ip]
+#    contoh: ops/tls/self-signed.sh atlas.pusdalops.local 10.10.1.20
+
+# 3. Jalankan
+docker compose up -d --build
+docker compose ps        # osiris dan osiris-cache harus "healthy"
 ```
 
-### Pull the prebuilt image from GHCR
+Buka `https://<nama-host>:8443`. Selama memakai sertifikat self-signed, browser akan menampilkan peringatan. Pasang sertifikat CA satuan untuk menghilangkannya (lihat di bawah).
 
-A prebuilt image for `linux/amd64` and `linux/arm64` is published to the GitHub
-Container Registry on every push to `master` and every `v*.*.*` tag, so you can
-run the published image without building anything. That image name is not the display name of this deployment:
+Urutan start diatur otomatis: Postgres sehat → `osiris-migrate` selesai → aplikasi sehat → nginx. Kalau `osiris-migrate` gagal (misalnya `OPS_ADMIN_PASSWORD` kurang dari 10 karakter), aplikasi tidak dijalankan. Cek dengan `docker compose logs osiris-migrate`.
+
+## Variabel wajib di `.env`
+
+| Variabel | Keterangan |
+|---|---|
+| `OSIRIS_POSTGRES_PASSWORD` | Wajib, compose menolak jalan tanpanya. Gunakan nilai aman-URL: `openssl rand -hex 24`. |
+| `OPS_SESSION_SECRET` | Minimal 32 karakter (`openssl rand -hex 32`). Kurang dari itu, login ditolak. |
+| `OPS_ADMIN_USERNAME`, `OPS_ADMIN_PASSWORD` | Akun SUPER_ADMIN awal, dibuat oleh seed bila belum ada. Gunakan sandi yang kuat. |
+| `OPS_PUBLIC_URL` | `https://<nama-host>:8443`. Wajib agar email reset sandi terkirim. |
+| `TILE_PROXY_PATH` | `/proxy/tiles`, supaya tile peta dilayani dari cache nginx. |
+
+`DATABASE_URL` di `.env` hanya untuk alat di host (`npm run dev`, Prisma). Di dalam stack, compose memakai `osiris-postgres:5432` secara otomatis.
+
+## Sertifikat resmi
+
+Ganti dua file dengan nama yang sama, lalu muat ulang nginx:
 
 ```bash
-docker pull ghcr.io/simplifaisoul/osiris:latest   # or a pinned tag, e.g. :0.1.0
-docker run -d --name osiris \
-  -p 3005:3000 --env-file .env --restart unless-stopped \
-  ghcr.io/simplifaisoul/osiris:latest
+cp sertifikat-dari-CA.crt nginx/certs/atlas.crt
+cp kunci-privat.key       nginx/certs/atlas.key
+chmod 600 nginx/certs/atlas.key
+docker compose exec osiris-cache nginx -s reload
 ```
 
-The package is public — no `docker login` is required to pull it.
+`nginx/certs/` tidak pernah masuk git.
 
-### Plain `docker run`
+## Backup dan restore
+
+- **Jadwal:** `osiris-backup` membuat satu dump per hari: `backups/atlas-<waktu UTC>.dump` (format `pg_dump -Fc`). Dump yang lebih tua dari `BACKUP_RETENTION_DAYS` dihapus otomatis.
+- **Salin ke mesin lain.** Backup di disk yang sama tidak selamat kalau disk itu rusak.
+- **Backup manual sekarang:**
+  ```bash
+  docker compose run --rm -e BACKUP_ONCE=1 osiris-backup
+  ```
+- **Restore** (menghapus isi database tujuan). Uji dulu ke database percobaan:
+  ```bash
+  docker compose run --rm --entrypoint sh osiris-backup /ops/restore.sh \
+    /backups/atlas-<waktu>.dump \
+    "postgresql://osiris:<password>@osiris-postgres:5432/osiris_ops"
+  ```
+
+## Perintah harian
 
 ```bash
-docker build -t osiris:latest .
-docker run -d --name osiris -p 3000:3000 --env-file .env --restart unless-stopped osiris:latest
+docker compose ps
+docker compose logs -f osiris
+docker compose up -d --build   # setelah menarik kode baru; migrasi berjalan otomatis
+docker compose down
 ```
 
-### Image details
+## Yang belum dikerjakan
 
-Multi-stage build on `node:22-alpine`, runs as a non-root user (`nextjs`,
-uid 1001), serves Next.js standalone via `node server.js` on port 3000.
-Final image is ~220 MB. Build excludes `node_modules`, `.next`, `.git` and the
-repo's large `*.diff` artifacts via `.dockerignore`.
+Daftar lengkap ada di `docs/audit/AUDIT_MONITORING_SITUASI_NASIONAL.md`.
 
----
+- Peta dasar, font, dan terrain masih diambil dari layanan luar (CARTO, Google Fonts, AWS). Itu Tahap 2.
+- Belum ada replika database maupun pemantauan (metrics/alert).
 
-## 2. CasaOS
-
-The compose file includes an `x-casaos:` metadata block (title, description,
-icon, port map, env descriptions) that plain Docker Compose ignores but CasaOS
-reads.
-
-**Install:**
-
-1. On the CasaOS host, clone the repo somewhere persistent (e.g.
-   `/DATA/AppData/osiris`).
-2. CasaOS dashboard → **`+`** → **Install a customized app** → paste the
-   contents of `docker-compose.yml`.
-   *(or simply run `docker compose up -d` from the cloned directory).*
-3. The app appears on the dashboard with its icon, reachable on host port
-   `3000` (or whatever `OSIRIS_PORT` you set in `.env`).
-
-The app icon is the gold Eye-of-Horus mark in
-`public/casaos-icon.png` (512×512 PNG), referenced by the `icon:` URL in the
-metadata.
-
-> CasaOS stores imported compose files under `/var/lib/casaos/apps/`, so a
-> relative `build:` context may not resolve there. If importing the YAML
-> directly, either build/tag `osiris:latest` first
-> (`docker build -t osiris:latest /path/to/osiris`) or replace the `build:`
-> block with `image: ghcr.io/simplifaisoul/osiris:latest`.
-
----
-
-## 3. API keys & data sources
-
-Copy `.env.template` to `.env` and fill in only what you need.
-
-### What the code actually reads today
-
-| Variable | Purpose | Required for |
-|----------|---------|--------------|
-| `SCANNER_URL` | RECON scanner backend base URL (e.g. `http://scanner:7700`) | RECON toolkit (quick/ssl/headers/rdns/subdomains/tech/whois/geoloc/vuln) |
-| `SCANNER_KEY` | Shared secret; **must equal the backend's `OSIRIS_KEY`** | RECON toolkit |
-
-Without `SCANNER_URL`/`SCANNER_KEY` the RECON endpoints return `503` and the
-rest of ATLAS works normally. Generate a key with `openssl rand -hex 32`.
-
-### Optional keys (reserved / for higher rate limits)
-
-These are documented for completeness and forward-compatibility. The current
-data routes use **keyless** public feeds, so these are not consumed yet — set
-them only if you extend the relevant route or hit rate limits.
-
-| Variable | Service | How to get it (all free) |
-|----------|---------|--------------------------|
-| `FIRMS_API_KEY` | NASA FIRMS active fires | Enter an email at <https://firms.modaps.eosdis.nasa.gov/api/map_key/> — the `MAP_KEY` is emailed instantly. Limit 5000 req / 10 min. |
-| `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` | OpenSky aviation | Create an account at <https://opensky-network.org/>, open **Account → API client**, create a client and copy id/secret. **OAuth2 only since March 2025** (username/password auth removed). |
-| `N2YO_API_KEY` | N2YO satellites | Register at <https://www.n2yo.com/login/register/>, then **Profile → generate API key**. Limit 1000 req / hour; key can't be regenerated. |
-| `AIS_API_KEY` | aisstream.io maritime | Sign up at <https://aisstream.io/>, create a key on the **API Keys** page. Used over `wss://stream.aisstream.io/v0/stream`. |
-
-> Keep `.env` out of version control — it is already in `.gitignore`. Only
-> `.env.template` (no secrets) is committed.
-
-### Optional runtime overrides
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `OSIRIS_TELEGRAM_CHANNELS` | Comma-separated list of public Telegram channel usernames (no `@`) to scrape for the **Telegram OSINT** map layer. Overrides the curated default set. | `osintdefender,insiderpaper,aljazeeraenglish,nexta_live,war_monitor` |
-| `OSIRIS_PORT` | Host port the compose file publishes (container itself always listens on 3000). | `3000` |
-
-### Keyless sources (no configuration needed)
-
-Aviation → `adsb.lol` · Satellites → `celestrak.org` (TLE) · Fires →
-NASA FIRMS open-data CSV · Earthquakes → USGS · Weather → NASA EONET · Space
-weather → NOAA SWPC · CVEs → NVD · News → public RSS / HLS streams · CCTV →
-public traffic-authority feeds · Crypto (BTC) → `blockstream.info` · Crypto
-(ETH) → `eth.blockscout.com` ([Blockscout](https://github.com/blockscout/blockscout)
-open-source explorer) · OFAC SDN sanctions → [OpenSanctions](https://www.opensanctions.org)
-mirror (CC-BY 4.0) · Telegram OSINT → public `t.me/s/<channel>` web preview.
+Workflow `.github/workflows/docker-publish.yml` hanya berjalan bila dipicu manual dari tab Actions.

@@ -1,266 +1,56 @@
-<div align="center">
-
 # ATLAS
 
-### Advanced Tactical Location & Analytics System
+**Advanced Tactical Location & Analytics System**: aplikasi Monitoring Situasi Nasional untuk Pusat Pengendalian Operasi (Pusdalops) TNI.
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![MapLibre](https://img.shields.io/badge/MapLibre_GL-GPU_Rendered-396CB2?style=for-the-badge)](https://maplibre.org)
-[![License](https://img.shields.io/badge/License-MIT-D4AF37?style=for-the-badge)](LICENSE)
+Sistem ini internal dan aksesnya terbatas bagi personel berwenang. Semua halaman operasi dan API memerlukan login.
 
-**The map application at `/home/localhost/osiris`. It is a separate deployment from the command center. A public domain, social profile, and support link are not set.**
+## Fitur saat ini
 
-</div>
+| Bagian | Isi |
+|---|---|
+| **Peta situasi** (`/peta`) | Peta MapLibre berpusat di NKRI. Layer Kotamaops TNI AD/AL/AU, CCTV (Jasa Marga, TPT Jakarta, dan kamera publik), pesawat, kapal, gempa, titik api, cuaca, dan peringatan langsung. |
+| **SPACE / Multiviewer** (`/peta/multiview`) | CCTV pilihan operator ditampilkan dalam grid layar penuh dengan preset tata letak otomatis. |
+| **Dasbor operator** (`/operator`) | Status situasi per Kotamaops (KONDUSIF / WASPADA / SIAGA), personel, kejadian, catatan, dan riwayat revisi. |
+| **Manajemen pengguna** (`/pengguna`) | Persetujuan akun, peran, dan audit login. Khusus admin. |
+| **Akun** | Masuk, daftar (menunggu persetujuan admin), lupa dan atur ulang sandi. |
 
----
+Peran: `SUPER_ADMIN`, `ADMIN`, `OPERATOR_PUSDALOPS`, `OPERATOR_KODAM`, `ANALYST`, `PIMPINAN`. Rincian akses per endpoint ada di [`docs/akses-endpoint.md`](docs/akses-endpoint.md).
 
-## Screenshots
+## Menjalankan untuk pengembangan
 
-<p align="center">
-  <img src="docs/screenshots/taiwan-cctv.jpg" alt="ATLAS over Taipei on the Night map, with live traffic-camera previews pinned across the city and the Longmen Building rooftop feed open" width="100%">
-  <br><sub><b>Taiwan</b> — Taipei's public traffic cameras streaming live on the Night map, one feed open full-size</sub>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/seoul-live-cctv.jpg" alt="ATLAS over Seoul in 3D terrain around Namsan Tower, with live CCTV previews and the Cheonggyecheon feed open" width="100%">
-  <br><sub><b>Seoul</b> — live CCTV in 3D terrain around Namsan Tower, with the Cheonggyecheon feed playing</sub>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/save-an-area.jpg" alt="A drawn area over mountain terrain in ATLAS, with the live cameras inside it and the Drawing Tools panel showing the saved area" width="100%">
-  <br><sub><b>Save an Area</b> — draw a region and ATLAS finds every camera inside it, ready to export as GeoJSON</sub>
-</p>
-
----
-
-## Overview
-
-ATLAS is the monitoring map for this deployment. Built with Next.js 16 and MapLibre GL, every data point is rendered via WebGL for 60fps performance even with thousands of concurrent entities on-screen.
-
-### Key Capabilities
-
-| Domain | Data Points | Sources |
-|--------|------------|---------|
-| **Aviation** | Commercial, Private, Military, Jets | OpenSky Network |
-| **Maritime** | 39 Global Ports, 10 Chokepoints | Static Naval Intel |
-| **CCTV** | 17,000+ Cameras | TfL, WSDOT, Caltrans, ODOT, MDOT, HK Transport Dept, Taiwan THB, NZTA, Rijkswaterstaat, [Public Webcams](#acknowledgements) + more |
-| **Seismic** | Real-time M2.5+ | USGS Earthquake API |
-| **Fires** | Active Hotspots | NASA FIRMS |
-| **News** | 24/7 Live Streams | 23 Global Broadcasters |
-| **Weather** | Severe Events | NASA EONET |
-| **Space** | Solar Weather, Satellites | NOAA SWPC, N2YO |
-| **Cyber** | CVE Threats, Vulnerability Scanning | NVD, Custom Scanner |
-| **Conflict** | 13 Active Zones | Static OSINT Intel |
-| **Crypto** | BTC + ETH Wallet Tracing, OFAC SDN Match | blockstream.info, Blockscout, OpenSanctions |
-| **Sanctions** | Person / Org / Vessel SDN Search | OpenSanctions (US OFAC SDN mirror) |
-| **Telegram OSINT** | Geoparsed Posts from Public Channels | `t.me/s/<channel>` web preview |
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│                  ATLAS CLIENT                    │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────┐ │
-│  │ MapLibre  │  │  HUD     │  │  RECON Toolkit│ │
-│  │  GL (GPU) │  │ Panels   │  │  Port Scan    │ │
-│  │  WebGL    │  │ Layers   │  │  DNS / WHOIS  │ │
-│  │  Render   │  │ Controls │  │  Vuln Scanner │ │
-│  └──────────┘  └──────────┘  └───────────────┘ │
-├─────────────────────────────────────────────────┤
-│               NEXT.JS API ROUTES                 │
-│  /api/flights         /api/earthquakes          │
-│  /api/cctv            /api/news                 │
-│  /api/fires           /api/maritime             │
-│  /api/gdelt           /api/satellites           │
-│  /api/weather         /api/scanner              │
-│  /api/sentinel        /api/telegram-feed        │
-│  /api/osint/*  (whois, dns, ip, cve, sanctions, │
-│                 crypto, sweep, threats, …)      │
-├─────────────────────────────────────────────────┤
-│              EXTERNAL DATA SOURCES               │
-│  OpenSky · USGS · NASA · NOAA · TfL · NVD      │
-│  GDACS · EONET · FIRMS · N2YO · RSS Feeds      │
-│  blockstream.info · Blockscout · OpenSanctions  │
-│  t.me public previews                            │
-└─────────────────────────────────────────────────┘
-```
-
----
-
-## Features
-
-### Intelligence Layers
-- **16 toggleable data layers** with real-time entity counts
-- **GPU-accelerated rendering** — all map data rendered via WebGL, not DOM
-- **Progressive loading** — data fetched on-demand when layers are activated
-- **Viewport-aware** — only loads relevant data for the visible region
-
-### Texas CCTV
-Public TxDOT ITS snapshots are integrated with the existing camera markers, preview grid and viewer. Use `/api/cctv?region=texas` for Texas only; global and Texas location queries include the same source. District inventories are cached independently, with stale data retained during outages. Availability varies by district and camera; these are refreshing JPEG snapshots, not video streams.
-
-Source: [TxDOT ITS](https://its.txdot.gov/its/District/DAL/cameras).
-
-Run `npm test` for offline checks or `RUN_LIVE_TESTS=1 npx vitest run src/app/api/cctv/texas.test.ts` to check the public Texas inventory.
-
-### RECON Toolkit
-- **Port Scanner** — TCP connect scan with service fingerprinting
-- **DNS Lookup** — Full record resolution (A, AAAA, MX, NS, TXT, CNAME)
-- **WHOIS** — Domain/IP registration data (auto-cross-checked against OFAC SDN)
-- **SSL/TLS Inspector** — Certificate chain analysis
-- **IP Intelligence** — Geolocation, ASN, threat reputation (auto-cross-checked against OFAC SDN)
-- **Vulnerability Scanner** — CVE lookup against NVD database
-- **Crypto Wallet Trace** — BTC + ETH lookup (balance, tx history, OFAC SDN sanctions flag)
-- **OFAC Sanctions Search** — query persons, organizations, vessels and aircraft against the US OFAC SDN list
-
-### Live Broadcast Network
-- **23 live 24/7 news streams** from global broadcasters
-- Click any news dot on the map to open the live stream
-- Feeds from NBC, CBS, ABC, Sky News, Al Jazeera, France 24, NHK, WION, and more
-
-### Telegram OSINT Layer
-- **Public-channel feed** scraped from the unauthenticated `t.me/s/<channel>` web preview — no Bot API token, no MTProto
-- Default curated set of 5 channels (EN + RU/UA war reporting), overridable via `OSIRIS_TELEGRAM_CHANNELS`
-- Posts are geoparsed against a multilingual place dictionary (EN + Cyrillic + Arabic) and plotted on the map
-- Click any cyan dot to read the post and jump to the original on Telegram
-
-### Crypto Wallet Intelligence
-- **BTC** lookups via [blockstream.info](https://blockstream.info) (Esplora API, keyless)
-- **ETH** lookups via [Blockscout](https://github.com/blockscout/blockscout)'s public ETH instance (`eth.blockscout.com`, keyless)
-- Every lookup is cross-checked against the OFAC SDN sanctioned-address list (mirrored from [`0xB10C/ofac-sanctioned-digital-currency-addresses`](https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses))
-- Sanctioned wallets surface a red **SANCTIONED — OFAC SDN** badge in the RECON panel
-
-### OFAC SDN Cross-Check
-- Standalone `SANCTIONS` tab in the RECON toolkit — full-text search across persons, organisations, vessels and aircraft
-- WHOIS and IP-intel routes auto-cross-check registrant / ASN-owner names against the SDN list and surface an inline alert
-- Data sourced from [OpenSanctions](https://www.opensanctions.org) (CC-BY 4.0) — keyless, ~7 MB cached in-memory for 24h
-
-### Conflict Zone Monitoring
-- **13 active conflict/tension zones** with severity-coded warning markers
-- Active Wars: Ukraine, Gaza, Sudan, Myanmar, DRC, Yemen
-- High Tension: Syria, Lebanon, Sahel, Somalia, Red Sea
-- Elevated: Taiwan Strait, Korean DMZ
-
-### Performance Optimized
-- **75% reduction in edge requests** vs initial release
-- Aggressive polling relaxation (15-30 min intervals for stable data)
-- Static data served from memory (zero external API calls for news feeds)
-- `layerFetchedRef` prevents duplicate API requests
-
----
-
-## Quick Start
+Butuh Node.js 22 dan PostgreSQL 16.
 
 ```bash
-cd /home/localhost/osiris
-npm install
-npm run dev -- --hostname 0.0.0.0 --port 3005
+npm ci --legacy-peer-deps
+cp .env.example .env              # isi DATABASE_URL, OPS_SESSION_SECRET (≥ 32 karakter), OPS_ADMIN_*
+npm run db:migrate
+npm run db:seed                   # membuat SUPER_ADMIN dan 22 Kotamaops contoh
+npm run dev
 ```
 
-Open [http://127.0.0.1:3005](http://127.0.0.1:3005). Do not use port 3000 for this map.
+Perintah lain:
 
-### Docker / Self-Hosting
+| Perintah | Fungsi |
+|---|---|
+| `npm test` | Unit test (Vitest) |
+| `npx tsc --noEmit` | Pemeriksaan tipe |
+| `npm run lint` | ESLint |
+| `npm run build` | Build produksi (`output: standalone`) |
 
-```bash
-cd /home/localhost/osiris
-cp .env.template .env     # optional — configure keys / port
-docker compose up -d
-```
+> **Catatan:** angka personel dan status pada data seed adalah contoh, bukan data riil.
 
-The running development server for this deployment is port 3005, not Compose. The image is a multi-stage
-`node:22-alpine` standalone build (~220 MB, non-root). The compose file also
-carries CasaOS app metadata (`x-casaos:`) for one-click install on
-[CasaOS](https://casaos.io). See **[DOCKER.md](DOCKER.md)** for the full Docker,
-CasaOS and API-key guide.
+## Deploy
 
-A public container registry for this deployment is not set. Do not treat an upstream image name as the product identity.
+Lihat [`DOCKER.md`](DOCKER.md). Workflow `.github/workflows/docker-publish.yml` hanya berjalan bila dipicu manual.
 
-**Custom port** — the container always listens on `3000`; set `OSIRIS_PORT` in
-`.env` to change the published host port (e.g. `OSIRIS_PORT=3005`) without
-editing the compose file.
+## Dokumen
 
-### Environment Variables
+| Dokumen | Isi |
+|---|---|
+| [`docs/audit/AUDIT_MONITORING_SITUASI_NASIONAL.md`](docs/audit/AUDIT_MONITORING_SITUASI_NASIONAL.md) | Audit kesiapan dan rencana pengembangan per tahap |
+| [`docs/security/SECURITY_FINDINGS.md`](docs/security/SECURITY_FINDINGS.md) | Temuan keamanan dan statusnya |
+| [`docs/akses-endpoint.md`](docs/akses-endpoint.md) | Akses endpoint per peran |
 
-ATLAS works **partially without any API keys** — all core feeds use public,
-keyless sources. Copy [`.env.template`](.env.template) to `.env` and set only
-what you need:
+## Asal-usul dan lisensi
 
-```env
-# Published host port (container always listens on 3000). Default: 3000
-OSIRIS_PORT=3000
-
-# RECON scanner backend (the only vars the current code reads).
-# SCANNER_KEY must match the backend's OSIRIS_KEY — generate with: openssl rand -hex 32
-SCANNER_URL=
-SCANNER_KEY=
-
-# Optional, for higher rate limits / future sources (see DOCKER.md for signup links)
-FIRMS_API_KEY=                # NASA FIRMS  — firms.modaps.eosdis.nasa.gov/api/map_key/
-OPENSKY_CLIENT_ID=            # OpenSky OAuth2 (since Mar 2025) — opensky-network.org
-OPENSKY_CLIENT_SECRET=
-N2YO_API_KEY=                 # N2YO satellites — n2yo.com (Profile → API key)
-AIS_API_KEY=                 # aisstream.io maritime
-```
-
-> Without `SCANNER_URL`/`SCANNER_KEY` the RECON toolkit returns `503`; every
-> other layer works out of the box. `.env` is gitignored — only the template is committed.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router, Turbopack) |
-| Language | TypeScript 5 |
-| Map Engine | MapLibre GL JS (WebGL) |
-| Animations | Framer Motion |
-| Icons | Lucide React |
-| Styling | Custom CSS Design System |
-| Deployment | Vercel Edge Network |
-
----
-
-## Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `F` | Toggle flight layers |
-| `E` | Toggle earthquakes |
-| `S` | Toggle satellites |
-| `D` | Toggle day/night cycle |
-| `Escape` | Close panels |
-
----
-
-## Acknowledgements
-
-**Public webcams** — the cameras in this layer are open data: each one is broadcast
-publicly by whoever runs it, on their own site or their own channel. What the web
-lacked was a catalogue of them.
-
-[bekijkhet.nu](https://www.bekijkhet.nu/) is that catalogue, and it is the basis for
-every camera in the layer. Bram and Annelies have kept it by hand since 2012, and
-without their index these cameras would still be scattered across several hundred
-unrelated sites with no way to find them.
-
-ATLAS links every one of them straight through to the operator who runs it, which is
-also how bekijkhet.nu asks to be read.
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-
-Support and social links for this deployment are not set.
-
-The MIT notice in [LICENSE](LICENSE) stays, including Copyright (c) 2026 simplifaisoul.
-
-</div>
+ATLAS dikembangkan dari proyek open source [OSIRIS](https://github.com/simplifaisoul/osiris) (lisensi MIT). Modul-modul OSIRIS yang tidak relevan untuk Pusdalops dihapus bertahap; lihat tahap pengembangan di dokumen audit. Pemberitahuan hak cipta asli tetap berlaku sesuai [`LICENSE`](LICENSE).
