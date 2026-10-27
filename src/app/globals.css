@@ -9,13 +9,15 @@
 :root {
   --gold-rgb: 212, 175, 55;
   --cyan-rgb: 0, 229, 255;
-  /* ── Core Palette ── */
-  --bg-void: #04040A;
-  --bg-primary: #06060C;
-  --bg-secondary: #0C0E1A;
-  --bg-tertiary: #121628;
-  --bg-panel: rgba(8, 10, 20, 0.88);
-  --bg-panel-solid: #0C0E1A;
+  /* ── Core Palette ──
+     Lifted one step from near-black (Oct 2026) so panels read in a lit
+     operations room. Mirrored in DEFAULTS in src/lib/style-tokens.ts. */
+  --bg-void: #0A0D16;
+  --bg-primary: #0E121D;
+  --bg-secondary: #151A29;
+  --bg-tertiary: #1D2437;
+  --bg-panel: rgba(10, 13, 22, 0.86);
+  --bg-panel-solid: #151A29;
 
   /* ── Gold Accent (Eye of Horus) ── */
   --gold-primary: #D4AF37;
@@ -55,8 +57,8 @@
   --map-flight-unknown: #546e7a;
 
   /* ── Borders ── */
-  --border-primary: rgba(var(--gold-rgb), 0.15);
-  --border-secondary: rgba(var(--gold-rgb), 0.08);
+  --border-primary: rgba(var(--gold-rgb), 0.2);
+  --border-secondary: rgba(var(--gold-rgb), 0.11);
   --border-active: rgba(var(--gold-rgb), 0.4);
   --border-cyan: rgba(var(--cyan-rgb), 0.2);
   /* Idle edge of a text field. 42% white stays at least 3:1 on the field fill and the shell behind it. Focus still replaces this with cyan. */
@@ -64,9 +66,9 @@
 
   /* ── Text ── */
   --text-primary: #E8E6E0;
-  --text-secondary: #9B978E;
-  /* Lightest core surface is --bg-tertiary. This gray is the darkest that still clears 4.5:1 there. */
-  --text-muted: #8C8A84;
+  --text-secondary: #B0ACA3;
+  /* Lightest core surface is --bg-tertiary. This gray clears 5.9:1 there (4.5:1 is the floor). */
+  --text-muted: #A3A099;
   --text-heading: #F5F0E0;
   --text-gold: #D4AF37;
   --text-cyan: #00E5FF;
