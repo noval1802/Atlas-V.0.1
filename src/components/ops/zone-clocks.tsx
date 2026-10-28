@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Zone = { zone: string; offset: number; lng: number; left: string };
+type Zone = { zone: string; offset: number };
 
 /** HH.MM in a fixed UTC offset, Indonesian style. */
 export function zoneTime(now: Date, offset: number): string {
@@ -10,8 +10,8 @@ export function zoneTime(now: Date, offset: number): string {
   return `${String(shifted.getUTCHours()).padStart(2, "0")}.${String(shifted.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-/** Live clocks under the WIB, WITA and WIT meridians. Empty until mounted so server and client markup agree. */
-export function ZoneClocks({ zones }: { zones: Zone[] }) {
+/** Live WIB, WITA and WIT clocks in one row. Empty until mounted so server and client markup agree. */
+export function ZoneClocks({ zones }: { zones: readonly Zone[] }) {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -20,17 +20,15 @@ export function ZoneClocks({ zones }: { zones: Zone[] }) {
     return () => window.clearInterval(id);
   }, []);
   return (
-    <div className="auth-clocks pointer-events-none absolute inset-x-0 top-full mt-3 h-14">
+    <span className="auth-clocks inline-flex gap-4">
       {zones.map((zone) => (
-        <p key={zone.zone} className="absolute -translate-x-1/2 text-center" style={{ left: zone.left }}>
-          <time className="auth-clock block text-xl text-[var(--auth-sand)] sm:text-2xl" suppressHydrationWarning>
+        <span key={zone.zone}>
+          {zone.zone}{" "}
+          <time className="auth-clock text-[var(--auth-sand)]" suppressHydrationWarning>
             {now ? zoneTime(now, zone.offset) : "--.--"}
           </time>
-          <span className="block text-xs text-[var(--auth-mist)]">
-            {zone.zone} <span className="hidden sm:inline">{zone.lng}° BT</span>
-          </span>
-        </p>
+        </span>
       ))}
-    </div>
+    </span>
   );
 }

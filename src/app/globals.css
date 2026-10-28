@@ -2618,36 +2618,42 @@ html:has(.ops-scroll) { scroll-behavior: smooth; }
   .ops-scroll button:not(:disabled):active, .ops-lift:hover { transform: none; }
 }
 
-/* ── Sign-in pages (AuthFrame): sea chart of NKRI ── */
+/* ── Sign-in pages (AuthFrame): app palette — void background, cyan signal, gold action ── */
 .auth-root {
-  --auth-sea: #071624;
-  --auth-deep: #0c2236;
-  --auth-sand: #eae3cf;
-  --auth-mist: #8e9baa;
-  --auth-line: rgba(142, 155, 170, 0.38);
+  --auth-sea: var(--bg-void);
+  --auth-deep: rgba(21, 26, 41, 0.88);
+  --auth-sand: var(--text-primary);
+  --auth-mist: var(--text-muted);
+  --auth-line: var(--border-cyan);
   --auth-signal: #ff5a4f;
-  background: var(--auth-sea);
+  --auth-accent: var(--cyan-primary);
+  --auth-accent-rgb: var(--cyan-rgb);
+  background: radial-gradient(ellipse at 50% 40%, var(--bg-secondary) 0%, var(--auth-sea) 70%);
   color: var(--auth-sand);
   font-family: var(--font-auth), ui-sans-serif, system-ui, sans-serif;
 }
-.auth-wordmark { font-weight: 800; font-stretch: 125%; letter-spacing: 0.02em; }
-.auth-display { font-weight: 800; font-stretch: 125%; line-height: 0.95; letter-spacing: -0.01em; }
-.auth-title { font-weight: 700; font-stretch: 110%; letter-spacing: -0.005em; }
-.auth-clock { font-weight: 600; font-stretch: 112%; font-variant-numeric: tabular-nums; }
+.auth-wordmark { font-weight: 800; font-stretch: 125%; letter-spacing: 0.12em; }
+.auth-display { font-weight: 800; font-stretch: 125%; line-height: 1.05; letter-spacing: 0.01em; text-transform: uppercase; }
+.auth-label { font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; }
+.auth-clock { font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
 .auth-logo {
-  background: var(--gold-primary);
+  background: var(--auth-sand);
   mask: url(/eye-of-horus.svg) center / contain no-repeat;
   -webkit-mask: url(/eye-of-horus.svg) center / contain no-repeat;
 }
-.auth-panel { background: var(--auth-deep); box-shadow: inset 1px 0 0 rgba(var(--gold-rgb), 0.35); }
-@media (max-width: 1023px) { .auth-panel { box-shadow: inset 0 1px 0 rgba(var(--gold-rgb), 0.35); } }
-.auth-graticule line { stroke: rgba(142, 155, 170, 0.1); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.auth-graticule .auth-equator { stroke: rgba(142, 155, 170, 0.22); stroke-dasharray: 2 6; }
-.auth-neighbour { fill: rgba(142, 155, 170, 0.07); stroke: rgba(142, 155, 170, 0.28); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
+.auth-panel { background: var(--auth-deep); border: 1px solid var(--auth-line); backdrop-filter: blur(6px); }
+/* Corner ticks on the panel. */
+.auth-panel::before, .auth-panel::after { content: ""; position: absolute; width: 10px; height: 10px; border: 0 solid var(--auth-accent); }
+.auth-panel::before { top: 6px; left: 6px; border-top-width: 1px; border-left-width: 1px; }
+.auth-panel::after { bottom: 6px; right: 6px; border-bottom-width: 1px; border-right-width: 1px; }
+.auth-backdrop { opacity: 0.55; }
+.auth-graticule line { stroke: rgba(138, 150, 157, 0.07); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.auth-graticule .auth-equator { stroke: rgba(138, 150, 157, 0.16); stroke-dasharray: 2 6; }
+.auth-neighbour { fill: rgba(138, 150, 157, 0.04); stroke: rgba(138, 150, 157, 0.14); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
 .auth-islands path {
-  fill: rgba(var(--gold-rgb), 0.16);
-  stroke: var(--gold-primary);
-  stroke-width: 1.1;
+  fill: rgba(138, 150, 157, 0.09);
+  stroke: rgba(var(--auth-accent-rgb), 0.35);
+  stroke-width: 1;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   stroke-dasharray: 1;
@@ -2655,10 +2661,73 @@ html:has(.ops-scroll) { scroll-behavior: smooth; }
   animation: auth-draw 1.5s cubic-bezier(0.3, 0.7, 0.2, 1) both, auth-fill 0.9s ease-out both;
   animation-delay: calc(var(--i, 0) * 7ms), calc(0.9s + var(--i, 0) * 4ms);
 }
-.auth-meridian { stroke: rgba(var(--gold-rgb), 0.55); stroke-width: 1; stroke-dasharray: 3 5; vector-effect: non-scaling-stroke; }
 .auth-clocks { animation: ops-fade 0.6s ease-out 1.4s both; }
 @keyframes auth-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes auth-fill { from { fill-opacity: 0; } to { fill-opacity: 1; } }
+/* Entrance: header, mark, eyebrow, headline, panel and footer rise in sequence (--d set per step). */
+.auth-rise { animation: auth-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms) both; }
+.auth-line { display: block; }
+.auth-line > span { display: block; animation: auth-unmask 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0ms) both; }
+.auth-glow > span { text-shadow: 0 0 28px rgba(var(--auth-accent-rgb), 0.35); }
+.auth-rule { transform-origin: right; animation: auth-rule 0.8s ease-out calc(var(--d, 0ms) + 200ms) both; }
+.auth-live { box-shadow: 0 0 0 0 rgba(var(--auth-accent-rgb), 0.6); animation: auth-ping 2.4s ease-out infinite; }
+
+/* Reticle around the mark: a sweeping arc over a dotted ring. */
+.auth-reticle svg { overflow: visible; }
+.auth-reticle-ring { fill: rgba(var(--auth-accent-rgb), 0.04); stroke: var(--auth-line); stroke-width: 1; }
+.auth-reticle-dots { fill: none; stroke: rgba(var(--auth-accent-rgb), 0.35); stroke-width: 1; stroke-dasharray: 1 5; }
+.auth-reticle-ticks { stroke: rgba(var(--auth-accent-rgb), 0.6); stroke-width: 1; }
+.auth-reticle-arc {
+  fill: none; stroke: var(--auth-accent); stroke-width: 1.5; stroke-linecap: round; stroke-dasharray: 22 78;
+  transform-origin: 32px 32px; filter: drop-shadow(0 0 3px rgba(var(--auth-accent-rgb), 0.8));
+  animation: auth-spin 4s linear infinite;
+}
+.auth-reticle { filter: drop-shadow(0 0 14px rgba(var(--auth-accent-rgb), 0.18)); }
+/* While a form is submitting the reticle works harder. */
+.auth-root:has(form[aria-busy="true"]) .auth-reticle-arc { animation-duration: 0.7s; stroke-dasharray: 40 60; }
+
+/* Backdrop: slow scan sweep plus pointer parallax (--px/--py from AuthPointer). */
+.auth-parallax { transform: translate3d(calc(var(--px, 0) * -14px), calc(var(--py, 0) * -10px), 0); transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.auth-scan {
+  position: absolute; inset-inline: 0; top: 0; height: 32vh;
+  background: linear-gradient(to bottom, transparent, rgba(var(--auth-accent-rgb), 0.05) 85%, rgba(var(--auth-accent-rgb), 0.18) 100%);
+  border-bottom: 1px solid rgba(var(--auth-accent-rgb), 0.07);
+  animation: auth-scan 9s cubic-bezier(0.45, 0, 0.55, 1) 1.6s infinite both;
+}
+
+/* Panel reacts: glow while a field is focused, shake when an error appears. */
+.auth-panel { transition: border-color 0.3s, box-shadow 0.3s; }
+.auth-panel::before, .auth-panel::after { transition: width 0.3s, height 0.3s; }
+.auth-panel:focus-within { border-color: rgba(var(--auth-accent-rgb), 0.35); box-shadow: 0 0 0 1px rgba(var(--auth-accent-rgb), 0.08), 0 20px 60px -20px rgba(var(--auth-accent-rgb), 0.25); }
+.auth-panel:focus-within::before, .auth-panel:focus-within::after { width: 18px; height: 18px; }
+.auth-panel:has([role="alert"]) { animation: auth-shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97); border-color: rgba(255, 90, 79, 0.4); }
+.auth-sheen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%);
+  transform: translateX(-120%);
+}
+.auth-sheen:hover:not(:disabled)::after { transform: translateX(120%); transition: transform 0.7s ease; }
+
+@keyframes auth-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+/* clip-path instead of overflow:hidden so the glow is not boxed in once revealed. */
+@keyframes auth-unmask { from { transform: translateY(40%); clip-path: inset(0 0 100% 0); } to { transform: none; clip-path: inset(-1em); } }
+@keyframes auth-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+@keyframes auth-ping { 70%, 100% { box-shadow: 0 0 0 6px rgba(var(--auth-accent-rgb), 0); } }
+@keyframes auth-scan { from { transform: translateY(-100%); } to { transform: translateY(100svh); } }
+@keyframes auth-shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+
+/* Phones: fewer moving layers, lighter blur. */
+@media (max-width: 639px) {
+  .auth-panel { backdrop-filter: none; background: rgba(21, 26, 41, 0.95); }
+  .auth-scan { animation-duration: 12s; }
+}
+/* Short landscape screens: skip the sweep so nothing crosses the fields constantly. */
+@media (max-height: 520px) { .auth-scan { display: none; } }
+
 @media (prefers-reduced-motion: reduce) {
-  .auth-islands path, .auth-clocks { animation: none; }
+  .auth-islands path, .auth-clocks, .auth-rise, .auth-line > span, .auth-rule,
+  .auth-live, .auth-reticle-arc, .auth-scan, .auth-panel:has([role="alert"]) { animation: none !important; }
+  .auth-scan, .auth-sheen::after { display: none; }
+  .auth-parallax { transform: none; }
 }

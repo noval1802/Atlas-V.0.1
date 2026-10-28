@@ -39,7 +39,7 @@ export function PasswordField({
           aria-label={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
           title={visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
           onClick={() => setVisible((current) => !current)}
-          className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-[var(--auth-mist)] hover:text-[var(--auth-sand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--gold-primary)]"
+          className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-[var(--auth-mist)] hover:text-[var(--auth-sand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--auth-accent)]"
         >
           <Icon className="h-5 w-5" aria-hidden="true" />
         </button>

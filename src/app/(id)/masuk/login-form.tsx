@@ -64,7 +64,7 @@ export function LoginForm() {
       </label>
       <PasswordField name="password" label="Kata sandi" autoComplete="current-password" minLength={1} />
       <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-[var(--auth-sand)]">
-        <input name="remember" type="checkbox" className="h-[18px] w-[18px] accent-[var(--gold-primary)]" />
+        <input name="remember" type="checkbox" className="h-[18px] w-[18px] accent-[var(--auth-accent)]" />
         Ingat saya di perangkat ini
       </label>
       {error && (
