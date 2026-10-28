@@ -25,6 +25,14 @@ export function mergeCameraCatalog<T extends { id: string | number }>(previous: 
   return [...merged.values()];
 }
 
+/**
+ * Camera regions pulled into the browser. Pusdalops is Indonesia-focused, so the
+ * map loads only Indonesian regions (~6.4k cameras) instead of the whole 44k
+ * worldwide catalogue — far less payload and memory. The global regions stay
+ * available on the API; add one here to widen coverage.
+ */
+export const CAMERA_REGIONS = ['jasamarga', 'bpjt', 'bandung', 'tpt'] as const;
+
 /** Recover slow regions without downloading the entire worldwide list again. */
 export function loadCameraCatalog(onBatch: (cameras: CatalogCamera[]) => void, onError: () => void) {
   const controller = new AbortController();
@@ -53,6 +61,6 @@ export function loadCameraCatalog(onBatch: (cameras: CatalogCamera[]) => void, o
       timer = setTimeout(() => void load(remaining), attempts * 15_000);
     }
   };
-  void load(['all']);
+  void load([...CAMERA_REGIONS]);
   return () => { controller.abort(); clearTimeout(timer); };
 }

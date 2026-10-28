@@ -18,6 +18,7 @@ import type { CatalogCamera } from '@/lib/camera-catalog';
 import { MATRA_LAYER, kotamaopsFeatures, kotamaopsIconId, safeKotamaopsLogo } from '@/lib/kotamaops-points';
 import { NKRI_CENTER } from '@/lib/nkri-view';
 import { tileRequestUrl } from '@/lib/tile-proxy';
+import { CAMERA_ICON_ID, cameraGlyph, cameraIconData, loadCameraGlyph } from '@/lib/camera-icon';
 import { KARHUTLA_LAPSIT_AT, formatKarhutlaAmount, formatPersonel, karhutlaReport } from '@/lib/karhutla-lapsit';
 import { KOTAMAOPS_FLAME_CODES, KOTAMAOPS_FLAME_FRAMES, KOTAMAOPS_FLAME_FRAME_MS, KOTAMAOPS_FLAME_HEIGHT, KOTAMAOPS_FLAME_WIDTH, drawKotamaopsFlame, kotamaopsFlameImageId, nextKotamaopsFlameFrame } from '@/lib/kotamaops-flame';
 import type { ArcGisMapLayer, MapEntity } from '@/lib/dashboard-state';
@@ -217,6 +218,26 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     setSelectedSat(null);
   }, []);
   const drawingCoordsRef = useRef<number[][]>([]);
+  const cameraColorRef = useRef('');
+
+  /* Draws (or redraws) the CCTV marker. Shows the fallback dot until the SVG arrives, then swaps it in with the latest colour. */
+  const setCameraIcon = useCallback((map: maplibregl.Map, color: string) => {
+    cameraColorRef.current = color;
+    const draw = (image?: HTMLImageElement) => {
+      const data = cameraIconData(cameraColorRef.current, image);
+      if (map.hasImage(CAMERA_ICON_ID)) map.updateImage(CAMERA_ICON_ID, data);
+      else map.addImage(CAMERA_ICON_ID, data, { pixelRatio: 2 });
+    };
+    draw(cameraGlyph());
+    if (!cameraGlyph()) {
+      loadCameraGlyph().then(
+        (image) => {
+          try { draw(image); } catch { /* map was removed before the icon loaded */ }
+        },
+        (error) => console.warn('[OSIRIS]', error.message),
+      );
+    }
+  }, []);
 
   // Create aircraft icon on canvas (for WebGL symbol layer)
   const createIcon = useCallback((map: maplibregl.Map, id: string, color: string, size: number) => {
@@ -327,7 +348,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         // The style credits CARTO and OSM for the map; this credits OSM for the
         // search results, place names and pins that come from Nominatim.
         customAttribution: 'Geocoding © OpenStreetMap contributors',
-      } as const,
+      },
       maxPitch: 85,
       transformRequest: (url: string) => {
         // CARTO requests go through our own proxy: the nginx tile cache when configured, else /api/proxy-tiles.
@@ -403,7 +424,14 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       createDot(map, 'dot-cctv', cameraColor, 10);
 
       const sources = ['flights','military','jets','private-fl','satellites','earthquakes','gdelt','day-night','cctv','cctv-jm','cctv-jakarta','fires','weather','maritime','maritime-choke','maritime-ships','live-news', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'gdelt-events', 'alert-pins', 'kotamaops'];
-      sources.forEach(s => map.addSource(s, { type: 'geojson', data: EMPTY_FC }));
+      // Camera sources cluster so dense cities (Jakarta, Bandung) collapse to a
+      // count below zoom 12 instead of a pile of overlapping icons. Clustering
+      // stops below the preview zoom (13), so individual cameras are intact when
+      // previews open.
+      const CLUSTERED = new Set(['cctv', 'cctv-jm', 'cctv-jakarta']);
+      sources.forEach(s => map.addSource(s, CLUSTERED.has(s)
+        ? { type: 'geojson', data: EMPTY_FC, cluster: true, clusterRadius: 50, clusterMaxZoom: 12 }
+        : { type: 'geojson', data: EMPTY_FC }));
 
       // ── FLIGHT ROUTE VISUALIZATION SOURCES & LAYERS ──
 
@@ -448,21 +476,32 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         'circle-color': '#E65100', 'circle-opacity': 0.45, 'circle-blur': 0.5,
       }});
 
+      setCameraIcon(map, cameraColor);
       // CCTV and CCTV JM share the paint. The JM source is a separate toggle.
       const addCameraLayers = (prefix: string, source: string) => {
-        map.addLayer({ id: `${prefix}-glow`, type: 'circle', source, paint: {
+        const single: maplibregl.FilterSpecification = ['!', ['has', 'point_count']];
+        map.addLayer({ id: `${prefix}-glow`, type: 'circle', source, filter: single, paint: {
           'circle-radius': ['interpolate',['linear'],['zoom'], 1,5, 5,8, 10,14, 14,20],
           'circle-color': '#000000', 'circle-opacity': 0.35, 'circle-blur': 1,
         }});
-        map.addLayer({ id: `${prefix}-dots`, type: 'circle', source, paint: {
-          'circle-radius': ['interpolate',['linear'],['zoom'], 1,3, 5,5, 10,8, 14,12],
-          'circle-color': cameraColor, 'circle-opacity': 0.9,
-          'circle-stroke-width': 2.5, 'circle-stroke-color': '#000000', 'circle-stroke-opacity': 0.9,
+        map.addLayer({ id: `${prefix}-dots`, type: 'symbol', source, filter: single, layout: {
+          'icon-image': CAMERA_ICON_ID,
+          'icon-size': ['interpolate',['linear'],['zoom'], 1,0.5, 5,0.7, 10,0.95, 14,1.25],
+          'icon-allow-overlap': true, 'icon-ignore-placement': true,
         }});
-        map.addLayer({ id: `${prefix}-label`, type: 'symbol', source, minzoom: 10, layout: {
+        map.addLayer({ id: `${prefix}-label`, type: 'symbol', source, minzoom: 10, filter: single, layout: {
           'text-field': ['get','name'], 'text-size': 9, 'text-font': ['Open Sans Regular'],
           'text-offset': [0, 1.8], 'text-max-width': 12, 'text-allow-overlap': false,
         }, paint: { 'text-color': cameraColor, 'text-halo-color': '#000000', 'text-halo-width': 1.5, 'text-opacity': 0.8 }});
+        // Clustered: a count bubble that expands on click (see cluster handlers below).
+        map.addLayer({ id: `${prefix}-cluster`, type: 'circle', source, filter: ['has', 'point_count'], paint: {
+          'circle-color': cameraColor, 'circle-opacity': 0.2,
+          'circle-radius': ['step', ['get', 'point_count'], 12, 50, 16, 200, 22],
+          'circle-stroke-width': 1.5, 'circle-stroke-color': cameraColor, 'circle-stroke-opacity': 0.8,
+        }});
+        map.addLayer({ id: `${prefix}-cluster-count`, type: 'symbol', source, filter: ['has', 'point_count'], layout: {
+          'text-field': ['get', 'point_count_abbreviated'], 'text-size': 11, 'text-font': ['Open Sans Regular'],
+        }, paint: { 'text-color': cameraColor, 'text-halo-color': '#000000', 'text-halo-width': 1 }});
       };
       addCameraLayers('cctv', 'cctv');
       addCameraLayers('cctv-jm', 'cctv-jm');
@@ -952,6 +991,21 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     map.on('click', 'cctv-jm-dots', openCamera);
     map.on('click', 'cctv-jakarta-dots', openCamera);
 
+    // Clicking a camera cluster zooms in until it splits apart.
+    const zoomCluster = (src: string) => (e: maplibregl.MapLayerMouseEvent) => {
+      const feature = e.features?.[0];
+      const clusterId = feature?.properties?.cluster_id;
+      const coords = pointCoordinates(feature?.geometry);
+      if (clusterId == null || !coords) return;
+      const source = map.getSource(src) as maplibregl.GeoJSONSource | undefined;
+      source?.getClusterExpansionZoom(clusterId).then(zoom => {
+        map.easeTo({ center: coords as [number, number], zoom, duration: 600 });
+      }).catch(() => {});
+    };
+    for (const src of ['cctv', 'cctv-jm', 'cctv-jakarta']) {
+      map.on('click', `${src}-cluster`, zoomCluster(src));
+    }
+
     // ── Earthquakes (BMKG) ──
     map.on('click', 'eq-circles', e => {
       const p = clickedProperties<EarthquakePopup>(e);
@@ -1133,7 +1187,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
 
     // ── Generic hover for clickables ──
-    ['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','eq-circles','fires-heat','gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots','balloon-dots','rad-dots','ship-dots','gdelt-events-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame'].forEach(layer => {
+    ['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','cctv-cluster','cctv-jm-cluster','cctv-jakarta-cluster','eq-circles','fires-heat','gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots','balloon-dots','rad-dots','ship-dots','gdelt-events-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame'].forEach(layer => {
       map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
     });
@@ -1511,18 +1565,21 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       updateMapIcon('plane-grey', palette.flightUnknown, 24);
     }, [mapReady, palette]);
 
-    /* Cameras are circles and a label, so no image to rebuild — the colour is
-       a paint property on each. */
+    /* Cameras share one marker image, so a colour change redraws it; the label colour is a paint property. */
     useEffect(() => {
       if (!mapReady || !mapRef.current) return;
       const map = mapRef.current;
-      for (const id of ['cctv-dots', 'cctv-jm-dots', 'cctv-jakarta-dots']) {
-        if (map.getLayer(id)) map.setPaintProperty(id, 'circle-color', palette.cctv);
-      }
-      for (const id of ['cctv-label', 'cctv-jm-label', 'cctv-jakarta-label']) {
+      setCameraIcon(map, palette.cctv);
+      for (const id of ['cctv-label', 'cctv-jm-label', 'cctv-jakarta-label', 'cctv-cluster-count', 'cctv-jm-cluster-count', 'cctv-jakarta-cluster-count']) {
         if (map.getLayer(id)) map.setPaintProperty(id, 'text-color', palette.cctv);
       }
-    }, [mapReady, palette.cctv]);
+      for (const id of ['cctv-cluster', 'cctv-jm-cluster', 'cctv-jakarta-cluster']) {
+        if (map.getLayer(id)) {
+          map.setPaintProperty(id, 'circle-color', palette.cctv);
+          map.setPaintProperty(id, 'circle-stroke-color', palette.cctv);
+        }
+      }
+    }, [mapReady, palette.cctv, setCameraIcon]);
 
   // ── DECOUPLED LAYER RENDERERS (Performance Optimized) ──
 
@@ -1763,9 +1820,9 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     setVis(['fl-private'], activeLayers.private);
     setVis(['fl-jets'], activeLayers.jets);
     setVis(['fl-military'], activeLayers.military);
-    setVis(['cctv-glow','cctv-dots','cctv-label'], activeLayers.cctv);
-    setVis(['cctv-jm-glow','cctv-jm-dots','cctv-jm-label'], activeLayers.cctv_jm !== false);
-    setVis(['cctv-jakarta-glow','cctv-jakarta-dots','cctv-jakarta-label'], activeLayers.cctv_jakarta !== false);
+    setVis(['cctv-glow','cctv-dots','cctv-label','cctv-cluster','cctv-cluster-count'], activeLayers.cctv);
+    setVis(['cctv-jm-glow','cctv-jm-dots','cctv-jm-label','cctv-jm-cluster','cctv-jm-cluster-count'], activeLayers.cctv_jm !== false);
+    setVis(['cctv-jakarta-glow','cctv-jakarta-dots','cctv-jakarta-label','cctv-jakarta-cluster','cctv-jakarta-cluster-count'], activeLayers.cctv_jakarta !== false);
     setVis(['fires-heat'], activeLayers.fires);
     setVis(['weather-glow','weather-dots','weather-label'], activeLayers.weather);
     setVis(['maritime-glow','maritime-dots','maritime-label'], activeLayers.maritime);
