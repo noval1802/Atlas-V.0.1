@@ -47,6 +47,8 @@ import { fetchArizonaCameras } from './arizona';
 import { fetchTexasCameras } from './texas';
 import { fetchEastAsiaCameras, fetchSeAsiaCameras, fetchWestAsiaCameras } from './opencctv';
 import { fetchJasamargaCameras } from './jasamarga';
+import { fetchBpjtCameras } from './bpjt';
+import { fetchBandungCameras } from './bandung';
 import { fetchTptCameras } from './tpt';
 import {
   fetchLatamLiveCameras,
@@ -652,6 +654,8 @@ const RAW_REGION_FETCHERS: Record<string, RegionFetcher> = {
   'eastasia': fetchEastAsiaCameras as RegionFetcher,
   'seasia': fetchSeAsiaCameras as RegionFetcher,
   'jasamarga': fetchJasamargaCameras as RegionFetcher,
+  'bpjt': fetchBpjtCameras as RegionFetcher,
+  'bandung': fetchBandungCameras as RegionFetcher,
   'tpt': fetchTptCameras as RegionFetcher,
   'westasia': fetchWestAsiaCameras as RegionFetcher,
   'latam-live': fetchLatamLiveCameras as RegionFetcher,
