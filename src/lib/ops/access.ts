@@ -1,3 +1,5 @@
+import { passwordProblem } from "../../../prisma/password-policy.mjs";
+
 export const OPS_ROLES = [
   "SUPER_ADMIN",
   "ADMIN",
@@ -150,10 +152,9 @@ export function sessionMatchesUser(
   return (session.ver ?? 0) === user.sessionVersion;
 }
 
-export function passwordError(password: string): string | null {
-  if (password.length < 10) return "Kata sandi minimal 10 karakter.";
-  if (password.length > 200) return "Kata sandi terlalu panjang.";
-  return null;
+/** Pass the owner's username when known so a password containing it is refused. */
+export function passwordError(password: string, username?: string): string | null {
+  return passwordProblem(password, username);
 }
 
 export function usernameError(username: string): string | null {
@@ -241,8 +242,8 @@ export function parseNewUser(body: unknown): { ok: true; value: NewUserInput } |
   const usernameProblem = usernameError(username);
   if (usernameProblem) return { ok: false, error: usernameProblem };
   const password = typeof raw.password === "string" ? raw.password : "";
-  const passwordProblem = passwordError(password);
-  if (passwordProblem) return { ok: false, error: passwordProblem };
+  const passwordRefusal = passwordError(password, username);
+  if (passwordRefusal) return { ok: false, error: passwordRefusal };
   if (!OPS_ROLES.includes(raw.role as OpsRoleName)) return { ok: false, error: "Peran tidak dikenal." };
   const role = raw.role as OpsRoleName;
   const kotamaopsId = typeof raw.kotamaopsId === "string" && raw.kotamaopsId.trim() ? raw.kotamaopsId.trim() : null;
@@ -289,8 +290,8 @@ export function parseUserPatch(body: unknown): { ok: true; value: UserPatch } | 
   }
   if (raw.password !== undefined && raw.password !== "") {
     const password = typeof raw.password === "string" ? raw.password : "";
-    const passwordProblem = passwordError(password);
-    if (passwordProblem) return { ok: false, error: passwordProblem };
+    const passwordRefusal = passwordError(password);
+    if (passwordRefusal) return { ok: false, error: passwordRefusal };
     patch.password = password;
   }
   return { ok: true, value: patch };
@@ -327,8 +328,8 @@ export function parseRegister(body: unknown): { ok: true; value: RegisterInput }
   const position = readText(raw.position, "Pangkat atau jabatan", 2, 120);
   if (typeof position !== "string") return { ok: false, error: position.error };
   const password = typeof raw.password === "string" ? raw.password : "";
-  const passwordProblem = passwordError(password);
-  if (passwordProblem) return { ok: false, error: passwordProblem };
+  const passwordRefusal = passwordError(password, username);
+  if (passwordRefusal) return { ok: false, error: passwordRefusal };
   const confirm = typeof raw.confirmPassword === "string" ? raw.confirmPassword : "";
   if (!confirm) return { ok: false, error: "Konfirmasi kata sandi wajib diisi." };
   if (confirm !== password) return { ok: false, error: "Konfirmasi kata sandi tidak sama." };

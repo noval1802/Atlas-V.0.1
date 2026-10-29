@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { canManageUsers, nextAccountState, parseUserPatch, superAdminRoleChangeError } from "@/lib/ops/access";
+import { canManageUsers, nextAccountState, parseUserPatch, passwordError, superAdminRoleChangeError } from "@/lib/ops/access";
 import { requestIp, writeAudit } from "@/lib/ops/audit";
 import { currentUser, presentUser } from "@/lib/ops/current-user";
 import { opsDb } from "@/lib/ops/db";
@@ -29,6 +29,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   const parsed = parseUserPatch(await request.json().catch(() => null));
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  // The parser cannot see whose account this is; refuse a password built from that username here.
+  const passwordRefusal = parsed.value.password ? passwordError(parsed.value.password, existing.username) : null;
+  if (passwordRefusal) return NextResponse.json({ error: passwordRefusal }, { status: 400 });
   const role = parsed.value.role ?? existing.role;
   const roleChange = superAdminRoleChangeError(actor.role, existing.role, role);
   if (roleChange) return NextResponse.json({ error: roleChange }, { status: 403 });

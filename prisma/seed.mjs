@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { randomBytes, scrypt } from "node:crypto";
 import { promisify } from "node:util";
+import { planAdminBootstrap } from "./admin-bootstrap.mjs";
 
 const scryptAsync = promisify(scrypt);
 const db = new PrismaClient();
@@ -39,11 +40,16 @@ async function hashPassword(password) {
   return `scrypt$${salt}$${hash.toString("base64url")}`;
 }
 
-const username = process.env.OPS_ADMIN_USERNAME?.trim().toLowerCase();
-const password = process.env.OPS_ADMIN_PASSWORD;
-if (!username || !password || password.length < 10) {
-  throw new Error("OPS_ADMIN_USERNAME dan OPS_ADMIN_PASSWORD (minimal 10 karakter) wajib diisi sebelum seed.");
-}
+const username = process.env.OPS_ADMIN_USERNAME?.trim().toLowerCase() ?? "";
+const password = process.env.OPS_ADMIN_PASSWORD ?? "";
+// Diputuskan sebelum menulis apa pun, supaya kredensial yang ditolak tidak meninggalkan seed setengah jalan.
+const adminPlan = planAdminBootstrap({
+  activeSuperAdmins: await db.user.count({ where: { role: "SUPER_ADMIN", active: true, accountStatus: "ACTIVE" } }),
+  usernameTaken: username ? Boolean(await db.user.findUnique({ where: { username }, select: { id: true } })) : false,
+  username,
+  password,
+});
+if (adminPlan.action === "error") throw new Error(adminPlan.message);
 
 /** Lambang mengikuti nama file /public/kodam/<kode>.png, sama dengan migrasi matra. */
 function logoFor(code) {
@@ -73,8 +79,7 @@ for (const [code, name, region, location, latitude, longitude, matra] of units) 
   });
 }
 
-const existing = await db.user.findUnique({ where: { username } });
-if (!existing) {
+if (adminPlan.action === "create") {
   await db.user.create({
     data: {
       name: "Admin Pusdalops",
@@ -85,5 +90,6 @@ if (!existing) {
   });
 }
 
-console.log(`Kotamaops ${units.length}. Admin ${username} siap.`);
+if (adminPlan.action === "skip" && adminPlan.notice) console.warn(adminPlan.notice);
+console.log(`Kotamaops ${units.length}. ${adminPlan.action === "create" ? `Admin ${username} dibuat.` : "Admin sudah ada, tidak diubah."}`);
 await db.$disconnect();

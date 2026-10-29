@@ -36,7 +36,7 @@ docker compose ps        # osiris dan osiris-cache harus "healthy"
 
 Buka `https://<nama-host>:8443`. Selama memakai sertifikat self-signed, browser akan menampilkan peringatan. Pasang sertifikat CA satuan untuk menghilangkannya (lihat di bawah).
 
-Urutan start diatur otomatis: Postgres sehat → `osiris-migrate` selesai → aplikasi sehat → nginx. Kalau `osiris-migrate` gagal (misalnya `OPS_ADMIN_PASSWORD` kurang dari 10 karakter), aplikasi tidak dijalankan. Cek dengan `docker compose logs osiris-migrate`.
+Urutan start diatur otomatis: Postgres sehat → `osiris-migrate` selesai → aplikasi sehat → nginx. Kalau `osiris-migrate` gagal (misalnya belum ada SUPER_ADMIN dan `OPS_ADMIN_PASSWORD` kosong atau ditolak aturan kata sandi), aplikasi tidak dijalankan. Cek dengan `docker compose logs osiris-migrate`.
 
 ## Variabel wajib di `.env`
 
@@ -44,7 +44,7 @@ Urutan start diatur otomatis: Postgres sehat → `osiris-migrate` selesai → ap
 |---|---|
 | `OSIRIS_POSTGRES_PASSWORD` | Wajib, compose menolak jalan tanpanya. Gunakan nilai aman-URL: `openssl rand -hex 24`. |
 | `OPS_SESSION_SECRET` | Minimal 32 karakter (`openssl rand -hex 32`). Kurang dari itu, login ditolak. |
-| `OPS_ADMIN_USERNAME`, `OPS_ADMIN_PASSWORD` | Akun SUPER_ADMIN awal, dibuat oleh seed bila belum ada. Gunakan sandi yang kuat. |
+| `OPS_ADMIN_USERNAME`, `OPS_ADMIN_PASSWORD` | Akun SUPER_ADMIN pertama, dibuat seed hanya bila belum ada SUPER_ADMIN aktif. Sandi minimal 12 karakter, tidak memuat nama pengguna, nama aplikasi, atau nama peran. Mengubah nilai ini **tidak** mengganti sandi akun yang sudah ada (ganti lewat menu Pengguna); setelah admin dibuat, keduanya boleh dikosongkan. |
 | `OPS_PUBLIC_URL` | `https://<nama-host>:8443`. Wajib agar email reset sandi terkirim. |
 | `TILE_PROXY_PATH` | `/proxy/tiles`, supaya tile peta dilayani dari cache nginx. |
 

@@ -3,12 +3,13 @@
 import { useId, useState } from "react";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import { authField } from "./auth-frame";
+import { PASSWORD_MIN_LENGTH } from "../../../prisma/password-policy.mjs";
 
 export function PasswordField({
   name,
   label,
   autoComplete,
-  minLength = 10,
+  minLength = PASSWORD_MIN_LENGTH,
   placeholder,
 }: {
   name: string;

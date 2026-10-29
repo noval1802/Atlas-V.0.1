@@ -262,6 +262,14 @@ describe("user administration routes", () => {
     expect(state.users.find((user) => user.id === "root-2")?.sessionVersion).toBe(1);
   });
 
+  it("refuses a new password built from the target's username without writing", async () => {
+    state.actor = state.users[0];
+    const response = await patch("root-2", { role: "SUPER_ADMIN", name: "Penjaga Dua", password: "Penjaga.Dua-Merapi-27" });
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toContain("nama pengguna");
+    expect(state.users.find((user) => user.id === "root-2")?.sessionVersion).toBe(0);
+  });
+
   it("does not disable the last active super admin", async () => {
     state.users = state.users.filter((user) => user.id !== "root-2");
     state.actor = state.users.find((user) => user.id === "root-1") ?? null;

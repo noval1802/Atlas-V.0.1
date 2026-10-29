@@ -10,7 +10,7 @@ const state = vi.hoisted(() => ({
     tokenHash: string;
     expiresAt: Date;
     usedAt: Date | null;
-    user: { id: string };
+    user: { id: string; username: string };
   },
   passwordHash: "old",
   version: 0,
@@ -64,7 +64,7 @@ describe("POST /api/ops/password/reset", () => {
       tokenHash: hashResetToken(token),
       expiresAt: new Date(Date.now() + 60_000),
       usedAt: null,
-      user: { id: "user-1" },
+      user: { id: "user-1", username: "budi.ops" },
     };
     state.passwordHash = "old";
     state.version = 0;
@@ -92,5 +92,17 @@ describe("POST /api/ops/password/reset", () => {
     const mismatch = await reset({ token, password: "kata-sandi-baru", confirmPassword: "bukan-sama" });
     expect(mismatch.status).toBe(400);
     expect(await mismatch.json()).toMatchObject({ error: "Konfirmasi kata sandi tidak sama." });
+  });
+
+  it("refuses a weak or username-based password and leaves the token usable", async () => {
+    const short = await reset({ token, password: "Kabut-Pagi1", confirmPassword: "Kabut-Pagi1" });
+    expect(short.status).toBe(400);
+    const owner = await reset({ token, password: "Budi.Ops-Merapi-27", confirmPassword: "Budi.Ops-Merapi-27" });
+    expect(owner.status).toBe(400);
+    expect(await owner.json()).toMatchObject({ error: "Kata sandi tidak boleh memuat nama pengguna." });
+    expect(state.passwordHash).toBe("old");
+    expect(state.row?.usedAt).toBeNull();
+    const ok = await reset({ token, password: "Merapi-Kabut-Pagi-27", confirmPassword: "Merapi-Kabut-Pagi-27" });
+    expect(ok.status).toBe(200);
   });
 });

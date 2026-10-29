@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { authButton, authField, authLink } from "@/components/ops/auth-frame";
 import { PasswordField } from "@/components/ops/password-field";
+import { passwordProblem } from "../../../../prisma/password-policy.mjs";
 
 const USERNAME = /^[a-z0-9][a-z0-9._-]{2,31}$/;
 
@@ -30,8 +31,9 @@ export function RegisterForm() {
       setError("Email tidak valid.");
       return;
     }
-    if (password.length < 10 || password.length > 200) {
-      setError("Kata sandi minimal 10 karakter.");
+    const passwordRefusal = passwordProblem(password, username);
+    if (passwordRefusal) {
+      setError(passwordRefusal);
       return;
     }
     if (password !== confirmPassword) {

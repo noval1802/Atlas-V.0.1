@@ -179,7 +179,7 @@ export function UserBoard({
           </label>
           <label className="grid gap-1 text-xs text-white/60">
             Kata sandi
-            <input name="password" required type="password" placeholder="Minimal 10 karakter" autoComplete="new-password" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 text-sm text-white" />
+            <input name="password" required type="password" placeholder="Minimal 12 karakter" autoComplete="new-password" className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 text-sm text-white" />
           </label>
           <label className="grid gap-1 text-xs text-white/60">
             Peran

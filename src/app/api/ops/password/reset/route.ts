@@ -34,6 +34,9 @@ export async function POST(request: Request) {
     await writeAudit({ action: "password_reset_complete", result: state, targetId: row?.userId, ip });
     return NextResponse.json({ error: resetFailureMessage(state === "ok" ? "missing" : state) }, { status: 400 });
   }
+  // Only a valid token reveals the account, so the username check waits until here. The token stays unused.
+  const ownerRefusal = passwordError(password, row.user.username);
+  if (ownerRefusal) return NextResponse.json({ error: ownerRefusal }, { status: 400 });
   const passwordHash = await hashPassword(password);
   await opsDb().$transaction(async (tx) => {
     await tx.user.update({
