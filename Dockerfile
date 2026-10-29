@@ -7,7 +7,8 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate && npm run build
+# check-artifact fails the image build if any secret-looking file reached the standalone output.
+RUN npx prisma generate && npm run build && node tools/check-artifact.mjs .next/standalone
 
 # One-shot job run by the `osiris-migrate` compose service before the app starts:
 # applies pending migrations, then seeds Kotamaops and the bootstrap admin.

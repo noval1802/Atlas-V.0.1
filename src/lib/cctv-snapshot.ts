@@ -28,7 +28,7 @@ const SNAPSHOT_VERSION = 1;
 
 /** Overridable so a test never writes into the real cache directory. */
 export const snapshotPath = () =>
-  process.env.OSIRIS_CCTV_SNAPSHOT || join(process.cwd(), '.cache', 'cctv-catalog.json');
+  process.env.OSIRIS_CCTV_SNAPSHOT || join(/*turbopackIgnore: true*/ process.cwd(), '.cache', 'cctv-catalog.json');
 
 interface SnapshotFile {
   version: number;
@@ -43,7 +43,8 @@ export async function readSnapshot(): Promise<SnapshotFile | null> {
   // state that leaks between cases if a read lands late.
   if (process.env.OSIRIS_CCTV_SNAPSHOT === 'off') return null;
   try {
-    const raw = await readFile(snapshotPath(), 'utf8');
+    // turbopackIgnore: runtime state file; tracing a cwd-relative path otherwise copies the whole repo (.env included) into the build output.
+    const raw = await readFile(/*turbopackIgnore: true*/ snapshotPath(), 'utf8');
     const parsed = JSON.parse(raw) as SnapshotFile;
     if (parsed?.version !== SNAPSHOT_VERSION || !parsed.regions) return null;
     return parsed;

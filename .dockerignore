@@ -4,10 +4,43 @@ node_modules
 out
 build
 
-# Local env / secrets
-.env
-.env.local
-.env*.local
+# Secrets: every env file except the empty template.
+# Docker matches patterns from the context root, so file patterns need **/ to reach subfolders.
+**/.env*
+!**/.env.example
+**/*.pem
+**/*.key
+**/*.crt
+**/*.p12
+**/*.pfx
+**/id_rsa*
+**/id_ed25519*
+**/.npmrc
+
+# Database dumps and backups
+backups/
+**/*.dump
+**/*.sql.gz
+
+# Runtime caches and local state (operator search history lives in .cache/nominatim.json)
+.cache/
+runs/
+**/*.tsbuildinfo
+
+# Development and investigation files, never part of the image
+scratch/
+docs/
+engine/
+start-local.sh
+.claude/
+.dev-env/
+.omc/
+.impeccable/
+
+# Mounted from the host by docker-compose, not built into the app image
+nginx/
+ops/
+intel/
 
 # VCS & tooling
 .git

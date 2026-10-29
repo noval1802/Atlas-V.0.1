@@ -70,7 +70,7 @@ let lastRequestAt = 0;
 /** Counted so the log can show what we are actually sending. */
 const stats = { served: 0, fromCache: 0, sent: 0, refused: 0, failed: 0 };
 
-const snapshotPath = () => process.env.OSIRIS_NOMINATIM_CACHE || join(process.cwd(), '.cache', 'nominatim.json');
+const snapshotPath = () => process.env.OSIRIS_NOMINATIM_CACHE || join(/*turbopackIgnore: true*/ process.cwd(), '.cache', 'nominatim.json');
 
 let loaded: Promise<void> | null = null;
 let dirty = false;
@@ -80,7 +80,8 @@ function ensureLoaded(): Promise<void> {
   loaded ??= (async () => {
     if (process.env.OSIRIS_NOMINATIM_CACHE === 'off') return;
     try {
-      const raw = await fs.readFile(snapshotPath(), 'utf8');
+      // turbopackIgnore: runtime state file; tracing a cwd-relative path otherwise copies the whole repo (.env included) into the build output.
+      const raw = await fs.readFile(/*turbopackIgnore: true*/ snapshotPath(), 'utf8');
       const saved = JSON.parse(raw) as Record<string, Entry>;
       const now = Date.now();
       for (const [key, entry] of Object.entries(saved)) {

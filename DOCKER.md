@@ -78,6 +78,18 @@ docker compose exec osiris-cache nginx -s reload
     "postgresql://osiris:<password>@osiris-postgres:5432/osiris_ops"
   ```
 
+## Build lokal vs build distribusi
+
+| | Build lokal (`npm run build` di mesin pengembang) | Build distribusi (image Docker) |
+|---|---|---|
+| `.env` | **Ikut tersalin** ke `.next/standalone/.env`. Next.js menyalin `.env` yang dibaca saat build, dan ini perilaku bawaan yang tidak bisa dimatikan lewat konfigurasi. | Tidak ada, karena `.dockerignore` mengecualikan semua `.env*` kecuali `.env.example`. |
+| Pemeriksaan artefak | `postbuild` menjalankan `tools/check-artifact.mjs --report`: hanya melapor, tidak menggagalkan build. | `tools/check-artifact.mjs` mode ketat di stage builder: **build gagal** bila ada berkas sensitif. |
+| Boleh dikirim ke server? | **Tidak.** Jangan menyalin, mengarsip, atau mengunggah `.next/standalone` hasil build lokal. | Ya, setelah image benar-benar dibangun dan pemeriksaan lulus. |
+
+Pemeriksa hanya menilai nama dan path berkas. Isi berkas tidak pernah dibuka, sehingga nilai rahasia tidak bisa tercetak. Untuk memeriksa ulang secara manual: `npm run check:artifact`.
+
+Tiga berkas runtime (`.cache/cctv-catalog.json`, `.cache/nominatim.json`, dan `.env` yang ditulis menu token CCTV) diberi anotasi `/*turbopackIgnore: true*/` di `src/lib/cctv-snapshot.ts`, `src/lib/nominatim.ts`, dan `src/lib/cctv-tokens.ts`. Tanpa anotasi itu, file tracing menyalin seluruh repository, termasuk `.env` dan `docs/`, ke output build.
+
 ## Perintah harian
 
 ```bash

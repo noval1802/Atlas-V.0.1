@@ -79,7 +79,7 @@ export function listCctvTokenStatus() {
 }
 
 export function defaultEnvPath(): string {
-  return path.join(process.cwd(), '.env');
+  return path.join(/*turbopackIgnore: true*/ process.cwd(), '.env');
 }
 
 /**
@@ -93,7 +93,8 @@ export async function updateStoredCctvToken(id: string, raw: unknown, file = def
   if (!source) return { ok: false, error: 'Sumber token tidak dikenal.' };
   const value = normalizeCctvToken(raw);
   if (!value) return { ok: false, error: 'Token kosong atau berisi karakter yang tidak dipakai.' };
-  const current = readFileSync(file, 'utf8');
+  // turbopackIgnore: runtime state file; tracing a cwd-relative path otherwise copies the whole repo (.env included) into the build output.
+  const current = readFileSync(/*turbopackIgnore: true*/ file, 'utf8');
   const next = upsertEnvAssignment(current, source.env, value);
   await dropSnapshotRegion(source.region);
   delete process.env[source.env];
