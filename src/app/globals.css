@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+/* Short viewports (laptops with browser chrome): the sign-in page tightens so it fits without scrolling. */
+@custom-variant short (@media (max-height: 820px));
 
 /* ═══════════════════════════════════════════════════════════════
    OSIRIS — Global Intelligence Platform Design System
@@ -2641,19 +2643,25 @@ html:has(.ops-scroll) { scroll-behavior: smooth; }
   mask: url(/eye-of-horus.svg) center / contain no-repeat;
   -webkit-mask: url(/eye-of-horus.svg) center / contain no-repeat;
 }
-.auth-panel { background: var(--auth-deep); border: 1px solid var(--auth-line); backdrop-filter: blur(6px); }
-/* Corner ticks on the panel. */
-.auth-panel::before, .auth-panel::after { content: ""; position: absolute; width: 10px; height: 10px; border: 0 solid var(--auth-accent); }
-.auth-panel::before { top: 6px; left: 6px; border-top-width: 1px; border-left-width: 1px; }
-.auth-panel::after { bottom: 6px; right: 6px; border-bottom-width: 1px; border-right-width: 1px; }
+.auth-panel {
+  background: linear-gradient(180deg, rgba(var(--auth-accent-rgb), 0.06), transparent 40%), var(--auth-deep);
+  border: 1px solid rgba(var(--auth-accent-rgb), 0.45);
+  border-radius: 10px;
+  box-shadow: 0 0 32px -8px rgba(var(--auth-accent-rgb), 0.45), inset 0 0 24px -12px rgba(var(--auth-accent-rgb), 0.5);
+  backdrop-filter: blur(8px);
+}
+/* Corner brackets inside the panel. */
+.auth-panel::before, .auth-panel::after { content: ""; position: absolute; width: 16px; height: 16px; border: 0 solid var(--auth-accent); pointer-events: none; }
+.auth-panel::before { top: 10px; left: 10px; border-top-width: 1.5px; border-left-width: 1.5px; }
+.auth-panel::after { bottom: 10px; right: 10px; border-bottom-width: 1.5px; border-right-width: 1.5px; }
 .auth-backdrop { opacity: 0.55; }
 .auth-graticule line { stroke: rgba(138, 150, 157, 0.07); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .auth-graticule .auth-equator { stroke: rgba(138, 150, 157, 0.16); stroke-dasharray: 2 6; }
-.auth-neighbour { fill: rgba(138, 150, 157, 0.04); stroke: rgba(138, 150, 157, 0.14); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
+.auth-neighbour { fill: rgba(138, 150, 157, 0.04); stroke: rgba(138, 150, 157, 0.22); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
 .auth-islands path {
   fill: rgba(138, 150, 157, 0.09);
-  stroke: rgba(var(--auth-accent-rgb), 0.35);
-  stroke-width: 1;
+  stroke: rgba(var(--auth-accent-rgb), 0.55);
+  stroke-width: 1.2;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   stroke-dasharray: 1;
@@ -2668,6 +2676,11 @@ html:has(.ops-scroll) { scroll-behavior: smooth; }
 .auth-rise { animation: auth-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms) both; }
 .auth-line { display: block; }
 .auth-line > span { display: block; animation: auth-unmask 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0ms) both; }
+@media (max-height: 820px) {
+  /* Headline on one line: "MASUK PETA OPERASI". */
+  .auth-line, .auth-line > span { display: inline-block; }
+  .auth-line + .auth-line { margin-left: 0.3em; }
+}
 .auth-glow > span { text-shadow: 0 0 28px rgba(var(--auth-accent-rgb), 0.35); }
 .auth-rule { transform-origin: right; animation: auth-rule 0.8s ease-out calc(var(--d, 0ms) + 200ms) both; }
 .auth-live { box-shadow: 0 0 0 0 rgba(var(--auth-accent-rgb), 0.6); animation: auth-ping 2.4s ease-out infinite; }

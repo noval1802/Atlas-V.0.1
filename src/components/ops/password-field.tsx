@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { authField } from "./auth-frame";
 
 export function PasswordField({
@@ -9,11 +9,13 @@ export function PasswordField({
   label,
   autoComplete,
   minLength = 10,
+  placeholder,
 }: {
   name: string;
   label: string;
   autoComplete: string;
   minLength?: number;
+  placeholder?: string;
 }) {
   const id = useId();
   const [visible, setVisible] = useState(false);
@@ -24,14 +26,16 @@ export function PasswordField({
         {label}
       </label>
       <div className="relative mt-1">
+        <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[var(--auth-mist)]" aria-hidden="true" />
         <input
           id={id}
           name={name}
           type={visible ? "text" : "password"}
           autoComplete={autoComplete}
           minLength={minLength}
+          placeholder={placeholder}
           required
-          className={`${authField} mt-0 pr-12`}
+          className={`${authField} mt-0 pl-11 pr-12`}
         />
         <button
           type="button"

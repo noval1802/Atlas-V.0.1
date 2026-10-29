@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, ChevronRight, ShieldCheck, User } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { authButton, authField, authLink } from "@/components/ops/auth-frame";
 import { acceptedNext } from "@/lib/ops/access";
@@ -49,22 +50,26 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} aria-busy={busy} className="space-y-5" noValidate={false}>
+    <form onSubmit={onSubmit} aria-busy={busy} className="space-y-5 short:space-y-3.5" noValidate={false}>
       <label className="block text-sm text-[var(--auth-sand)]" htmlFor="username">
         Nama pengguna
-        <input
-          id="username"
-          name="username"
-          autoComplete="username"
-          autoCapitalize="none"
-          spellCheck={false}
-          required
-          className={authField}
-        />
+        <span className="relative mt-1 block">
+          <User className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[var(--auth-mist)]" aria-hidden="true" />
+          <input
+            id="username"
+            name="username"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="Masukkan nama pengguna"
+            required
+            className={`${authField} mt-0 pl-11`}
+          />
+        </span>
       </label>
-      <PasswordField name="password" label="Kata sandi" autoComplete="current-password" minLength={1} />
-      <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-[var(--auth-sand)]">
-        <input name="remember" type="checkbox" className="h-[18px] w-[18px] accent-[var(--auth-accent)]" />
+      <PasswordField name="password" label="Kata sandi" autoComplete="current-password" minLength={1} placeholder="Masukkan kata sandi" />
+      <label className="flex min-h-11 short:min-h-8 cursor-pointer items-center gap-3 text-sm text-[var(--auth-sand)]">
+        <input name="remember" type="checkbox" className="h-[18px] w-[18px] rounded-sm accent-[var(--auth-accent)] [color-scheme:dark]" />
         Ingat saya di perangkat ini
       </label>
       {error && (
@@ -74,17 +79,21 @@ export function LoginForm() {
       )}
       <button type="submit" disabled={busy} className={authButton}>
         {busy ? "Memeriksa..." : "Masuk"}
+        {!busy && <ArrowRight className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2" aria-hidden="true" />}
       </button>
-      <p className="flex flex-wrap justify-between gap-2 text-sm">
+      <p className="flex items-center justify-between gap-2 text-sm">
         <Link className={authLink} href="/lupa-sandi">
           Lupa kata sandi
         </Link>
-        <Link className="text-[var(--auth-sand)] underline-offset-4 hover:underline" href="/daftar">
+        <span aria-hidden="true" className="h-4 w-px bg-[var(--auth-line)]" />
+        <Link className="inline-flex items-center gap-1 text-[var(--auth-sand)] underline-offset-4 hover:underline" href="/daftar">
           Daftar akun
+          <ChevronRight className="h-4 w-4 text-[var(--auth-accent)]" aria-hidden="true" />
         </Link>
       </p>
-      <p className="border-t border-[var(--auth-line)] pt-4 text-xs leading-relaxed text-[var(--auth-mist)]">
-        Hanya untuk pengguna berwenang. Setiap upaya masuk dicatat.
+      <p className="flex items-center justify-center gap-3 border-t border-[var(--auth-line)] pt-4 short:pt-3 text-xs leading-relaxed text-[var(--auth-mist)]">
+        <ShieldCheck className="h-6 w-6 shrink-0" aria-hidden="true" />
+        <span>Hanya untuk pengguna berwenang.{" "}<br className="short:hidden" />Setiap upaya masuk dicatat.</span>
       </p>
     </form>
   );
