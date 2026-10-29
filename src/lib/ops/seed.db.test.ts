@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { assertTestDatabase } from "./test-db-guard";
 
 /*
  * Runs prisma/seed.mjs against a throwaway database. Opt-in:
@@ -8,13 +9,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * The guard below refuses any other database, so the working osiris_ops can never be wiped by mistake.
  */
 const url = process.env.TEST_DATABASE_URL;
-
-function assertTestDatabase(raw: string): void {
-  const parsed = new URL(raw);
-  if (parsed.pathname !== "/osiris_ops_test" || !["127.0.0.1", "localhost"].includes(parsed.hostname)) {
-    throw new Error("TEST_DATABASE_URL must point at osiris_ops_test on localhost.");
-  }
-}
 
 const STRONG = "Merapi-Kabut-Pagi-27";
 

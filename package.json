@@ -9,11 +9,13 @@
     "build": "next build",
     "postbuild": "node tools/check-artifact.mjs --report",
     "check:artifact": "node tools/check-artifact.mjs",
+    "ops:recover-admin": "node prisma/recover-admin.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "RUN_LIVE_TESTS=1 vitest run",
+    "test:db": "vitest run --no-file-parallelism src/lib/ops/seed.db.test.ts src/lib/ops/recover-admin.db.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "node prisma/seed.mjs"

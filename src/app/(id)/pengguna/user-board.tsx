@@ -96,7 +96,7 @@ export function UserBoard({
     setInfo(`${data.username} dibuat.`);
   }
 
-  async function save(row: UserRow, password: string, decision?: AccountStatus) {
+  async function save(row: UserRow, password: string, decision?: AccountStatus, confirmPassword = "") {
     setError("");
     setInfo("");
     const body: Record<string, unknown> = {
@@ -104,6 +104,7 @@ export function UserBoard({
       role: row.role,
       kotamaopsId: row.role === "OPERATOR_KODAM" ? row.kotamaopsId : null,
       password,
+      confirmPassword,
     };
     if (decision) body.accountStatus = decision;
     else body.active = row.active;
@@ -228,7 +229,7 @@ function UserCard({
   open: boolean;
   onToggle: () => void;
   onChange: (id: string, patch: Partial<UserRow>) => void;
-  onSave: (row: UserRow, password: string, decision?: AccountStatus) => Promise<void>;
+  onSave: (row: UserRow, password: string, decision?: AccountStatus, confirmPassword?: string) => Promise<void>;
 }) {
   const lockSuperAdmin = row.role === "SUPER_ADMIN" && actorRole !== "SUPER_ADMIN";
   return (
@@ -285,7 +286,8 @@ function UserCard({
             <input type="checkbox" checked={row.active} onChange={(event) => onChange(row.id, { active: event.target.checked })} />
             Aktif
           </label>
-          <input id={`password-${row.id}`} type="password" autoComplete="new-password" placeholder="Kata sandi baru, kosongkan jika tetap" aria-label={`Kata sandi baru ${row.username}`} className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2 sm:col-span-2" />
+          <input id={`password-${row.id}`} type="password" autoComplete="new-password" placeholder="Kata sandi baru, kosongkan jika tetap" aria-label={`Kata sandi baru ${row.username}`} className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2" />
+          <input id={`password-confirm-${row.id}`} type="password" autoComplete="new-password" placeholder="Ulangi kata sandi baru" aria-label={`Ulangi kata sandi baru ${row.username}`} className="rounded border border-[var(--control-border)] bg-black/40 px-3 py-2" />
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             {row.accountStatus === "PENDING" && (
               <>
@@ -302,8 +304,10 @@ function UserCard({
                 type="button"
                 onClick={() => {
                   const field = document.getElementById(`password-${row.id}`) as HTMLInputElement | null;
-                  void onSave(row, field?.value ?? "");
+                  const confirm = document.getElementById(`password-confirm-${row.id}`) as HTMLInputElement | null;
+                  void onSave(row, field?.value ?? "", undefined, confirm?.value ?? "");
                   if (field) field.value = "";
+                  if (confirm) confirm.value = "";
                 }}
                 className="rounded border border-[var(--gold-primary)] px-3 py-2 text-xs font-bold text-[var(--gold-primary)]"
               >

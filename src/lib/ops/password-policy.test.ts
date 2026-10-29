@@ -47,7 +47,13 @@ describe("password policy", () => {
   });
 
   it("applies to a password change and still allows a patch without one", () => {
-    expect(parseUserPatch({ password: "Atlas-Merapi-2026" }).ok).toBe(false);
+    expect(parseUserPatch({ password: "Atlas-Merapi-2026", confirmPassword: "Atlas-Merapi-2026" }).ok).toBe(false);
+    expect(parseUserPatch({ password: "Merapi-Kabut-Pagi-27", confirmPassword: "Merapi-Kabut-Pagi-27" })).toEqual({
+      ok: true,
+      value: { password: "Merapi-Kabut-Pagi-27" },
+    });
+    expect(parseUserPatch({ password: "Merapi-Kabut-Pagi-27" })).toEqual({ ok: false, error: "Konfirmasi kata sandi tidak sama." });
+    expect(parseUserPatch({ password: "Merapi-Kabut-Pagi-27", confirmPassword: "Merapi-Kabut-Pagi-28" }).ok).toBe(false);
     expect(parseUserPatch({ password: "" }).ok).toBe(true);
     expect(parseUserPatch({ name: "Budi" }).ok).toBe(true);
   });

@@ -257,17 +257,29 @@ describe("user administration routes", () => {
 
   it("lets a super admin reset another super admin's password", async () => {
     state.actor = state.users[0];
-    const response = await patch("root-2", { role: "SUPER_ADMIN", name: "Penjaga Dua", password: "Sandi-Baru-Super-1" });
+    const response = await patch("root-2", { role: "SUPER_ADMIN", name: "Penjaga Dua", password: "Sandi-Baru-Super-1", confirmPassword: "Sandi-Baru-Super-1" });
     expect(response.status).toBe(200);
     expect(state.users.find((user) => user.id === "root-2")?.sessionVersion).toBe(1);
   });
 
   it("refuses a new password built from the target's username without writing", async () => {
     state.actor = state.users[0];
-    const response = await patch("root-2", { role: "SUPER_ADMIN", name: "Penjaga Dua", password: "Penjaga.Dua-Merapi-27" });
+    const response = await patch("root-2", { role: "SUPER_ADMIN", name: "Penjaga Dua", password: "Penjaga.Dua-Merapi-27", confirmPassword: "Penjaga.Dua-Merapi-27" });
     expect(response.status).toBe(400);
     expect((await response.json()).error).toContain("nama pengguna");
     expect(state.users.find((user) => user.id === "root-2")?.sessionVersion).toBe(0);
+  });
+
+  it("refuses a password change whose confirmation is missing or different, without writing", async () => {
+    state.actor = state.users[0];
+    for (const confirmPassword of [undefined, "", "Sandi-Baru-Super-2"]) {
+      const response = await patch("root-2", { role: "SUPER_ADMIN", name: "Penjaga Dua", password: "Sandi-Baru-Super-1", confirmPassword });
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe("Konfirmasi kata sandi tidak sama.");
+    }
+    const target = state.users.find((user) => user.id === "root-2");
+    expect(target?.sessionVersion).toBe(0);
+    expect(target?.passwordHash).toBe("scrypt$tersimpan");
   });
 
   it("does not disable the last active super admin", async () => {

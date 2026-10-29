@@ -292,6 +292,8 @@ export function parseUserPatch(body: unknown): { ok: true; value: UserPatch } | 
     const password = typeof raw.password === "string" ? raw.password : "";
     const passwordRefusal = passwordError(password);
     if (passwordRefusal) return { ok: false, error: passwordRefusal };
+    // A mistyped new password on the only super admin is a lockout, so it must be typed twice.
+    if (raw.confirmPassword !== password) return { ok: false, error: "Konfirmasi kata sandi tidak sama." };
     patch.password = password;
   }
   return { ok: true, value: patch };
