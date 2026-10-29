@@ -49,6 +49,10 @@ import { fetchEastAsiaCameras, fetchSeAsiaCameras, fetchWestAsiaCameras } from '
 import { fetchJasamargaCameras } from './jasamarga';
 import { fetchBpjtCameras } from './bpjt';
 import { fetchBandungCameras } from './bandung';
+import { fetchGresikCameras } from './gresik';
+import { fetchAcehCameras } from './aceh';
+import { fetchSemarangCameras } from './semarang';
+import { fetchSurakartaCameras } from './surakarta';
 import { fetchTptCameras } from './tpt';
 import {
   fetchLatamLiveCameras,
@@ -656,6 +660,10 @@ const RAW_REGION_FETCHERS: Record<string, RegionFetcher> = {
   'jasamarga': fetchJasamargaCameras as RegionFetcher,
   'bpjt': fetchBpjtCameras as RegionFetcher,
   'bandung': fetchBandungCameras as RegionFetcher,
+  'gresik': fetchGresikCameras as RegionFetcher,
+  'aceh': fetchAcehCameras as RegionFetcher,
+  'semarang': fetchSemarangCameras as RegionFetcher,
+  'surakarta': fetchSurakartaCameras as RegionFetcher,
   'tpt': fetchTptCameras as RegionFetcher,
   'westasia': fetchWestAsiaCameras as RegionFetcher,
   'latam-live': fetchLatamLiveCameras as RegionFetcher,

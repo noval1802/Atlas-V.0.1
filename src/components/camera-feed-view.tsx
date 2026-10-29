@@ -15,6 +15,7 @@ export function useCameraFeed(camera: WatchedCamera | null) {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const flvRef = useRef<{ destroy: () => void } | null>(null);
 
   const externalFeedUrl = camera?.external_url || camera?.feed_url;
   const hostedOffPlatform = isHostedOffPlatform(camera);
@@ -72,10 +73,14 @@ export function useCameraFeed(camera: WatchedCamera | null) {
     setError(false);
     setImageUrl(null);
 
-    // Cleanup previous HLS instance
+    // Cleanup previous HLS / FLV instance
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
+    }
+    if (flvRef.current) {
+      flvRef.current.destroy();
+      flvRef.current = null;
     }
 
     if (externalOnly) {
@@ -104,6 +109,24 @@ export function useCameraFeed(camera: WatchedCamera | null) {
         });
       }
       return;
+    }
+
+    // HTTP-FLV (e.g. Surakarta): no browser plays FLV natively, so mpegts.js is
+    // loaded only when an FLV camera is actually opened.
+    if (streamType === 'flv' && camera.stream_url) {
+      const url = camera.stream_url;
+      let cancelled = false;
+      import('mpegts.js').then(({ default: mpegts }) => {
+        if (cancelled || !videoRef.current || !mpegts.isSupported()) { if (!cancelled) setError(true); return; }
+        const player = mpegts.createPlayer({ type: 'flv', url, isLive: true, cors: true });
+        flvRef.current = player;
+        player.attachMediaElement(videoRef.current);
+        player.on(mpegts.Events.ERROR, () => setError(true));
+        player.load();
+        setLoading(false);
+        videoRef.current.play().catch(() => {});
+      }).catch(() => { if (!cancelled) setError(true); });
+      return () => { cancelled = true; };
     }
 
     if (streamType === 'mjpeg' && camera.stream_url) {
@@ -206,7 +229,7 @@ export function CameraFeedView({ feed, contain = false }: { feed: CameraFeed; co
             </button>
           </div>
         </div>
-      ) : streamType === 'hls' ? (
+      ) : streamType === 'hls' || streamType === 'flv' ? (
         <video
           ref={videoRef}
           className={`w-full h-full ${contain ? 'object-contain' : 'object-cover'}`}

@@ -31,7 +31,7 @@ export function mergeCameraCatalog<T extends { id: string | number }>(previous: 
  * worldwide catalogue — far less payload and memory. The global regions stay
  * available on the API; add one here to widen coverage.
  */
-export const CAMERA_REGIONS = ['jasamarga', 'bpjt', 'bandung', 'tpt'] as const;
+export const CAMERA_REGIONS = ['jasamarga', 'bpjt', 'bandung', 'gresik', 'aceh', 'semarang', 'surakarta', 'tpt'] as const;
 
 /** Recover slow regions without downloading the entire worldwide list again. */
 export function loadCameraCatalog(onBatch: (cameras: CatalogCamera[]) => void, onError: () => void) {
