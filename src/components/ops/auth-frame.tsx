@@ -59,7 +59,7 @@ export function AuthFrame({ title, subtitle, children }: { title: string; subtit
         <span className="hidden text-[var(--auth-mist)] sm:inline">Hanya melalui jaringan resmi</span>
       </header>
 
-      <main className="relative flex flex-1 flex-col items-center px-4 py-[clamp(1.5rem,6vh,4rem)] short:py-3">
+      <main className="relative flex flex-1 flex-col items-center px-4 pt-[clamp(1rem,4.2vh,2.8rem)] pb-[clamp(1.5rem,6vh,4rem)] short:pt-2 short:pb-3">
         <div className="auth-rise flex max-w-full items-center gap-4" style={step(1)}>
           <img src="/atlas-logo.svg" alt="" aria-hidden="true" className="auth-reticle h-16 w-16 short:h-12 short:w-12 shrink-0" />
           <span className="min-w-0">
