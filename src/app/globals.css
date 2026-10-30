@@ -2605,6 +2605,7 @@ html:has(.ops-scroll) { scroll-behavior: smooth; }
     transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 180ms ease;
 }
 .ops-scroll button:not(:disabled):active { transform: scale(0.97); }
+.ops-scroll :is(a, button, summary):focus-visible { outline: 2px solid var(--gold-primary); outline-offset: 2px; }
 .ops-scroll :is(input, select, textarea):focus { border-color: var(--gold-primary); box-shadow: 0 0 0 3px rgba(var(--gold-rgb), 0.15); }
 /* --i = urutan elemen dalam daftar, untuk efek muncul bertahap */
 .ops-rise { animation: ops-rise 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 40ms); }
