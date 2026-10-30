@@ -39,7 +39,7 @@ Undecided, and not to be invented:
 
 ## Brand Commitments
 
-The display name is ATLAS — Advanced Tactical Location & Analytics System. Operational copy on `/masuk`, `/operator`, and `/pengguna` stays Indonesian. Internal identifiers, the cookie, and the database name stay as they are until a later phase. The eye mark stays. Do not take the command center as a visual reference.
+The display name is ATLAS — Advanced Tactical Location & Analytics System. Operational copy on `/masuk`, `/operator`, and `/pengguna` stays Indonesian. Internal identifiers, the cookie, and the database name stay as they are until a later phase. The eye mark (Eye of Horus) is retired: do not use it in the logo or new brand work. The ATLAS mark replaces it: `public/atlas-logo.svg` (animated tracks) and `public/favicon.svg` (simplified icon source for every favicon size). Do not take the command center as a visual reference.
 
 ## Evidence on Hand
 

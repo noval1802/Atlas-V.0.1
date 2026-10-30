@@ -1,18 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <defs>
-    <radialGradient id="iris" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#F5D76E"/>
-      <stop offset="100%" stop-color="#D4AF37"/>
-    </radialGradient>
-  </defs>
-  <rect width="32" height="32" rx="6" fill="#06060C"/>
-  <!-- Eye shape -->
-  <path d="M3 15 Q10 7 16 9 Q22 7 29 15 Q22 23 16 21 Q10 23 3 15Z" 
-        fill="rgba(212,175,55,0.1)" stroke="#D4AF37" stroke-width="1.2"/>
-  <!-- Iris -->
-  <circle cx="16" cy="15" r="4" fill="url(#iris)"/>
-  <!-- Pupil -->
-  <circle cx="16" cy="15" r="1.5" fill="#06060C"/>
-  <!-- Teardrop -->
-  <path d="M16 19 L14 25 L13 23" stroke="#D4AF37" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>ATLAS</title>
+  <rect width="512" height="512" rx="112" fill="#0E121D"/>
+  <path d="M288.06 91.09 A168 168 0 1 1 223.94 91.09" fill="none" stroke="#D4AF37" stroke-width="40"/>
+  <path d="M256 28 L332 156 L256 124 L180 156 Z" fill="#F0D060"/>
+  <path d="M152 256H212M300 256H360M256 152V212M256 300V360" stroke="#D4AF37" stroke-width="32" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="28" fill="#D4AF37"/>
+  <circle cx="382.79" cy="145.78" r="44" fill="#00E5FF" stroke="#0E121D" stroke-width="12"/>
 </svg>

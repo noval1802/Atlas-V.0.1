@@ -50,7 +50,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} aria-busy={busy} className="space-y-5 short:space-y-3.5" noValidate={false}>
+    <form method="post" onSubmit={onSubmit} aria-busy={busy} className="space-y-5 short:space-y-3.5" noValidate={false}>
       <label className="block text-sm text-[var(--auth-sand)]" htmlFor="username">
         Nama pengguna
         <span className="relative mt-1 block">

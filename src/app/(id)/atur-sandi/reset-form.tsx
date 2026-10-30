@@ -69,7 +69,7 @@ export function ResetForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} aria-busy={busy} className="space-y-4">
+    <form method="post" onSubmit={onSubmit} aria-busy={busy} className="space-y-4">
       <PasswordField name="password" label="Kata sandi baru" autoComplete="new-password" />
       <PasswordField name="confirmPassword" label="Konfirmasi kata sandi baru" autoComplete="new-password" />
       {error && (

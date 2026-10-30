@@ -216,7 +216,7 @@ export function OperatorDashboard({
         <div className="min-w-0 flex-1">
           <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 lg:px-6">
             <div className="flex min-w-0 items-center gap-3">
-              <span aria-hidden="true" className="h-6 w-8 shrink-0" style={{ backgroundColor: "var(--gold-primary)", mask: "url(/eye-of-horus.svg) center / contain no-repeat", WebkitMask: "url(/eye-of-horus.svg) center / contain no-repeat" }} />
+              <img src="/atlas-logo.svg" alt="" aria-hidden="true" className="h-10 w-10 shrink-0" />
               <div className="min-w-0">
                 <p className="text-xs text-[var(--gold-primary)]">ATLAS</p>
                 <h1 className="truncate text-lg font-semibold leading-tight text-[var(--text-heading)]">Dashboard Operator</h1>

@@ -116,7 +116,7 @@ export function EditUserDialog({
           </div>
         </div>
       ) : (
-        <form onSubmit={submit} className="grid gap-4">
+        <form method="post" onSubmit={submit} className="grid gap-4">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border border-white/10 bg-black/20 p-3 text-xs">
             <dt className="text-[var(--text-muted)]">Email</dt>
             <dd className="truncate text-[var(--text-primary)]">{row.email ?? "—"}</dd>
@@ -203,7 +203,7 @@ export function CreateUserForm({
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-4 p-5" aria-labelledby="buat-pengguna">
+    <form method="post" onSubmit={submit} className="grid gap-4 p-5" aria-labelledby="buat-pengguna">
       <h2 id="buat-pengguna" className="flex items-center gap-3 text-[17px] font-semibold text-[var(--text-heading)]">
         <UserPlus className="h-6 w-6 text-[var(--gold-primary)]" aria-hidden="true" />
         Buat pengguna baru

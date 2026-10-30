@@ -61,15 +61,7 @@ export function AuthFrame({ title, subtitle, children }: { title: string; subtit
 
       <main className="relative flex flex-1 flex-col items-center px-4 py-[clamp(1.5rem,6vh,4rem)] short:py-3">
         <div className="auth-rise flex max-w-full items-center gap-4" style={step(1)}>
-          <span aria-hidden="true" className="auth-reticle relative grid h-16 w-16 short:h-12 short:w-12 shrink-0 place-items-center">
-            <svg viewBox="0 0 64 64" className="absolute inset-0 h-full w-full">
-              <circle cx="32" cy="32" r="30" className="auth-reticle-ring" />
-              <circle cx="32" cy="32" r="24" className="auth-reticle-dots" />
-              <circle cx="32" cy="32" r="30" pathLength={100} className="auth-reticle-arc" />
-              <path d="M32 0v5M32 59v5M0 32h5M59 32h5" className="auth-reticle-ticks" />
-            </svg>
-            <span className="auth-logo h-7 w-9" />
-          </span>
+          <img src="/atlas-logo.svg" alt="" aria-hidden="true" className="auth-reticle h-16 w-16 short:h-12 short:w-12 shrink-0" />
           <span className="min-w-0">
             <span className="auth-wordmark block text-2xl leading-none text-[var(--auth-sand)]">ATLAS</span>
             <span className="auth-label mt-1.5 block text-[10px] text-[var(--auth-mist)]">Pusat Pengendalian Operasi TNI</span>

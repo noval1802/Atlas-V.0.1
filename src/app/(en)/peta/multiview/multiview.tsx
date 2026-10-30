@@ -127,8 +127,10 @@ export default function MultiView() {
 
       {cameras.length === 0 ? (
         <div className="flex flex-1 items-center justify-center p-6 text-center font-mono text-xs leading-relaxed text-white/50">
-          Belum ada CCTV dipilih.<br />
-          Di tab peta, klik CCTV lalu tekan <span className="text-[#00E5FF]">PILIH UNTUK SPACE</span> — kamera langsung muncul di sini.
+          <p>
+            Belum ada CCTV dipilih.<br />
+            Di tab peta, klik CCTV lalu tekan <span className="text-[#00E5FF]">PILIH UNTUK SPACE</span> — kamera langsung muncul di sini.
+          </p>
         </div>
       ) : (
         <div

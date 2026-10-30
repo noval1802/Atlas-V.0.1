@@ -83,7 +83,7 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} aria-busy={busy} className="space-y-4">
+    <form method="post" onSubmit={onSubmit} aria-busy={busy} className="space-y-4">
       <label className="block text-sm" htmlFor="name">
         Nama lengkap
         <input id="name" name="name" autoComplete="name" required minLength={2} maxLength={120} className={authField} />
