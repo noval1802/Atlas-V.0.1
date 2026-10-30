@@ -178,10 +178,10 @@ export function OperatorDashboard({
     <div className="ops-scroll min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] selection:bg-[var(--gold-dim)] selection:text-[var(--text-heading)]">
       <div className="flex min-h-screen flex-col md:flex-row">
         <aside className={`bg-[var(--bg-secondary)] transition-[width] duration-300 ease-out md:shrink-0 ${open ? "md:w-52" : "md:w-14"}`}>
-          <div className="flex items-center gap-1 px-2 py-2">
+          <div className="hidden items-center gap-1 px-2 py-2 md:flex">
             <button
               type="button"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-[var(--text-secondary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-primary)]"
+              className="hidden min-h-11 min-w-11 items-center justify-center rounded text-[var(--text-secondary)] hover:text-[var(--text-heading)] md:inline-flex focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-primary)]"
               aria-expanded={open}
               aria-controls="menu-operasional"
               onClick={() => setOpen((value) => !value)}
@@ -232,7 +232,7 @@ export function OperatorDashboard({
                   {me.unit ? ` · ${me.unit}` : " · seluruh Kotamaops"}
                 </span>
               </p>
-              <PortalMenu role={me.role} name={displayName} />
+              <PortalMenu role={me.role} name={displayName} className="ml-auto sm:ml-0" />
             </div>
           </header>
 
@@ -273,7 +273,7 @@ export function OperatorDashboard({
                     )}
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <label className="min-w-0 flex-1 text-sm text-[var(--text-secondary)]">
+                    <label className="min-w-0 basis-full text-sm text-[var(--text-secondary)] sm:basis-auto sm:flex-1">
                       Cari satuan atau lokasi
                       <input
                         value={query}
@@ -432,13 +432,13 @@ export function OperatorDashboard({
                 </p>
               )}
               <div className="h-[52vh] min-h-[22rem] overflow-hidden rounded-lg border border-[var(--border-secondary)] bg-black md:h-[58vh] xl:h-[64vh]">
-                <iframe title="Peta situasi ATLAS" src="/peta" className={`h-full w-full border-0 transition-opacity duration-500 ${mapState === "terbuka" ? "opacity-100" : "opacity-0"}`} onLoad={() => setMapState("terbuka")} />
+                <iframe title="Peta situasi ATLAS" src="/peta" loading="lazy" className={`h-full w-full border-0 transition-opacity duration-500 ${mapState === "terbuka" ? "opacity-100" : "opacity-0"}`} onLoad={() => setMapState("terbuka")} />
               </div>
             </section>
 
 
             <section aria-labelledby="riwayat-judul" style={{ "--i": 3 } as React.CSSProperties} className="ops-rise space-y-2">
-              <h2 id="riwayat-judul" className="text-sm font-semibold text-[var(--text-secondary)]">
+              <h2 id="riwayat-judul" className="text-base font-semibold text-[var(--text-heading)]">
                 Riwayat simpanan
               </h2>
               {timeline.length === 0 ? (
@@ -462,7 +462,7 @@ export function OperatorDashboard({
             </section>
 
             <section aria-labelledby="proses-judul" style={{ "--i": 4 } as React.CSSProperties} className="ops-rise space-y-2">
-              <h2 id="proses-judul" className="text-sm font-semibold text-[var(--text-secondary)]">
+              <h2 id="proses-judul" className="text-base font-semibold text-[var(--text-heading)]">
                 Status proses
               </h2>
               <p className="text-sm text-[var(--text-heading)]" role="status">
@@ -470,8 +470,8 @@ export function OperatorDashboard({
                 {probe.checkedAt ? ` Diperiksa ${formatWib(probe.checkedAt)}.` : ""}
               </p>
               <p className="max-w-3xl text-sm text-[var(--text-secondary)]">
-                Pemeriksaan /api/health hanya menunjukkan proses aplikasi merespons, sekitar satu menit sekali. CCTV, feed peta, bencana alam, unjuk rasa,
-                laporan verifikasi, dan peringatan feed: Belum tersedia.
+                Pemeriksaan /api/health tiap sekitar satu menit hanya menunjukkan proses aplikasi merespons. Kesehatan CCTV dan feed peta belum
+                dipantau di sini; lihat langsung di Peta situasi.
               </p>
               {totals.latestUpdate && (
                 <p className="text-sm text-[var(--text-secondary)]">Pembaruan situasi tersimpan terakhir {formatWib(totals.latestUpdate)}.</p>
