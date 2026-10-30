@@ -723,20 +723,26 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         ctx.fillRect(11, 14, 10, 2);
         map.addImage('kotamaops-shield', { width: size, height: size, data: new Uint8Array(ctx.getImageData(0, 0, size, size).data) });
       }
-      const logoLoads = new Set<string>();
-      const ensureKotamaopsLogo = async (id: string) => {
+      // In-flight loads are shared so MapLibre's resolver awaits the preload instead of seeing a missing image.
+      const logoLoads = new Map<string, Promise<void>>();
+      const ensureKotamaopsLogo = (id: string): Promise<void> => {
         const point = kotamaopsRef.current.find((item) => kotamaopsIconId(item.code) === id);
         const logo = point ? safeKotamaopsLogo(point.logo) : "";
-        if (!point || !logo || map.hasImage(id) || logoLoads.has(id)) return;
-        logoLoads.add(id);
-        try {
-          const response = await map.loadImage(logo);
-          if (logosAlive && !map.hasImage(id)) map.addImage(id, response.data, { pixelRatio: 2 });
-        } catch (error) {
-          console.warn("[OSIRIS] logo Kotamaops gagal dimuat:", point.code, error instanceof Error ? error.message : error);
-        } finally {
-          logoLoads.delete(id);
-        }
+        if (!point || !logo || map.hasImage(id)) return Promise.resolve();
+        const pending = logoLoads.get(id);
+        if (pending) return pending;
+        const load = (async () => {
+          try {
+            const response = await map.loadImage(logo);
+            if (logosAlive && !map.hasImage(id)) map.addImage(id, response.data, { pixelRatio: 2 });
+          } catch (error) {
+            console.warn("[OSIRIS] logo Kotamaops gagal dimuat:", point.code, error instanceof Error ? error.message : error);
+          } finally {
+            logoLoads.delete(id);
+          }
+        })();
+        logoLoads.set(id, load);
+        return load;
       };
       map.setMissingStyleImageResolver((id) => ensureKotamaopsLogo(id));
       for (const point of kotamaopsRef.current) void ensureKotamaopsLogo(kotamaopsIconId(point.code));
