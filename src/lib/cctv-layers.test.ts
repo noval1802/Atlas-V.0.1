@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { applyLayerQuery, CCTV_JAKARTA_OFF, CCTV_JM_OFF, isJasaMargaCamera, isTptCamera, serializeLayers } from './cctv-layers';
+import { applyLayerQuery, CCTV_JAKARTA_OFF, CCTV_JM_OFF, isGlobalCamera, isTollCamera, isTptCamera, serializeLayers } from './cctv-layers';
+
+describe('isGlobalCamera', () => {
+  it('treats both spellings of Indonesia as local and everything else as global', () => {
+    expect(isGlobalCamera({ country: 'Indonesia' })).toBe(false);
+    expect(isGlobalCamera({ country: 'ID' })).toBe(false);
+    expect(isGlobalCamera({ country: 'Japan' })).toBe(true);
+    expect(isGlobalCamera({ country: 'US' })).toBe(true);
+  });
+});
 
 const base = { cctv: true, cctv_previews: true, cctv_jm: true, cctv_jakarta: true, flights: false };
 
@@ -42,11 +51,26 @@ describe('split CCTV layer query', () => {
     expect(applyLayerQuery(state, saved)).toEqual(state);
   });
 
-  it('recognises the two separated sources', () => {
-    expect(isJasaMargaCamera({ source: 'Jasa Marga' })).toBe(true);
-    expect(isJasaMargaCamera({ source: 'TPT CCTV' })).toBe(false);
+  it('recognises the toll and Jakarta sources', () => {
+    expect(isTollCamera({ source: 'Jasa Marga' })).toBe(true);
+    expect(isTollCamera({ source: 'BPJT' })).toBe(true);
+    expect(isTollCamera({ source: 'TPT CCTV' })).toBe(false);
+    expect(isTollCamera({ source: 'Pelindung Bandung' })).toBe(false);
     expect(isTptCamera({ source: 'TPT CCTV' })).toBe(true);
     expect(isTptCamera({ source: 'Jasa Marga' })).toBe(false);
     expect(isTptCamera(null)).toBe(false);
+  });
+});
+
+describe('volcano level filters in the layer query', () => {
+  const volcanoBase = { volcanoes: true, volcano_l1: true, volcano_l2: true, volcano_l3: true, volcano_l4: true, volcano_erupt: true };
+
+  it('shows every level on a link that names only the volcano layer', () => {
+    expect(applyLayerQuery(volcanoBase, 'volcanoes')).toEqual(volcanoBase);
+  });
+
+  it('round-trips a level switched off', () => {
+    const state = { ...volcanoBase, volcano_l1: false };
+    expect(applyLayerQuery(volcanoBase, serializeLayers(state))).toEqual(state);
   });
 });

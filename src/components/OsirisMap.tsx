@@ -13,21 +13,23 @@ import CctvPreviews, { type PreviewCamera } from '@/components/CctvPreviews';
 import MapControls from '@/components/MapControls';
 import LiveNewsPreviews, { type PreviewFeed } from '@/components/LiveNewsPreviews';
 import { attachTerrain, type TerrainStatus } from '@/lib/map-terrain';
-import { isJasaMargaCamera, isTptCamera } from '@/lib/cctv-layers';
+import { isGlobalCamera, isTollCamera, isTptCamera } from '@/lib/cctv-layers';
 import type { CatalogCamera } from '@/lib/camera-catalog';
 import { MATRA_LAYER, kotamaopsFeatures, kotamaopsIconId, safeKotamaopsLogo } from '@/lib/kotamaops-points';
 import { NKRI_CENTER } from '@/lib/nkri-view';
 import { tileRequestUrl } from '@/lib/tile-proxy';
-import { CAMERA_ICON_ID, cameraGlyph, cameraIconData, loadCameraGlyph } from '@/lib/camera-icon';
+import { volcanoIconData, volcanoIconId, volcanoPulses, volcanoShown, VOLCANO_LEVEL_COLORS } from '@/lib/volcano-icon';
+import { CAMERA_ICON_ID, CAMERA_OFFLINE_COLOR, CAMERA_OFFLINE_ICON_ID, cameraGlyph, cameraIconData, loadCameraGlyph } from '@/lib/camera-icon';
 import { KARHUTLA_LAPSIT_AT, formatKarhutlaAmount, formatPersonel, karhutlaReport } from '@/lib/karhutla-lapsit';
 import { KOTAMAOPS_FLAME_CODES, KOTAMAOPS_FLAME_FRAMES, KOTAMAOPS_FLAME_FRAME_MS, KOTAMAOPS_FLAME_HEIGHT, KOTAMAOPS_FLAME_WIDTH, drawKotamaopsFlame, kotamaopsFlameImageId, nextKotamaopsFlameFrame } from '@/lib/kotamaops-flame';
 import type { ArcGisMapLayer, MapEntity } from '@/lib/dashboard-state';
 import type { ActiveLayers } from '@/lib/layer-feeds';
 import { type AlertPinReport, type FlightRow, type MapData, type SatellitePoint } from '@/lib/map-data';
+import type { VolcanoReport } from '@/lib/magma';
 import {
   clickedProperties, pointCoordinates,
   type BalloonPopup, type CameraPopup, type ChokePopup,
-  type EarthquakePopup, type FirePopup, type FlightPopup,
+  type EarthquakePopup, type FirePopup, type VolcanoPopup, type FlightPopup,
   type GdeltEventPopup, type IncidentPopup, type KotamaopsPopup, type NewsPopup,
   type PortPopup, type RadiationPopup,
   type ShipPopup, type WeatherPopup,
@@ -224,9 +226,11 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
   const setCameraIcon = useCallback((map: maplibregl.Map, color: string) => {
     cameraColorRef.current = color;
     const draw = (image?: HTMLImageElement) => {
-      const data = cameraIconData(cameraColorRef.current, image);
-      if (map.hasImage(CAMERA_ICON_ID)) map.updateImage(CAMERA_ICON_ID, data);
-      else map.addImage(CAMERA_ICON_ID, data, { pixelRatio: 2 });
+      for (const [id, tint] of [[CAMERA_ICON_ID, cameraColorRef.current], [CAMERA_OFFLINE_ICON_ID, CAMERA_OFFLINE_COLOR]]) {
+        const data = cameraIconData(tint, image);
+        if (map.hasImage(id)) map.updateImage(id, data);
+        else map.addImage(id, data, { pixelRatio: 2 });
+      }
     };
     draw(cameraGlyph());
     if (!cameraGlyph()) {
@@ -423,12 +427,12 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       createDot(map, 'dot-fire', isGhost ? phantomPurple : '#E65100', 10);
       createDot(map, 'dot-cctv', cameraColor, 10);
 
-      const sources = ['flights','military','jets','private-fl','satellites','earthquakes','gdelt','day-night','cctv','cctv-jm','cctv-jakarta','fires','weather','maritime','maritime-choke','maritime-ships','live-news', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'gdelt-events', 'alert-pins', 'kotamaops'];
+      const sources = ['flights','military','jets','private-fl','satellites','earthquakes','volcanoes','gdelt','day-night','cctv','cctv-jm','cctv-jakarta','cctv-global','fires','weather','maritime','maritime-choke','maritime-ships','live-news', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'gdelt-events', 'alert-pins', 'kotamaops'];
       // Camera sources cluster so dense cities (Jakarta, Bandung) collapse to a
       // count below zoom 12 instead of a pile of overlapping icons. Clustering
       // stops below the preview zoom (13), so individual cameras are intact when
       // previews open.
-      const CLUSTERED = new Set(['cctv', 'cctv-jm', 'cctv-jakarta']);
+      const CLUSTERED = new Set(['cctv', 'cctv-jm', 'cctv-jakarta', 'cctv-global']);
       sources.forEach(s => map.addSource(s, CLUSTERED.has(s)
         ? { type: 'geojson', data: EMPTY_FC, cluster: true, clusterRadius: 50, clusterMaxZoom: 12 }
         : { type: 'geojson', data: EMPTY_FC }));
@@ -470,6 +474,23 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         'text-field': ['concat','M',['to-string',['get','magnitude']]], 'text-size': 9, 'text-font': ['Open Sans Regular'], 'text-offset': [0,1.5],
       }, paint: { 'text-color': '#F9A825', 'text-halo-color': '#000', 'text-halo-width': 1 }});
 
+      // Volcanoes — PVMBG level colours: Normal, Waspada, Siaga, Awas
+      const levelColor: maplibregl.ExpressionSpecification = ['match', ['get','level'], 4,VOLCANO_LEVEL_COLORS[3], 3,VOLCANO_LEVEL_COLORS[2], 2,VOLCANO_LEVEL_COLORS[1], VOLCANO_LEVEL_COLORS[0]];
+      for (const level of [1, 2, 3, 4]) {
+        for (const erupting of [false, true]) map.addImage(volcanoIconId(level, erupting), volcanoIconData(level, erupting), { pixelRatio: 2 });
+      }
+      map.addLayer({ id: 'volcano-dots', type: 'symbol', source: 'volcanoes', layout: {
+        'icon-image': ['concat', 'volcano-', ['to-string', ['get','level']], ['case', ['==', ['get','erupting'], true], '-erupt', '']],
+        'icon-size': ['interpolate',['linear'],['zoom'], 3,['+',0.55,['*',0.08,['get','level']]], 8,['+',0.85,['*',0.1,['get','level']]]],
+        'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+        // Higher levels and eruptions are drawn last, on top of their neighbours.
+        'symbol-sort-key': ['+', ['get','level'], ['case', ['==', ['get','erupting'], true], 10, 0]],
+      }});
+      // Raised volcanoes are named from the national view; Normal ones only up close.
+      map.addLayer({ id: 'volcano-label', type: 'symbol', source: 'volcanoes', filter: ['any', ['>=',['get','level'],2], ['>=',['zoom'],7]], layout: {
+        'text-field': ['concat','G. ',['get','name']], 'text-size': 10, 'text-font': ['Open Sans Regular'], 'text-offset': [0,0.3], 'text-anchor': 'top',
+      }, paint: { 'text-color': levelColor, 'text-halo-color': '#000', 'text-halo-width': 1.2 }});
+
       // Fires — burnt sienna
       map.addLayer({ id: 'fires-heat', type: 'circle', source: 'fires', paint: {
         'circle-radius': ['interpolate',['linear'],['zoom'], 1,2, 5,4, 10,8],
@@ -477,7 +498,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       }});
 
       setCameraIcon(map, cameraColor);
-      // CCTV and CCTV JM share the paint. The JM source is a separate toggle.
+      // CCTV KOTA, TOL and JAKARTA share the paint; each source is a separate toggle.
       const addCameraLayers = (prefix: string, source: string) => {
         const single: maplibregl.FilterSpecification = ['!', ['has', 'point_count']];
         map.addLayer({ id: `${prefix}-glow`, type: 'circle', source, filter: single, paint: {
@@ -485,7 +506,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
           'circle-color': '#000000', 'circle-opacity': 0.35, 'circle-blur': 1,
         }});
         map.addLayer({ id: `${prefix}-dots`, type: 'symbol', source, filter: single, layout: {
-          'icon-image': CAMERA_ICON_ID,
+          'icon-image': ['case', ['==', ['get', 'offline'], true], CAMERA_OFFLINE_ICON_ID, CAMERA_ICON_ID],
           'icon-size': ['interpolate',['linear'],['zoom'], 1,0.5, 5,0.7, 10,0.95, 14,1.25],
           'icon-allow-overlap': true, 'icon-ignore-placement': true,
         }});
@@ -506,6 +527,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       addCameraLayers('cctv', 'cctv');
       addCameraLayers('cctv-jm', 'cctv-jm');
       addCameraLayers('cctv-jakarta', 'cctv-jakarta');
+      addCameraLayers('cctv-global', 'cctv-global');
 
       map.addLayer({ id: 'gdelt-dots', type: 'circle', source: 'gdelt', paint: {
         'circle-radius': 4, 'circle-color': '#D32F2F', 'circle-opacity': 0.5, 'circle-stroke-width': 1, 'circle-stroke-color': '#D32F2F', 'circle-stroke-opacity': 0.25,
@@ -972,7 +994,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
     });
 
-    // ── CCTV and CCTV JM (opens CameraViewer panel) ──
+    // ── CCTV KOTA, TOL, JAKARTA, GLOBAL (opens CameraViewer panel) ──
     const openCamera = (e: maplibregl.MapLayerMouseEvent) => {
       const p = clickedProperties<CameraPopup>(e);
       const coords = pointCoordinates(e.features?.[0]?.geometry);
@@ -996,6 +1018,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     map.on('click', 'cctv-dots', openCamera);
     map.on('click', 'cctv-jm-dots', openCamera);
     map.on('click', 'cctv-jakarta-dots', openCamera);
+    map.on('click', 'cctv-global-dots', openCamera);
 
     // Clicking a camera cluster zooms in until it splits apart.
     const zoomCluster = (src: string) => (e: maplibregl.MapLayerMouseEvent) => {
@@ -1008,9 +1031,61 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         map.easeTo({ center: coords as [number, number], zoom, duration: 600 });
       }).catch(() => {});
     };
-    for (const src of ['cctv', 'cctv-jm', 'cctv-jakarta']) {
+    for (const src of ['cctv', 'cctv-jm', 'cctv-jakarta', 'cctv-global']) {
       map.on('click', `${src}-cluster`, zoomCluster(src));
     }
+
+    // ── Volcanoes (MAGMA / PVMBG) ──
+    map.on('click', 'volcano-dots', e => {
+      const p = clickedProperties<VolcanoPopup>(e);
+      const coords = pointCoordinates(e.features?.[0]?.geometry);
+      if (!p || !coords) return;
+      const code = String(p.code ?? '');
+      const level = Number(p.level) || 1;
+      const tier = Math.min(Math.max(level, 1), 4) - 1;
+      const [label, color] = [(['NORMAL', 'WASPADA', 'SIAGA', 'AWAS'] as const)[tier], VOLCANO_LEVEL_COLORS[tier]];
+      const flags = [p.erupting === true || p.erupting === 'true' ? 'ERUPSI TERBARU' : '', p.vona === true || p.vona === 'true' ? 'VONA AKTIF' : ''].filter(Boolean);
+      // The report photo heads the popup, under the name and status, as a fixed-height
+      // banner (cropped to fill it; the full image opens on click). It arrives with the report.
+      const render = (report: string, link: string, image = '') => `<div style="${pStyle}border:1px solid ${color}55;max-width:380px;">
+        <div style="color:${color};font-size:14px;font-weight:700;margin-bottom:2px;">🌋 G. ${htmlEsc(String(p.name ?? ''))}</div>
+        <div style="font-size:10px;color:${color};font-weight:700;margin-bottom:6px;">LEVEL ${level} · ${label}${flags.length ? ` · <span style="color:#E53935;">${htmlEsc(flags.join(' · '))}</span>` : ''}</div>
+        ${image}
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:9px;">
+          <div><span style="color:#5C5A54;">PROVINSI</span><br/><span style="color:#E8E6E0;">${htmlEsc(String(p.province || '—'))}</span></div>
+          <div><span style="color:#5C5A54;">ELEVASI</span><br/><span style="color:#E8E6E0;">${htmlEsc(String(p.elevation ?? '—'))} m</span></div>
+          <div><span style="color:#5C5A54;">KOORDINAT</span><br/><span style="color:#E8E6E0;">${coords[1].toFixed(3)}, ${coords[0].toFixed(3)}</span></div>
+        </div>
+        ${report}
+        <a href="${urlSafe(link)}" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:${color};border:1px solid ${color}66;background:${color}1A;">📊 LAPORAN LENGKAP MAGMA</a>
+      </div>`;
+      const fallback = `https://magma.esdm.go.id/v1/gunung-api/informasi-letusan/${encodeURIComponent(code)}`;
+      const note = (text: string) => `<div style="margin-top:10px;font-size:9px;color:#5C5A54;">${text}</div>`;
+      popup(coords, render(note('Memuat laporan aktivitas terbaru…'), fallback));
+      const shown = popupRef.current;
+      fetch(`/api/volcanoes/report?code=${encodeURIComponent(code)}`)
+        .then(res => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+        .then((data: { report: VolcanoReport; url: string }) => {
+          if (popupRef.current !== shown) return; // the reader has moved on
+          // The summary operators asked for; the rest is one click away on MAGMA.
+          const sections = ['Pengamatan Visual', 'Pengamatan Kegempaan', 'Keterangan Lainnya']
+            .flatMap(heading => data.report.sections.filter(section => section.heading === heading));
+          const image = data.report.image
+            ? `<a href="${urlSafe(data.report.image)}" target="_blank" rel="noopener noreferrer"><img src="${urlSafe(data.report.image)}" alt="${htmlEsc(data.report.title)}" style="display:block;width:100%;height:120px;object-fit:cover;margin:2px 0 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);" /></a>`
+            : '';
+          const body = sections.map(section => `<div style="margin-top:8px;">
+              <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:#8A8780;">${htmlEsc(section.heading.toUpperCase())}</div>
+              ${section.lines.map(line => `<div style="font-size:9.5px;line-height:1.45;color:#E8E6E0;margin-top:2px;">${htmlEsc(line)}</div>`).join('')}
+            </div>`).join('');
+          shown?.setHTML(render(`<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);">
+              <div style="font-size:9px;color:#8A8780;">${htmlEsc(data.report.title)}${data.report.author ? ` · ${htmlEsc(data.report.author)}` : ''}</div>
+              <div style="max-height:320px;overflow-y:auto;padding-right:4px;">${body}</div>
+            </div>`, data.url, image));
+        })
+        .catch(() => {
+          if (popupRef.current === shown) shown?.setHTML(render(note('Laporan aktivitas tidak dapat dimuat dari MAGMA.'), fallback));
+        });
+    });
 
     // ── Earthquakes (BMKG) ──
     map.on('click', 'eq-circles', e => {
@@ -1031,7 +1106,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     // ── Satellites (SatNOGS powered) ──
     // Layers with their own click handlers. The satellite pick defers to
     // these, and to nothing else — the basemap is not a click target.
-    const CLICKABLE_LAYERS = new Set(['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','eq-circles','fires-heat',
+    const CLICKABLE_LAYERS = new Set(['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','cctv-global-dots','eq-circles','volcano-dots','fires-heat',
       'gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots',
       'balloon-dots','rad-dots','ship-dots','gdelt-events-dots',
      'flight-dots','military-dots','jet-dots','private-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame']);
@@ -1193,7 +1268,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
 
     // ── Generic hover for clickables ──
-    ['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','cctv-cluster','cctv-jm-cluster','cctv-jakarta-cluster','eq-circles','fires-heat','gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots','balloon-dots','rad-dots','ship-dots','gdelt-events-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame'].forEach(layer => {
+    ['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','cctv-global-dots','cctv-cluster','cctv-jm-cluster','cctv-jakarta-cluster','cctv-global-cluster','eq-circles','volcano-dots','fires-heat','gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots','balloon-dots','rad-dots','ship-dots','gdelt-events-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame'].forEach(layer => {
       map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
     });
@@ -1594,6 +1669,11 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     setGeo('earthquakes', activeLayers.earthquakes && data.earthquakes ? data.earthquakes.map(eq => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [eq.lng, eq.lat] }, properties: { id: eq.id, magnitude: eq.magnitude, place: eq.place, depth: eq.depth, source: eq.source } })) : []);
   }, [mapReady, data.earthquakes, activeLayers.earthquakes, setGeo]);
 
+  useEffect(() => {
+    if (!mapReady) return;
+    setGeo('volcanoes', activeLayers.volcanoes && data.volcanoes ? data.volcanoes.map(v => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [v.lng, v.lat] }, properties: { code: v.code, name: v.name, province: v.province, elevation: v.elevation, level: v.level, erupting: v.erupting, vona: v.vona } })) : []);
+  }, [mapReady, data.volcanoes, activeLayers.volcanoes, setGeo]);
+
   /** Catalogue rows -> the packed form the 3D layer draws. */
   const toSatPoints = useCallback((rows: SatelliteRow[]): SatPoint[] => rows.map((s) => ({
     lng: s.lng,
@@ -1690,19 +1770,22 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
   useEffect(() => {
     if (!mapReady) return;
-    const feature = (c: CatalogCamera) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [c.lng, c.lat] }, properties: { id: c.id, name: c.name, city: c.city, country: c.country, source: c.source, feed_url: c.feed_url, stream_url: c.stream_url, stream_type: c.stream_type, external_url: c.external_url } });
+    const feature = (c: CatalogCamera) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [c.lng, c.lat] }, properties: { id: c.id, name: c.name, city: c.city, country: c.country, source: c.source, feed_url: c.feed_url, stream_url: c.stream_url, stream_type: c.stream_type, external_url: c.external_url, offline: c.offline === true } });
     const jm: CatalogCamera[] = [];
     const jakarta: CatalogCamera[] = [];
+    const global: CatalogCamera[] = [];
     const rest: CatalogCamera[] = [];
     for (const camera of data.cameras ?? []) {
-      if (isJasaMargaCamera(camera)) jm.push(camera);
+      if (isTollCamera(camera)) jm.push(camera);
       else if (isTptCamera(camera)) jakarta.push(camera);
+      else if (isGlobalCamera(camera)) global.push(camera);
       else rest.push(camera);
     }
     setGeo('cctv', activeLayers.cctv ? rest.map(feature) : []);
     setGeo('cctv-jm', activeLayers.cctv_jm ? jm.map(feature) : []);
     setGeo('cctv-jakarta', activeLayers.cctv_jakarta ? jakarta.map(feature) : []);
-  }, [mapReady, data.cameras, activeLayers.cctv, activeLayers.cctv_jm, activeLayers.cctv_jakarta, setGeo]);
+    setGeo('cctv-global', activeLayers.cctv_global ? global.map(feature) : []);
+  }, [mapReady, data.cameras, activeLayers.cctv, activeLayers.cctv_jm, activeLayers.cctv_jakarta, activeLayers.cctv_global, setGeo]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -1807,11 +1890,56 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     return () => clearInterval(timer);
   }, [mapReady, activeLayers.alert_pins]);
 
+  /* The level filters. Each volcano is in one: Erupsi if erupting, else its
+     level. Combined with each layer's own condition, which must survive. */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    const levels = [activeLayers.volcano_l1, activeLayers.volcano_l2, activeLayers.volcano_l3, activeLayers.volcano_l4]
+      .flatMap((on, i) => (on ? [i + 1] : []));
+    const erupting: maplibregl.ExpressionSpecification = ['==', ['get','erupting'], true];
+    const shown: maplibregl.ExpressionSpecification = ['any',
+      ['all', erupting, activeLayers.volcano_erupt],
+      ['all', ['!', erupting], ['in', ['get','level'], ['literal', levels]]]];
+    const own: Record<string, maplibregl.ExpressionSpecification | null> = {
+      'volcano-dots': null,
+      'volcano-label': ['any', ['>=',['get','level'],2], ['>=',['zoom'],7]],
+    };
+    for (const [id, filter] of Object.entries(own)) {
+      if (map.getLayer(id)) map.setFilter(id, filter ? ['all', filter, shown] : shown);
+    }
+  }, [mapReady, activeLayers.volcano_l1, activeLayers.volcano_l2, activeLayers.volcano_l3, activeLayers.volcano_l4, activeLayers.volcano_erupt]);
+
+  const { volcano_l1, volcano_l2, volcano_l3, volcano_l4, volcano_erupt } = activeLayers;
+  /* Siaga, Awas and erupting volcanoes ping: an HTML marker over the cone in its
+     level colour, rebuilt whenever MAGMA's list or the level switches change.
+     The browser animates it, so the map does not repaint for it. Reduced motion
+     keeps the ring still. */
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !activeLayers.volcanoes) return;
+    const map = mapRef.current;
+    const filters = { volcano_l1, volcano_l2, volcano_l3, volcano_l4, volcano_erupt };
+    const markers = (data.volcanoes ?? [])
+      .filter(v => volcanoPulses(v) && volcanoShown(v, filters))
+      .map(v => {
+        const el = document.createElement('div');
+        el.className = 'pointer-events-none flex h-24 w-24 items-center justify-center';
+        const ring = document.createElement('span');
+        ring.className = 'h-6 w-6 motion-safe:animate-ping rounded-full border-2 bg-transparent';
+        ring.style.borderColor = VOLCANO_LEVEL_COLORS[Math.min(Math.max(v.level, 1), 4) - 1];
+        el.append(ring);
+        // Centred on the cone, which sits above its point (icon-anchor bottom). Hidden,
+        // not dimmed, on the far side of the globe, where the cone is not drawn either.
+        return new maplibregl.Marker({ element: el, offset: [0, -14], opacityWhenCovered: '0' }).setLngLat([v.lng, v.lat]).addTo(map);
+      });
+    return () => markers.forEach(marker => marker.remove());
+  }, [mapReady, data.volcanoes, activeLayers.volcanoes, volcano_l1, volcano_l2, volcano_l3, volcano_l4, volcano_erupt]);
 
   // Visibility
   useEffect(() => {
     if (!mapReady) return;
     setVis(['eq-circles','eq-label'], activeLayers.earthquakes);
+    setVis(['volcano-dots','volcano-label'], activeLayers.volcanoes);
     const anySat = activeLayers.satellites || activeLayers.sat_comms || activeLayers.sat_military || activeLayers.sat_navigation || activeLayers.sat_earth || activeLayers.sat_science;
     // The circle layers stay hidden whatever the toggles say — the 3D layer
     // is the single representation, and showing both drew every satellite
@@ -1829,6 +1957,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     setVis(['cctv-glow','cctv-dots','cctv-label','cctv-cluster','cctv-cluster-count'], activeLayers.cctv);
     setVis(['cctv-jm-glow','cctv-jm-dots','cctv-jm-label','cctv-jm-cluster','cctv-jm-cluster-count'], activeLayers.cctv_jm !== false);
     setVis(['cctv-jakarta-glow','cctv-jakarta-dots','cctv-jakarta-label','cctv-jakarta-cluster','cctv-jakarta-cluster-count'], activeLayers.cctv_jakarta !== false);
+    setVis(['cctv-global-glow','cctv-global-dots','cctv-global-label','cctv-global-cluster','cctv-global-cluster-count'], !!activeLayers.cctv_global);
     setVis(['fires-heat'], activeLayers.fires);
     setVis(['weather-glow','weather-dots','weather-label'], activeLayers.weather);
     setVis(['maritime-glow','maritime-dots','maritime-label'], activeLayers.maritime);
@@ -2652,7 +2781,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       {mapReady && (
         <CctvPreviews
           mapRef={mapRef}
-          active={(!!activeLayers.cctv || !!activeLayers.cctv_jm || !!activeLayers.cctv_jakarta) && !!activeLayers.cctv_previews}
+          active={(!!activeLayers.cctv || !!activeLayers.cctv_jm || !!activeLayers.cctv_jakarta || !!activeLayers.cctv_global) && !!activeLayers.cctv_previews}
           onOpen={(cam: PreviewCamera) => onEntityClick?.({ type: 'cctv', ...cam })}
         />
       )}

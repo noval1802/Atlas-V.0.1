@@ -58,6 +58,16 @@ export interface EarthquakePopup extends Record<string, unknown> {
   source?: string;
 }
 
+export interface VolcanoPopup extends Record<string, unknown> {
+  code?: string;
+  name?: string;
+  province?: string;
+  elevation?: number | string;
+  level?: number | string;
+  erupting?: boolean | string;
+  vona?: boolean | string;
+}
+
 export interface FirePopup extends Record<string, unknown> {
   brightness?: number | string;
 }

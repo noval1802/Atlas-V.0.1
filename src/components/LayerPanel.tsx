@@ -8,6 +8,7 @@ import {
   Flame, Tv, Radio, Mountain, Anchor, Shield
 } from 'lucide-react';
 import type { ActiveLayers } from '@/lib/layer-feeds';
+import { isGlobalCamera, isTollCamera, isTptCamera } from '@/lib/cctv-layers';
 import { mapDataList, type MapData } from '@/lib/map-data';
 import type { Matra } from '@/lib/kotamaops-points';
 import { TERRAIN_MIN_ZOOM, type TerrainStatus } from '@/lib/map-terrain';
@@ -38,13 +39,18 @@ interface LayerDef {
   matra?: Matra;
   /** Key of the layer this one modifies. Renders indented beneath it. */
   parent?: keyof ActiveLayers;
+  /** Indented under the row above for grouping only; switches on its own. */
+  indent?: boolean;
   /** The row stays usable while any of these layers is on. Defaults to the parent. */
   enabledBy?: (keyof ActiveLayers)[];
   /** Count only cameras whose source matches. */
   source?: string;
-  /** Count cameras whose source is outside this list. */
-  excludeSources?: string[];
+  /** Count only the items this accepts. */
+  match?: (item: Record<string, unknown>) => boolean;
 }
+
+/* Erupting volcanoes count under Erupsi only, so the five rows add up to the total. */
+const volcanoAt = (level: number) => (v: Record<string, unknown>) => v.level === level && v.erupting !== true;
 
 interface LayerGroupDef {
   label: string;
@@ -101,11 +107,12 @@ const LAYER_GROUPS: LayerGroupDef[] = [
     fullLabel: 'SURVEILLANCE',
     icon: Camera,
     layers: [
-      { key: 'cctv', label: 'CCTV Cameras', dataKey: 'cameras', excludeSources: ['Jasa Marga', 'TPT CCTV'] },
-      { key: 'cctv_previews', label: 'Live Previews', dataKey: '', parent: 'cctv', enabledBy: ['cctv', 'cctv_jm', 'cctv_jakarta'] },
-      { key: 'cctv_jm', label: 'CCTV JM', dataKey: 'cameras', source: 'Jasa Marga' },
-      { key: 'cctv_jakarta', label: 'CCTV JAKARTA', dataKey: 'cameras', source: 'TPT CCTV' },
-      { key: 'live_news', label: 'Live News Feeds', dataKey: 'live_feeds' },
+      { key: 'cctv_previews', label: 'Live Previews', dataKey: '', enabledBy: ['cctv', 'cctv_jm', 'cctv_jakarta', 'cctv_global'] },
+      { key: 'cctv_global', label: 'GLOBAL', dataKey: 'cameras', match: isGlobalCamera, indent: true },
+      { key: 'cctv_jm', label: 'CCTV TOL', dataKey: 'cameras', match: isTollCamera, indent: true },
+      { key: 'cctv', label: 'CCTV KOTA', dataKey: 'cameras', match: c => !isGlobalCamera(c) && !isTollCamera(c) && !isTptCamera(c), indent: true },
+      { key: 'cctv_jakarta', label: 'CCTV JAKARTA', dataKey: 'cameras', source: 'TPT CCTV', indent: true },
+      { key: 'live_news', label: 'Live News Feeds', dataKey: 'live_feeds', indent: true },
     ],
   },
   {
@@ -115,6 +122,12 @@ const LAYER_GROUPS: LayerGroupDef[] = [
     layers: [
       { key: 'earthquakes', label: 'Earthquakes', dataKey: 'earthquakes' },
       { key: 'fires', label: 'Active Fires', dataKey: 'fires' },
+      { key: 'volcanoes', label: 'Gunung Api (MAGMA)', dataKey: 'volcanoes' },
+      { key: 'volcano_l1', label: 'Level I · Normal', dataKey: 'volcanoes', parent: 'volcanoes', match: volcanoAt(1) },
+      { key: 'volcano_l2', label: 'Level II · Waspada', dataKey: 'volcanoes', parent: 'volcanoes', match: volcanoAt(2) },
+      { key: 'volcano_l3', label: 'Level III · Siaga', dataKey: 'volcanoes', parent: 'volcanoes', match: volcanoAt(3) },
+      { key: 'volcano_l4', label: 'Level IV · Awas', dataKey: 'volcanoes', parent: 'volcanoes', match: volcanoAt(4) },
+      { key: 'volcano_erupt', label: 'Erupsi', description: 'Sedang erupsi, apa pun levelnya', dataKey: 'volcanoes', parent: 'volcanoes', match: v => v.erupting === true },
       { key: 'weather', label: 'Severe Weather', dataKey: 'weather_events' },
     ],
   },
@@ -245,8 +258,8 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
       if (list) {
         found = true;
         total += list.filter((item: { source?: unknown }) => {
+          if (layer.match) return layer.match(item as Record<string, unknown>);
           if (layer.source) return item?.source === layer.source;
-          if (layer.excludeSources?.length) return !layer.excludeSources.includes(String(item?.source ?? ''));
           return true;
         }).length;
       }
@@ -279,9 +292,9 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
                     onClick={() => toggle(layer.key)}
                     aria-pressed={!!isLayerActive}
                     aria-label={layer.label}
-                    className={`relative w-full flex items-center gap-3 py-2 rounded-md text-left hover:bg-white/[0.04] transition-colors ${layer.parent ? 'pl-[22px] pr-1' : 'px-1'} ${dormant ? 'opacity-40' : ''}`}
+                    className={`relative w-full flex items-center gap-3 py-2 rounded-md text-left hover:bg-white/[0.04] transition-colors ${layer.parent || layer.indent ? 'pl-[22px] pr-1' : 'px-1'} ${dormant ? 'opacity-40' : ''}`}
                   >
-                    {layer.parent && <SubLayerStem />}
+                    {(layer.parent || layer.indent) && <SubLayerStem />}
                     <ToggleSwitch active={!!isLayerActive} />
                     <span className={`text-[11px] font-mono uppercase tracking-wider flex-1 transition-colors ${isLayerActive ? 'text-white/80' : 'text-white/40'}`}>
                       {layer.label}
@@ -335,9 +348,9 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
     >
       <div className="flex-1 flex flex-col items-center gap-1">
         {visibleGroups.map((group) => {
-          /* Sub-layers modify a parent rather than draw anything of their own,
-             so they do not count towards the rail's reading. */
-          const counted = group.layers.filter(l => !l.parent);
+          /* Sub-layers and modifiers (enabledBy) change other layers rather than draw
+             anything of their own, so they do not count towards the rail's reading. */
+          const counted = group.layers.filter(l => !l.parent && !l.enabledBy);
           const groupActive = counted.some(l => activeLayers[l.key]);
           const isHovered = hoveredGroup === group.label;
           const Icon = group.icon;
@@ -451,9 +464,9 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
                             aria-pressed={!!isLayerActive}
                             aria-label={layer.label}
                             title={dormant ? 'Turn the layer above on to use this' : undefined}
-                            className={`relative w-full flex items-center gap-3 py-1.5 rounded-md hover:bg-white/[0.05] transition-colors cursor-pointer text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 ${layer.parent ? 'pl-[22px] pr-1' : 'px-1'} ${dormant ? 'opacity-40' : ''}`}
+                            className={`relative w-full flex items-center gap-3 py-1.5 rounded-md hover:bg-white/[0.05] transition-colors cursor-pointer text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 ${layer.parent || layer.indent ? 'pl-[22px] pr-1' : 'px-1'} ${dormant ? 'opacity-40' : ''}`}
                           >
-                            {layer.parent && <SubLayerStem />}
+                            {(layer.parent || layer.indent) && <SubLayerStem />}
                             <ToggleSwitch active={!!isLayerActive} />
                             <span className={`text-[11px] font-mono uppercase tracking-wider flex-1 transition-colors duration-200 ${isLayerActive ? 'text-white/70' : 'text-white/35'}`}>
                               {layer.label}

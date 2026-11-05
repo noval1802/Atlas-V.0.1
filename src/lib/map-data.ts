@@ -1,3 +1,4 @@
+import type { Volcano } from '@/lib/magma';
 import type { Bloc } from '@/lib/alert-digest';
 import type { CatalogCamera } from '@/lib/camera-catalog';
 import type { KotamaopsPoint } from '@/lib/kotamaops-points';
@@ -227,6 +228,7 @@ export interface MapData {
   cameras?: CatalogCamera[];
   earthquakes?: EarthquakeRow[];
   fires?: FireRow[];
+  volcanoes?: Volcano[];
   weather_events?: WeatherRow[];
   gdelt?: GdeltRow[];
   gdelt_events?: GdeltEventRow[];

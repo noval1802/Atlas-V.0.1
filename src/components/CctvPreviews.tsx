@@ -331,7 +331,7 @@ function CctvPreviews({ mapRef, active, onOpen }: {
 
     let feats;
     try {
-      const layers = ['cctv-dots', 'cctv-jm-dots', 'cctv-jakarta-dots'].filter(id => map.getLayer(id));
+      const layers = ['cctv-dots', 'cctv-jm-dots', 'cctv-jakarta-dots', 'cctv-global-dots'].filter(id => map.getLayer(id));
       if (!layers.length) return;
       feats = map.queryRenderedFeatures({ layers });
     } catch {
@@ -416,7 +416,7 @@ function CctvPreviews({ mapRef, active, onOpen }: {
        rendering settles, and `sourcedata` catches the camera list refreshing
        under a stationary map. */
     const onSourceData = (e: { sourceId?: string; isSourceLoaded?: boolean }) => {
-      if ((e.sourceId === 'cctv' || e.sourceId === 'cctv-jm' || e.sourceId === 'cctv-jakarta') && e.isSourceLoaded) recompute();
+      if ((e.sourceId === 'cctv' || e.sourceId === 'cctv-jm' || e.sourceId === 'cctv-jakarta' || e.sourceId === 'cctv-global') && e.isSourceLoaded) recompute();
     };
 
     recompute();
