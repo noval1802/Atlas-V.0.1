@@ -1,0 +1,52 @@
+name: Bump version
+
+# Raises package.json and tags a release on every push to master, from the
+# Conventional Commit types since the last tag: feat → minor, a breaking change
+# (`!:` or `BREAKING CHANGE`) → major, anything else → patch. Versioning only;
+# it never publishes — docker-publish.yml stays manual.
+on:
+  push:
+    branches: [master]
+
+# Two quick pushes must not both try to tag.
+concurrency: version-bump
+
+jobs:
+  bump:
+    # Skip the bot's own release commit so it cannot bump itself in a loop.
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: level
+        name: Decide bump level from commits since the last tag
+        run: |
+          last=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$last" ]; then
+            # No tag yet: seed one with a patch so later runs have a baseline.
+            level=patch
+          else
+            log=$(git log "$last..HEAD" --format='%s%n%b')
+            if grep -qE '(^|[^a-zA-Z])BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:' <<<"$log"; then
+              level=major
+            elif grep -qE '^feat(\([^)]*\))?:' <<<"$log"; then
+              level=minor
+            else
+              level=patch
+            fi
+          fi
+          echo "level=$level" >>"$GITHUB_OUTPUT"
+
+      - name: Bump, commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # npm version writes package.json + package-lock.json, commits and tags.
+          # [skip ci] stops the release commit from starting another run.
+          npm version ${{ steps.level.outputs.level }} -m "chore(release): v%s [skip ci]"
+          git push --follow-tags
