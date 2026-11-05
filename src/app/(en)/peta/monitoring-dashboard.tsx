@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, Newspaper, Search, X, Globe, MapPinned, Route, Satellite, Moon, ExternalLink, AlertTriangle, Activity, Database, Wifi, Play, Network, Crosshair, Pentagon, PenLine, Cctv } from 'lucide-react';
 import { type TerrainStatus } from '@/lib/map-terrain';
 import { dropCamerasFromSource, loadCameraCatalog, mergeCameraCatalog } from '@/lib/camera-catalog';
-import { applyLayerQuery, serializeLayers } from '@/lib/cctv-layers';
+import { applyLayerQuery, isGlobalCamera, serializeLayers } from '@/lib/cctv-layers';
 import { applyFeedTransform, DEFAULT_ACTIVE_LAYERS, maritimePollGapMs, onceFeeds, pollFeeds, type ActiveLayers } from '@/lib/layer-feeds';
 import type { ArcGisLayer, GlobalStats, MapEntity, RegionDossier, WatchedCamera } from '@/lib/dashboard-state';
 import type { EarthquakeRow, MapData } from '@/lib/map-data';
@@ -555,6 +555,15 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
     }, () => console.warn('[OSIRIS] Camera catalogue load failed; bounded retry scheduled'));
   }, [activeLayers.cctv, activeLayers.cctv_jm, activeLayers.cctv_jakarta, catalogNonce, updateData]);
 
+  // GLOBAL: the prebuilt worldwide payload, minus Indonesia (the toggles above already cover it).
+  useEffect(() => {
+    if (!activeLayers.cctv_global) return;
+    return loadCameraCatalog(cameras => {
+      const foreign = cameras.filter(isGlobalCamera);
+      if (foreign.length) updateData(prev => ({ ...prev, cameras: mergeCameraCatalog(prev.cameras ?? [], foreign) }));
+    }, () => console.warn('[OSIRIS] Global camera catalogue load failed; bounded retry scheduled'), ['all']);
+  }, [activeLayers.cctv_global, updateData]);
+
   useEffect(() => {
     for (const feed of onceFeeds(activeLayers, layerFetchedRef.current)) {
       const transform = feed.transform === 'none' ? undefined : (body: unknown) => applyFeedTransform(feed.transform, body);
@@ -650,71 +659,16 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
 
 
 
-            {/* ── Geometric tactical logo ── */}
-            <div className="relative w-40 h-40 mb-8 flex items-center justify-center z-[2]">
-              {/* Outer ring — slow clockwise */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.6, rotate: 0 }}
-                animate={{ opacity: 1, scale: 1, rotate: 360 }}
-                transition={{ opacity: { duration: 0.6 }, scale: { duration: 0.8, ease: 'easeOut' }, rotate: { duration: 20, repeat: Infinity, ease: 'linear' } }}
-                className="absolute inset-0 rounded-full"
-                style={{ border: '1px solid rgba(212,175,55,0.2)' }}
-              >
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full" style={{ background: 'var(--gold-primary)', boxShadow: '0 0 12px var(--gold-primary), 0 0 24px rgba(212,175,55,0.3)' }} />
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-1 h-1 rounded-full" style={{ background: 'rgba(212,175,55,0.5)', boxShadow: '0 0 6px rgba(212,175,55,0.3)' }} />
-              </motion.div>
-
-              {/* Middle ring — faster counter-clockwise */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.4, rotate: 0 }}
-                animate={{ opacity: 1, scale: 1, rotate: -360 }}
-                transition={{ opacity: { duration: 0.6, delay: 0.15 }, scale: { duration: 0.8, delay: 0.15, ease: 'easeOut' }, rotate: { duration: 12, repeat: Infinity, ease: 'linear' } }}
-                className="absolute rounded-full"
-                style={{ inset: '18px', border: '1px solid rgba(0,229,255,0.15)' }}
-              >
-                <div className="absolute top-1/2 right-0 translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full" style={{ background: 'var(--cyan-primary)', boxShadow: '0 0 10px var(--cyan-primary), 0 0 20px rgba(0,229,255,0.2)' }} />
-                <div className="absolute bottom-0 left-1/4 translate-y-1/2 w-1 h-1 rounded-full" style={{ background: 'rgba(0,229,255,0.4)' }} />
-              </motion.div>
-
-              {/* Inner ring — fastest clockwise */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.2, rotate: 0 }}
-                animate={{ opacity: 1, scale: 1, rotate: 360 }}
-                transition={{ opacity: { duration: 0.6, delay: 0.3 }, scale: { duration: 0.8, delay: 0.3, ease: 'easeOut' }, rotate: { duration: 7, repeat: Infinity, ease: 'linear' } }}
-                className="absolute rounded-full"
-                style={{ inset: '40px', border: '1px solid rgba(212,175,55,0.25)' }}
-              >
-                <div className="absolute top-0 left-1/4 -translate-y-1/2 w-1.5 h-1.5 rounded-full" style={{ background: 'var(--gold-primary)', boxShadow: '0 0 8px var(--gold-primary)' }} />
-              </motion.div>
-
-              {/* Core circle + crosshair */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.4, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
-                className="relative w-12 h-12 rounded-full flex items-center justify-center"
-                style={{ border: '2px solid var(--gold-primary)', boxShadow: '0 0 20px rgba(212,175,55,0.15), inset 0 0 20px rgba(212,175,55,0.05)' }}
-              >
-                <motion.div
-                  animate={{ opacity: [0.3, 0.8, 0.3] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                  className="w-5 h-5 rounded-full"
-                  style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.4) 0%, rgba(212,175,55,0.05) 70%)' }}
-                />
-                {/* Crosshair lines */}
-                <div className="absolute w-[1px] h-full" style={{ background: 'linear-gradient(to bottom, transparent, rgba(212,175,55,0.3), transparent)' }} />
-                <div className="absolute w-full h-[1px]" style={{ background: 'linear-gradient(to right, transparent, rgba(212,175,55,0.3), transparent)' }} />
-              </motion.div>
-
-              {/* Faint pulsing radar sweep */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: [0, 0.15, 0], rotate: [0, 360] }}
-                transition={{ opacity: { duration: 3, repeat: Infinity }, rotate: { duration: 3, repeat: Infinity, ease: 'linear' }, delay: 0.6 }}
-                className="absolute inset-[10px] rounded-full"
-                style={{ background: 'conic-gradient(from 0deg, transparent 0deg, rgba(212,175,55,0.15) 40deg, transparent 80deg)' }}
-              />
-            </div>
+            {/* ── ATLAS logo (the SVG animates its own orbits) ── */}
+            <motion.img
+              src="/atlas-logo.svg"
+              alt=""
+              aria-hidden="true"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className="relative w-40 h-40 mb-8 z-[2] drop-shadow-[0_0_16px_rgba(212,175,55,0.35)]"
+            />
 
             <div className="flex items-center gap-[2px] mb-3 z-[2]">
               {'ATLAS'.split('').map((letter, i) => (
@@ -731,19 +685,15 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
               ))}
             </div>
 
-            {/* ── Subtitle — typewriter reveal ── */}
-            <div className="overflow-hidden mb-8 z-[2]">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: '100%' }}
-                transition={{ delay: 1.2, duration: 0.8, ease: 'easeInOut' }}
-                className="overflow-hidden"
-              >
-                <p className="text-[11px] md:text-[10px] font-mono tracking-[0.14em] text-[var(--gold-primary)] text-center" style={{ opacity: 0.8 }}>
-                  ADVANCED TACTICAL LOCATION & ANALYTICS SYSTEM
-                </p>
-              </motion.div>
-            </div>
+            {/* ── Subtitle — centre-out reveal; clip-path animates without reflowing the text ── */}
+            <motion.p
+              initial={{ opacity: 0, clipPath: 'inset(0 50% 0 50%)' }}
+              animate={{ opacity: 0.8, clipPath: 'inset(0 0% 0 0%)' }}
+              transition={{ delay: 1.0, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              className="mb-8 z-[2] px-4 text-[11px] md:text-[10px] font-mono tracking-[0.14em] text-[var(--gold-primary)] text-center"
+            >
+              ADVANCED TACTICAL LOCATION & ANALYTICS SYSTEM
+            </motion.p>
 
             {/* ── Multi-stage progress bar ── */}
             <div className="w-64 md:w-80 z-[2]">

@@ -27,6 +27,7 @@ describe('onceFeeds', () => {
       'flights',
       'satellites',
       'fires',
+      'volcanoes',
       'maritime',
       'balloons',
       'radiation',
@@ -68,8 +69,11 @@ describe('onceFeeds', () => {
   });
 
   it('opens the operations map with only the Kotamaops layers, so no feed loads until asked for', () => {
-    const on = (Object.keys(DEFAULT_ACTIVE_LAYERS) as (keyof ActiveLayers)[]).filter(key => DEFAULT_ACTIVE_LAYERS[key]);
+    // The volcano level filters default on, but draw nothing until the volcano layer is.
+    const on = (Object.keys(DEFAULT_ACTIVE_LAYERS) as (keyof ActiveLayers)[])
+      .filter(key => DEFAULT_ACTIVE_LAYERS[key] && !key.startsWith('volcano_'));
     expect(on).toEqual(['tni_ad', 'tni_al', 'tni_au']);
+    expect(DEFAULT_ACTIVE_LAYERS.volcanoes).toBe(false);
     expect(onceFeeds(DEFAULT_ACTIVE_LAYERS, new Set())).toEqual([]);
   });
 
@@ -94,9 +98,9 @@ describe('pollFeeds', () => {
     ]);
   });
 
-  it('polls aviation, balloons, radiation, and vessels when they are on', () => {
+  it('polls aviation, balloons, radiation, volcanoes, and vessels when they are on', () => {
     const feeds = pollFeeds(withEveryLayer(true));
-    expect(feeds.map(feed => feed.key)).toEqual(['flights', 'balloons', 'radiation', 'maritime']);
+    expect(feeds.map(feed => feed.key)).toEqual(['flights', 'balloons', 'radiation', 'volcanoes', 'maritime']);
     expect(feeds.every(feed => feed.everyMs === LAYER_POLL_MS)).toBe(true);
   });
 

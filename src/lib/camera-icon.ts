@@ -2,6 +2,9 @@
 
 export const CAMERA_ICON_ID = 'cctv-icon';
 export const CAMERA_ICON_SRC = '/icons/cctv.svg';
+/** Same glyph in red, for a camera the server found showing nothing. */
+export const CAMERA_OFFLINE_ICON_ID = 'cctv-icon-offline';
+export const CAMERA_OFFLINE_COLOR = '#E53935';
 const SIZE = 48; // drawn at pixelRatio 2, so 24 CSS px at icon-size 1
 const HALO: ReadonlyArray<readonly [number, number]> = [[-2, 0], [2, 0], [0, -2], [0, 2], [-1.5, -1.5], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5]];
 

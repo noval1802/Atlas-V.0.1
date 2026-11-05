@@ -24,7 +24,7 @@ import {
  * bounds query fetch every camera.
  *
  * Registered once, in RAW_REGION_FETCHERS. Deliberately not called from
- * fetchEuropeCameras as well — the GET handler concatenates regions without
+ * another region as well — the GET handler concatenates regions without
  * deduplicating on id, so a source registered twice puts every one of its
  * cameras on the map twice.
  */

@@ -18,10 +18,18 @@ export interface ActiveLayers {
   /** Absent on the original map page. The monitoring dashboard sets these. */
   cctv_jm?: boolean;
   cctv_jakarta?: boolean;
+  cctv_global?: boolean;
   cctv_previews: boolean;
   live_news: boolean;
   earthquakes: boolean;
   fires: boolean;
+  volcanoes: boolean;
+  /** Volcano filters. Each volcano is in one: Erupsi if erupting, else its PVMBG level. */
+  volcano_l1: boolean;
+  volcano_l2: boolean;
+  volcano_l3: boolean;
+  volcano_l4: boolean;
+  volcano_erupt: boolean;
   weather: boolean;
   radiation: boolean;
   global_incidents: boolean;
@@ -56,11 +64,20 @@ export const DEFAULT_ACTIVE_LAYERS: ActiveLayers = {
   cctv_jm: false,
   /* Jakarta TPT cameras, switched separately from the public CCTV catalogue. */
   cctv_jakarta: false,
+  /* Cameras outside Indonesia. Off by default: the worldwide catalogue is ~40k cameras. */
+  cctv_global: false,
   /* The live preview tiles over the camera dots — see CctvPreviews. */
   cctv_previews: false,
   live_news: false,
   earthquakes: false,
   fires: false,
+  volcanoes: false,
+  /* Every level shows once the volcano layer is on; these narrow it down. */
+  volcano_l1: true,
+  volcano_l2: true,
+  volcano_l3: true,
+  volcano_l4: true,
+  volcano_erupt: true,
   weather: false,
   radiation: false,
   global_incidents: false,
@@ -140,6 +157,7 @@ const ONCE_RULES: OnceRule[] = [
   { key: 'flights', url: '/api/flights', transform: 'none', retryOnFailure: false, when: layers => anyOn(layers, FLIGHT_LAYERS) },
   { key: 'satellites', url: '/api/satellites', transform: 'satellites', retryOnFailure: false, when: layers => anyOn(layers, SATELLITE_LAYERS) },
   { key: 'fires', url: '/api/fires', transform: 'none', retryOnFailure: false, when: layers => layers.fires },
+  { key: 'volcanoes', url: '/api/volcanoes', transform: 'none', retryOnFailure: true, when: layers => layers.volcanoes },
   { key: 'maritime', url: '/api/maritime', transform: 'maritime', retryOnFailure: false, when: layers => layers.maritime },
   { key: 'balloons', url: '/api/balloons', transform: 'balloons', retryOnFailure: false, when: layers => layers.balloons },
   { key: 'radiation', url: '/api/radiation', transform: 'radiation', retryOnFailure: false, when: layers => layers.radiation },
@@ -179,6 +197,8 @@ const POLL_RULES: PollRule[] = [
   { key: 'flights', url: '/api/flights', transform: 'none', everyMs: LAYER_POLL_MS, schedule: 'interval', when: layers => anyOn(layers, FLIGHT_LAYERS) },
   { key: 'balloons', url: '/api/balloons', transform: 'balloons', everyMs: LAYER_POLL_MS, schedule: 'interval', when: layers => layers.balloons },
   { key: 'radiation', url: '/api/radiation', transform: 'radiation', everyMs: LAYER_POLL_MS, schedule: 'interval', when: layers => layers.radiation },
+  // An eruption flag is worth seeing within minutes; the route caches MAGMA for ten.
+  { key: 'volcanoes', url: '/api/volcanoes', transform: 'none', everyMs: LAYER_POLL_MS, schedule: 'interval', when: layers => layers.volcanoes },
   { key: 'maritime', url: '/api/maritime', transform: 'maritime', everyMs: LAYER_POLL_MS, schedule: 'maritime', when: layers => layers.maritime },
 ];
 

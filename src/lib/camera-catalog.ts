@@ -34,7 +34,11 @@ export function mergeCameraCatalog<T extends { id: string | number }>(previous: 
 export const CAMERA_REGIONS = ['jasamarga', 'bpjt', 'bandung', 'gresik', 'aceh', 'semarang', 'surakarta', 'tpt'] as const;
 
 /** Recover slow regions without downloading the entire worldwide list again. */
-export function loadCameraCatalog(onBatch: (cameras: CatalogCamera[]) => void, onError: () => void) {
+export function loadCameraCatalog(
+  onBatch: (cameras: CatalogCamera[]) => void,
+  onError: () => void,
+  regions: readonly string[] = CAMERA_REGIONS,
+) {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let attempts = 0;
@@ -61,6 +65,6 @@ export function loadCameraCatalog(onBatch: (cameras: CatalogCamera[]) => void, o
       timer = setTimeout(() => void load(remaining), attempts * 15_000);
     }
   };
-  void load([...CAMERA_REGIONS]);
+  void load([...regions]);
   return () => { controller.abort(); clearTimeout(timer); };
 }
