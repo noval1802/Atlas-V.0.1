@@ -469,8 +469,14 @@ export async function GET() {
       }
     }
 
-    ingestAc(osSnapshot, allRaw, seenHex);
-    const openSkyWorked = osSnapshot.length > 0;
+    /* A snapshot older than two refetch intervals means OpenSky has stopped
+       answering. Serving it anyway froze aircraft at hours-old positions and
+       kept the regional fallback below from ever running. */
+    const openSkyWorked = osSnapshot.length > 0 && Date.now() - osSnapshotTime < 2 * openSkyInterval();
+    const beforeOpenSky = allRaw.length;
+    if (openSkyWorked) ingestAc(osSnapshot, allRaw, seenHex);
+    // Aircraft OpenSky actually contributed (snapshot minus hexes already seen).
+    const openSkyUsed = allRaw.length - beforeOpenSky;
 
     // ── Phase 3: Regional sweep — last resort only ────────────────────────────
     // Runs only when there is no OpenSky snapshot at all, never as the steady
@@ -535,7 +541,7 @@ export async function GET() {
       providers: {
         adsbfi_mil:      milCount,
         adsbfi_regional: openSkyWorked ? 0 : allRaw.length - milCount,
-        opensky:         osSnapshot.length,
+        opensky:         openSkyUsed,
         opensky_auth:    hasOpenSkyCreds(),
         opensky_age_s:   osSnapshotTime ? Math.round((Date.now() - osSnapshotTime) / 1000) : null,
       },

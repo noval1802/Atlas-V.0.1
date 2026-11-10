@@ -122,7 +122,7 @@ function parseGdacsRss(xml: string): WeatherEvent[] {
  * more here than anywhere else in the app: an empty warnings panel reads as
  * "nothing is happening", and that is not the same as "we could not ask".
  */
-const loadEvents = cachedSource<WeatherEvent>('weather:events', collectEvents, 3 * 60_000);
+const loadEvents = cachedSource<WeatherEvent>('weather:events', collectEvents, 3 * 60_000, true, { throwOnFailure: true });
 
 export async function GET() {
   try {
@@ -136,9 +136,14 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Weather API error:', error);
-    return NextResponse.json({ events: [], error: 'Failed to fetch weather data' }, { status: 500 });
+    return NextResponse.json({ events: [], error: 'Failed to fetch weather data' }, { status: 502 });
   }
 }
+
+/* BMKG warnings from the last good answer. If BMKG fails while NASA or GDACS
+   answer, the list still counts as fresh, so without this the Indonesian
+   warnings vanished from the panel with no sign anything was wrong. */
+let lastBmkg: WeatherEvent[] = [];
 
 async function collectEvents(): Promise<WeatherEvent[]> {
   {
@@ -154,6 +159,7 @@ async function collectEvents(): Promise<WeatherEvent[]> {
 
     const events: WeatherEvent[] = [];
     let providerSucceeded = false;
+    let bmkgOk = false;
 
     if (eonetRes.status === 'fulfilled' && eonetRes.value.ok) {
       try {
@@ -218,10 +224,11 @@ async function collectEvents(): Promise<WeatherEvent[]> {
           const res = await fetch(bulletin.capUrl, { headers: BMKG_HEADERS, signal: AbortSignal.timeout(10000) });
           return { bulletin, alert: res.ok ? parseNowcastCap(await res.text()) : null };
         }));
-        providerSucceeded = true;
         for (const cap of caps) {
           if (cap.status !== 'fulfilled' || !cap.value.alert) continue;
           const a = cap.value.alert;
+          bmkgOk = true;
+          providerSucceeded = true;
           events.push({
             id: a.id,
             title: a.headline,
@@ -244,6 +251,11 @@ async function collectEvents(): Promise<WeatherEvent[]> {
         console.error('BMKG nowcast normalization error:', error);
       }
     }
+
+    if (bmkgOk) lastBmkg = events.filter(event => event.provider === 'BMKG');
+    // Fallback only serves warnings still within their stated validity; a
+    // no-expiry entry is dropped rather than shown as current forever.
+    else events.push(...lastBmkg.filter(event => event.expires && Date.parse(event.expires) > Date.now()));
 
     if (gdacsRes.status === 'fulfilled' && gdacsRes.value.ok) {
       try {

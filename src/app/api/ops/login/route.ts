@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { allowedNext, homeForRole, usernameError } from "@/lib/ops/access";
+import { allowedNext, homeForRole } from "@/lib/ops/access";
 import { requestIp, writeAudit } from "@/lib/ops/audit";
 import { opsDb } from "@/lib/ops/db";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/lib/ops/password";
@@ -29,7 +29,11 @@ export async function POST(request: Request) {
     !rateLimit(`login:${ip || "unknown"}:${username}`, 8, WINDOW_MS).ok ||
     !rateLimit(`login-user:${username}`, 20, WINDOW_MS).ok
   ) {
-    await writeAudit({ action: "login_failure", result: "rate_limited", ip, detail: usernameError(username) ? "format" : username.slice(0, 32) });
+    /* Not written to the audit table: the limiter refuses the login but would
+       still add one row per request, so a loop could flood the table and push
+       real admin actions out of the 80-row view. The failures that tripped the
+       limit are already audited. */
+    console.warn(`[ops] login rate limited: ip=${ip || "unknown"}`);
     return NextResponse.json({ error: "Terlalu banyak percobaan. Coba lagi nanti." }, { status: 429 });
   }
   const user = username ? await opsDb().user.findUnique({ where: { username } }) : null;

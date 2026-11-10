@@ -18,7 +18,7 @@ const loadQuakes = cachedSource('earthquakes:bmkg', async () => {
   // Throwing keeps the last good list in the cache instead of an empty map.
   if (!lists.length) throw new Error('BMKG unavailable');
   return mergeQuakes(lists);
-}, 60_000);
+}, 60_000, true, { throwOnFailure: true });
 
 export async function GET() {
   try {

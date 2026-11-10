@@ -51,6 +51,21 @@ import { fetchGresikCameras } from './gresik';
 import { fetchAcehCameras } from './aceh';
 import { fetchSemarangCameras } from './semarang';
 import { fetchSurakartaCameras } from './surakarta';
+import { fetchYogyakartaCameras } from './yogyakarta';
+import { fetchBalanganCameras } from './balangan';
+import { fetchBandungBaratCameras } from './bandungbarat';
+import { fetchJombangCameras } from './jombang';
+import { fetchMagelangCameras } from './magelang';
+import { fetchTangerangKabCameras } from './tangerangkab';
+import { fetchBandarLampungCameras } from './bandarlampung';
+import { fetchBukittinggiCameras } from './bukittinggi';
+import { fetchCirebonKotaCameras } from './cirebonkota';
+import { fetchMedanCameras } from './medan';
+import { fetchPalembangCameras } from './palembang';
+import { fetchSerangCameras } from './serang';
+import { fetchTasikmalayaCameras } from './tasikmalaya';
+import { fetchBaliCameras } from './bali';
+import { fetchPekalonganCameras } from './pekalongan';
 import { fetchTptCameras } from './tpt';
 import {
   fetchLatamLiveCameras,
@@ -491,6 +506,21 @@ const RAW_REGION_FETCHERS: Record<string, RegionFetcher> = {
   'aceh': fetchAcehCameras as RegionFetcher,
   'semarang': fetchSemarangCameras as RegionFetcher,
   'surakarta': fetchSurakartaCameras as RegionFetcher,
+  'yogyakarta': fetchYogyakartaCameras as RegionFetcher,
+  'balangan': fetchBalanganCameras as RegionFetcher,
+  'bandungbarat': fetchBandungBaratCameras as RegionFetcher,
+  'jombang': fetchJombangCameras as RegionFetcher,
+  'magelang': fetchMagelangCameras as RegionFetcher,
+  'tangerangkab': fetchTangerangKabCameras as RegionFetcher,
+  'bandarlampung': fetchBandarLampungCameras as RegionFetcher,
+  'bukittinggi': fetchBukittinggiCameras as RegionFetcher,
+  'cirebonkota': fetchCirebonKotaCameras as RegionFetcher,
+  'medan': fetchMedanCameras as RegionFetcher,
+  'palembang': fetchPalembangCameras as RegionFetcher,
+  'serang': fetchSerangCameras as RegionFetcher,
+  'tasikmalaya': fetchTasikmalayaCameras as RegionFetcher,
+  'bali': fetchBaliCameras as RegionFetcher,
+  'pekalongan': fetchPekalonganCameras as RegionFetcher,
   'tpt': fetchTptCameras as RegionFetcher,
   'westasia': fetchWestAsiaCameras as RegionFetcher,
   'latam-live': fetchLatamLiveCameras as RegionFetcher,

@@ -1,6 +1,12 @@
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { createSecureContext } from 'node:tls';
 import { Agent, fetch as undiciFetch } from 'undici';
+import { CA_WITH_INTERMEDIATES } from './tls-intermediates';
+
+/* Built once, not per request: passing `ca` to each Agent made undici parse all
+   ~118 PEM certs on every safeFetch (the shared egress path). Reuse one context. */
+const SECURE_CONTEXT = createSecureContext({ ca: CA_WITH_INTERMEDIATES });
 
 /**
  * SSRF guard shared by route handlers that take a user-controlled host / IP
@@ -182,6 +188,7 @@ export function pinnedAgent(addresses: string[]): Agent {
   return new Agent({
     keepAliveTimeout: 1000,
     connect: {
+      secureContext: SECURE_CONTEXT,
       lookup: (_hostname, options, callback) => {
         if (!all.length) return callback(new Error('safeFetch: no validated address'), '', 0);
         // Happy Eyeballs asks for every address at once.

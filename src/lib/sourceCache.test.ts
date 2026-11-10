@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { cachedSource, clearSourceCache, forgetSource } from './sourceCache';
+import { cachedSource, clearSourceCache, forgetSource, peekSource, seedSource } from './sourceCache';
 
 type Cam = { id: string };
 const cam = (id: string): Cam => ({ id });
@@ -97,5 +97,41 @@ describe('cachedSource', () => {
     const b = cachedSource<Cam>('t7b', async () => [cam('b')]);
     expect(await a()).toEqual([cam('a')]);
     expect(await b()).toEqual([cam('b')]);
+  });
+
+  it('throws on failure with nothing cached when asked to, including during the cooldown', async () => {
+    let calls = 0;
+    const load = cachedSource<Cam>('t8', async () => { calls++; throw new Error('down'); }, 60_000, true, { throwOnFailure: true });
+    await expect(load()).rejects.toThrow('down');
+    await expect(load()).rejects.toThrow('unavailable');
+    expect(calls).toBe(1);
+  });
+
+  it('retries an empty first result after a short cooldown, not the full TTL', async () => {
+    let calls = 0;
+    const load = cachedSource<Cam>('t9', async () => { calls++; return []; }, 30 * 60_000);
+    const realNow = Date.now;
+    try {
+      await load();
+      await load();
+      expect(calls).toBe(1);
+      Date.now = () => realNow() + 61_000;
+      await load();
+      expect(calls).toBe(2);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  /* Camera indexes are created at boot; per-search keys arrive later. With
+     insertion-order eviction the indexes were the first to go. */
+  it('keeps a key that is still being read when one-off keys overflow the cap', async () => {
+    seedSource('cctv:jakarta', [cam('j')]);
+    for (let i = 0; i < 600; i++) {
+      await cachedSource<Cam>(`geosearch:${i}`, async () => [cam(String(i))])();
+      if (i % 100 === 0) peekSource('cctv:jakarta', true);
+    }
+    expect(peekSource('cctv:jakarta', true)).toEqual([cam('j')]);
+    expect(peekSource('geosearch:0', true)).toBeUndefined();
   });
 });

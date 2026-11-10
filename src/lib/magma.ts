@@ -145,7 +145,8 @@ async function magmaPage(url: string): Promise<string> {
   return res.text();
 }
 
-export const loadVolcanoes = cachedSource('volcanoes:magma', async () => parseMagmaVolcanoes(await magmaPage(MAGMA_MAP_URL)), TTL_MS);
+// throwOnFailure: an empty list here would read as "no active volcanoes".
+export const loadVolcanoes = cachedSource('volcanoes:magma', async () => parseMagmaVolcanoes(await magmaPage(MAGMA_MAP_URL)), TTL_MS, true, { throwOnFailure: true });
 
 const loadReportLinks = cachedSource('volcanoes:report-links', async () => [...parseReportLinks(await magmaPage(MAGMA_LEVELS_URL))], TTL_MS);
 

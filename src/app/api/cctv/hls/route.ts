@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { safeFetch } from '@/lib/ssrf-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,12 @@ export const dynamic = 'force-dynamic';
  * SSRF guard: only the hosts below are reachable, and only http(s). The target
  * is the full upstream URL in `u`; segment and sub-playlist URLs are resolved
  * against it and themselves checked against the allowlist before rewriting.
+ * safeFetch re-checks every redirect hop, so an allowlisted host cannot bounce
+ * the server to a private address.
  */
-const ALLOWED_HOSTS = ['pelindung.bandung.go.id'];
+// cctv.balangankab.go.id: sends Access-Control-Allow-Origin twice, which browsers reject.
+// cctv-dishub.tangerangkab.go.id: playlists carry no CORS header at all.
+const ALLOWED_HOSTS = ['pelindung.bandung.go.id', 'cctv.balangankab.go.id', 'cctv-dishub.tangerangkab.go.id', 'cctv.cirebonkota.go.id'];
 
 function isAllowed(url: URL): boolean {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
@@ -22,6 +27,14 @@ function isAllowed(url: URL): boolean {
 
 const proxied = (absolute: string) => `/api/cctv/hls?u=${encodeURIComponent(absolute)}`;
 
+function resolve(reference: string, base: URL): URL | null {
+  try {
+    return new URL(reference, base);
+  } catch {
+    return null;
+  }
+}
+
 /** Rewrite segment and sub-playlist references so the browser fetches them through here too. */
 export function rewriteHlsPlaylist(body: string, base: URL): string {
   return body
@@ -29,16 +42,13 @@ export function rewriteHlsPlaylist(body: string, base: URL): string {
     .map(line => {
       const trimmed = line.trim();
       if (!trimmed) return line;
-      // Attribute URIs (keys, maps) are not proxied — no allowlisted source uses them yet.
-      // shortcut: plain segment/sub-playlist lines only, add URI="" rewriting if an encrypted source is added.
-      if (trimmed.startsWith('#')) return line;
-      let target: URL;
-      try {
-        target = new URL(trimmed, base);
-      } catch {
-        return line;
-      }
-      return isAllowed(target) ? proxied(target.toString()) : line;
+      // Tags carry URIs in attributes: fMP4 init (EXT-X-MAP), LL-HLS parts and preload hints, keys.
+      if (trimmed.startsWith('#')) return line.replace(/URI="([^"]*)"/g, (match, uri: string) => {
+        const target = resolve(uri, base);
+        return target && isAllowed(target) ? `URI="${proxied(target.toString())}"` : match;
+      });
+      const target = resolve(trimmed, base);
+      return target && isAllowed(target) ? proxied(target.toString()) : line;
     })
     .join('\n');
 }
@@ -55,10 +65,9 @@ export async function GET(request: Request) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(target, {
+    upstream = await safeFetch(target.toString(), {
       headers: { Accept: '*/*', 'User-Agent': 'Mozilla/5.0' },
       signal: AbortSignal.timeout(20_000),
-      cache: 'no-store',
     });
   } catch {
     return NextResponse.json({ error: 'Camera unavailable' }, { status: 502 });

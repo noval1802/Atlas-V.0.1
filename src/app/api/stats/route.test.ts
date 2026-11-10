@@ -1,8 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET, clearStatsSnapshot } from './route';
 
-/* Each computation fetches five of the app's own feeds. These tests count those
-   fetches, because the defect was that every caller paid for all five. */
+/* The route calls the feed handlers in-process. Each mock forwards to the
+   stubbed global fetch, so the tests below can count and shape feed calls. */
+const { viaFetch } = vi.hoisted(() => ({
+  viaFetch: (name: string) => ({ GET: () => fetch(`http://feed/api/${name}`) }),
+}));
+vi.mock('../flights/route', () => viaFetch('flights'));
+vi.mock('../satellites/route', () => viaFetch('satellites'));
+vi.mock('../cctv/route', () => viaFetch('cctv'));
+vi.mock('../weather/route', () => viaFetch('weather'));
+vi.mock('../gdelt/route', () => viaFetch('gdelt'));
+
+/* Each computation calls five of the app's own feeds. These tests count those
+   calls, because the defect was that every caller paid for all five. */
 const baseFeeds = (): Record<string, unknown> => ({
   flights: { commercial_flights: [1, 2], private_flights: [3], private_jets: [], military_flights: [4] },
   satellites: { satellites: [1, 2, 3] },
@@ -27,7 +38,7 @@ function mockFetch({ hold = false } = {}) {
   }));
 }
 
-const request = () => GET(new Request('http://localhost:3000/api/stats'));
+const request = () => GET();
 const at = (iso: string) => vi.setSystemTime(new Date(iso));
 
 describe('GET /api/stats', () => {

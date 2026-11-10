@@ -67,7 +67,12 @@ export default function CctvTokenButton({ compact = false, onSaved }: { compact?
       }
       setDrafts(current => ({ ...current, [id]: '' }));
       setSources(current => current?.map(source => source.id === id ? { ...source, configured: true } : source) ?? current);
-      setNotice(current => ({ ...current, [id]: 'Tersimpan. Token lama diganti dan daftar kamera dimuat ulang.' }));
+      setNotice(current => ({
+        ...current,
+        [id]: body.persisted === false
+          ? 'Aktif sekarang, tetapi file .env server tidak bisa ditulis. Perbarui .env di host agar token bertahan setelah restart.'
+          : 'Tersimpan. Token lama diganti dan daftar kamera dimuat ulang.',
+      }));
       onSaved?.(id);
     } finally {
       setBusy(null);

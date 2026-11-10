@@ -19,6 +19,8 @@ interface Entry<T> {
   data: T[];
   expiresAt: number;
   inflight: Promise<T[]> | null;
+  /** The last fetch threw and there was nothing cached to fall back on. */
+  failed?: boolean;
 }
 
 const store = new Map<string, Entry<unknown>>();
@@ -30,9 +32,16 @@ export const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 /**
  * Cap on distinct keys. Camera sources are a fixed handful, but callers with
  * per-coordinate keys (place lookups) would otherwise grow this map without
- * bound. Map preserves insertion order, so the oldest keys evict first.
+ * bound. Map preserves insertion order and `put` re-inserts on every read and
+ * write, so the least recently used keys evict first. Plain insertion order
+ * evicted the camera indexes (created at boot) before a burst of searches.
  */
 const MAX_ENTRIES = 500;
+
+function put(key: string, entry: Entry<unknown>): void {
+  store.delete(key);
+  store.set(key, entry);
+}
 
 function evictIfNeeded(): void {
   if (store.size <= MAX_ENTRIES) return;
@@ -47,12 +56,17 @@ function evictIfNeeded(): void {
 /**
  * Wrap a camera fetcher with TTL caching, in-flight dedup and stale fallback.
  * Returns a drop-in replacement with the same signature.
+ *
+ * `throwOnFailure`: when the upstream fails and nothing is cached, throw (also
+ * during the cooldown) instead of returning []. Routes whose empty list reads
+ * as "nothing is happening" use it so they can answer 502.
  */
 export function cachedSource<T>(
   key: string,
   fetcher: () => Promise<T[]>,
   ttlMs: number = DEFAULT_TTL_MS,
   rememberEmpty = true,
+  { throwOnFailure = false }: { throwOnFailure?: boolean } = {},
 ): () => Promise<T[]> {
   return async () => {
     const now = Date.now();
@@ -60,12 +74,16 @@ export function cachedSource<T>(
     const seen = generation.get(key) ?? 0;
     const current = () => (generation.get(key) ?? 0) === seen;
 
+    if (entry) put(key, entry as Entry<unknown>);
     if (entry && now < entry.expiresAt && entry.data.length > 0) return entry.data;
     if (entry?.inflight) return entry.inflight;
     /* A first fetch that failed stored an empty list with a short expiry.
        Returning it here is the cooldown. Without it, data.length === 0 made
        every page view look like a miss and the dead upstream was hit again. */
-    if (entry && entry.data.length === 0 && now < entry.expiresAt) return entry.data;
+    if (entry && entry.data.length === 0 && now < entry.expiresAt) {
+      if (entry.failed && throwOnFailure) throw new Error(`${key} unavailable`);
+      return entry.data;
+    }
 
     const inflight = (async () => {
       try {
@@ -73,37 +91,40 @@ export function cachedSource<T>(
         if (!current()) return data;
         // An empty result is treated as a failed refresh: keep whatever we had.
         if (data.length === 0 && entry?.data.length) {
-          store.set(key, { data: entry.data, expiresAt: now + ttlMs, inflight: null });
+          put(key, { data: entry.data, expiresAt: now + ttlMs, inflight: null });
           return entry.data;
         }
         // A place lookup uses this to mean "ask again". An empty camera index
-        // still stays for the TTL so a dead feed is not hit on every page view.
+        // gets the same 60s cooldown as a failure: many fetchers return [] on
+        // error, and a full TTL pinned that outage for 30 minutes.
         if (data.length === 0 && !rememberEmpty) {
-          store.set(key, { data: [], expiresAt: 0, inflight: null });
+          put(key, { data: [], expiresAt: 0, inflight: null });
           return data;
         }
-        store.set(key, { data, expiresAt: now + ttlMs, inflight: null });
+        put(key, { data, expiresAt: now + (data.length ? ttlMs : Math.min(ttlMs, 60_000)), inflight: null });
         return data;
       } catch (e) {
         if (!current()) return [];
         if (entry?.data.length) {
           console.warn(`[OSIRIS] ${key} refresh failed — serving ${entry.data.length} cached cameras`);
           // Retry sooner than a full TTL, but don't hammer the failing upstream.
-          store.set(key, { data: entry.data, expiresAt: now + 60_000, inflight: null });
+          put(key, { data: entry.data, expiresAt: now + 60_000, inflight: null });
           return entry.data;
         }
         const detail = e instanceof Error ? e.message : String(e);
         console.warn(`[OSIRIS] ${key} fetch failed with no cache to fall back on: ${detail}`);
-        store.set(key, {
+        put(key, {
           data: [],
           expiresAt: rememberEmpty ? now + 60_000 : 0,
           inflight: null,
+          failed: true,
         });
+        if (throwOnFailure) throw e;
         return [];
       }
     })();
 
-    store.set(key, {
+    put(key, {
       data: entry?.data ?? [],
       expiresAt: entry?.expiresAt ?? 0,
       inflight,
@@ -125,6 +146,7 @@ export function cachedSource<T>(
 export function peekSource<T>(key: string, allowStale = false): T[] | undefined {
   const entry = store.get(key) as Entry<T> | undefined;
   if (!entry || entry.data.length === 0) return undefined;
+  put(key, entry as Entry<unknown>);
   if (allowStale || Date.now() < entry.expiresAt) return entry.data;
   return undefined;
 }
@@ -144,7 +166,7 @@ export function seedSource<T>(key: string, data: T[], ttlMs: number = DEFAULT_TT
   if (!data.length) return;
   const entry = store.get(key);
   if (entry?.inflight) return; // a live fetch already supersedes the snapshot
-  store.set(key, { data, expiresAt: Date.now() + ttlMs, inflight: null } as Entry<unknown>);
+  put(key, { data, expiresAt: Date.now() + ttlMs, inflight: null } as Entry<unknown>);
   evictIfNeeded();
 }
 

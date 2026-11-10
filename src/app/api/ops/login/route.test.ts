@@ -107,6 +107,16 @@ describe("POST /api/ops/login", () => {
     expect(status).toBe(429);
   });
 
+  it("does not write an audit row for each rate-limited attempt", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (let attempt = 0; attempt < 8; attempt += 1) await login({ username: "operator", password: "salah-sekali" });
+    const audited = state.audits.length;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      expect((await login({ username: "operator", password: "salah-sekali" })).status).toBe(429);
+    }
+    expect(state.audits.length).toBe(audited);
+  });
+
   it("caps guesses per account even when every attempt claims a new address", async () => {
     const statuses: number[] = [];
     for (let attempt = 0; attempt < 21; attempt += 1) {
