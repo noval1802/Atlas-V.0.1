@@ -2,13 +2,14 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { writeSnapshot, readSnapshot } from '@/lib/cctv-snapshot';
 import { tmpdir } from 'os';
 import path from 'path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { normalizeCctvToken, updateStoredCctvToken, upsertEnvAssignment } from './cctv-tokens';
 
 describe('cctv token input', () => {
   it('keeps a bare token and strips a cookie prefix or a WFS url', () => {
     expect(normalizeCctvToken('  abc_DEF-123  ')).toBe('abc_DEF-123');
     expect(normalizeCctvToken('access_token=abc_DEF-123')).toBe('abc_DEF-123');
+    expect(normalizeCctvToken('access_token=abc_DEF-123; SERVER=lb-node*')).toBe('abc_DEF-123');
     expect(normalizeCctvToken('https://jid.jasamarga.com/wfs?service=WFS&token=uuid-1&request=GetFeature')).toBe('uuid-1');
   });
 
@@ -41,11 +42,29 @@ describe('cctv token input', () => {
     writeFileSync(file, 'OTHER=keep\nTPT_CCTV_TOKEN=old\nTPT_CCTV_TOKEN=older\n');
     try {
       const result = await updateStoredCctvToken('jakarta', 'access_token=fresh-token', file);
-      expect(result).toEqual({ ok: true });
+      expect(result).toEqual({ ok: true, persisted: true });
       expect(readFileSync(file, 'utf8')).toBe('OTHER=keep\nTPT_CCTV_TOKEN=fresh-token\n');
       expect(process.env.TPT_CCTV_TOKEN).toBe('fresh-token');
     } finally {
       delete process.env.TPT_CCTV_TOKEN;
+      if (previousSnapshot === undefined) delete process.env.OSIRIS_CCTV_SNAPSHOT;
+      else process.env.OSIRIS_CCTV_SNAPSHOT = previousSnapshot;
+    }
+  });
+
+  // Docker has no .env file: the save must still apply instead of failing with a 500.
+  it('applies the token in memory when the env file does not exist', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'cctv-token-'));
+    const previousSnapshot = process.env.OSIRIS_CCTV_SNAPSHOT;
+    process.env.OSIRIS_CCTV_SNAPSHOT = path.join(dir, 'missing-catalog.json');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const result = await updateStoredCctvToken('jasamarga', 'new-token', path.join(dir, '.env'));
+      expect(result).toEqual({ ok: true, persisted: false });
+      expect(process.env.JASAMARGA_WFS_TOKEN).toBe('new-token');
+    } finally {
+      warn.mockRestore();
+      delete process.env.JASAMARGA_WFS_TOKEN;
       if (previousSnapshot === undefined) delete process.env.OSIRIS_CCTV_SNAPSHOT;
       else process.env.OSIRIS_CCTV_SNAPSHOT = previousSnapshot;
     }
@@ -63,7 +82,7 @@ describe('cctv token input', () => {
     });
     try {
       const result = await updateStoredCctvToken('jasamarga', 'new-token', file);
-      expect(result).toEqual({ ok: true });
+      expect(result).toEqual({ ok: true, persisted: true });
       expect(readFileSync(file, 'utf8')).toBe('JASAMARGA_WFS_TOKEN=new-token\n');
       const restored = await readSnapshot();
       expect(restored?.regions.jasamarga).toBeUndefined();

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyKind, normalizePhoton, normalizeNominatim, mergeResults, type GeoResult } from './route';
+import { classifyKind, normalizePhoton, normalizeNominatim, mergeResults, matchTollGates, type GeoResult } from './route';
 
 describe('classifyKind', () => {
   it('separates the kinds the UI gives distinct icons', () => {
@@ -114,5 +114,23 @@ describe('mergeResults', () => {
   it('respects the result limit', () => {
     const many = Array.from({ length: 12 }, (_, i) => hit(`P${i}`, i, i));
     expect(mergeResults(many, [], 8)).toHaveLength(8);
+  });
+});
+
+describe('matchTollGates', () => {
+  const gates = [
+    { name: 'CAWANG', ruas: 'DALKOT', lat: -6.24, lng: 106.87 },
+    { name: 'BEKASI BARAT 1', ruas: 'JAPEK', lat: -6.25, lng: 106.99 },
+    { name: 'BEKASI TIMUR 1', ruas: 'JAPEK', lat: -6.26, lng: 107.02 },
+  ];
+
+  it('matches every word, case-insensitively', () => {
+    expect(matchTollGates(gates, 'bekasi barat').map(r => r.name)).toEqual(['GT BEKASI BARAT 1']);
+    expect(matchTollGates(gates, 'Bekasi')).toHaveLength(2);
+  });
+
+  it('labels the result with its toll road and leaves unknown names empty', () => {
+    expect(matchTollGates(gates, 'cawang')[0]).toMatchObject({ context: 'Tol DALKOT, Jasa Marga', kind: 'poi', source: 'jasamarga', lat: -6.24 });
+    expect(matchTollGates(gates, 'cikupa')).toEqual([]);
   });
 });

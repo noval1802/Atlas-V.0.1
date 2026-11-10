@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   haversine, bearing, destination, polygonArea, ringPerimeter, pathLength,
-  circleToRing, rectToRing, formatDistance, formatArea, compassPoint,
+  circleToRing, rectToRing, formatDistance, formatArea, compassPoint, parseCoordinates,
   EARTH_RADIUS_KM, type LngLat,
 } from './geo';
 
@@ -187,5 +187,30 @@ describe('formatting', () => {
     expect(compassPoint(270)).toBe('W');
     expect(compassPoint(45)).toBe('NE');
     expect(compassPoint(359)).toBe('N');
+  });
+});
+
+describe('parseCoordinates', () => {
+  it('reads decimal pairs', () => {
+    expect(parseCoordinates('-6.2, 106.8')).toEqual({ lat: -6.2, lng: 106.8 });
+    expect(parseCoordinates('-6.2 106.8')).toEqual({ lat: -6.2, lng: 106.8 });
+  });
+
+  it('reads degrees, minutes and seconds with a hemisphere', () => {
+    const p = parseCoordinates(`6°12'30"S 106°49'E`)!;
+    expect(p.lat).toBeCloseTo(-6.2083, 4);
+    expect(p.lng).toBeCloseTo(106.8167, 4);
+  });
+
+  it('reads Indonesian hemispheres in either order', () => {
+    expect(parseCoordinates('6.2 LS 106.8 BT')).toEqual({ lat: -6.2, lng: 106.8 });
+    expect(parseCoordinates('106.8 BT, 6.2 LS')).toEqual({ lat: -6.2, lng: 106.8 });
+    expect(parseCoordinates('2.5 LU 98.6 BT')).toEqual({ lat: 2.5, lng: 98.6 });
+  });
+
+  it('rejects place names and out-of-range values', () => {
+    expect(parseCoordinates('Gerbang Tol Cikupa')).toBeNull();
+    expect(parseCoordinates('95, 106')).toBeNull();
+    expect(parseCoordinates('6.2')).toBeNull();
   });
 });

@@ -131,6 +131,19 @@ model PasswordReset {
   @@index([userId])
 }
 
+/// Sesi TPT (e-Smarteye) terenkripsi. `ciphertext` = AES-256-GCM atas JSON
+/// {accessToken, refreshToken, deviceId}. `refreshHash` hanya untuk
+/// compare-and-swap atomik rotasi token; tidak ada token mentah yang disimpan.
+model TptSession {
+  id          String   @id @default(cuid())
+  sourceId    String   @unique
+  ciphertext  String
+  refreshHash String   @default("")
+  version     Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 /// Jejak autentikasi. Jangan menulis kata sandi, token, atau cookie ke kolom detail.
 model AuthAudit {
   id        String   @id @default(cuid())

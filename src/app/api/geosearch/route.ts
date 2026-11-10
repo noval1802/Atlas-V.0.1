@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { httpJson, optional } from '@/lib/httpJson';
 import { cachedSource } from '@/lib/sourceCache';
 import { nominatim } from '@/lib/nominatim';
+import { fetchTollGates, type TollGate } from '../cctv/jasamarga';
 
 export const maxDuration = 20;
 
@@ -30,7 +31,7 @@ export interface GeoResult {
   lat: number;
   lng: number;
   kind: string;
-  source: 'photon' | 'nominatim';
+  source: 'photon' | 'nominatim' | 'jasamarga';
   /** Nominatim importance, when the hit came from there. Ranking only. */
   score?: number;
 }
@@ -155,6 +156,20 @@ async function searchNominatim(q: string): Promise<GeoResult[]> {
   return (Array.isArray(json) ? json : []).map(normalizeNominatim).filter((r): r is GeoResult => r !== null);
 }
 
+/* OSM names almost no Indonesian toll gates, so "GT Cawang" found nothing.
+   A query that starts with a toll word searches Jasa Marga's gate list first. */
+const TOLL_QUERY = /^(?:gt\.?|gerbang(?:\s+tol)?|tol)\s+(.+)$/i;
+const tollGates = cachedSource<TollGate>('geosearch:toll-gates', fetchTollGates, 24 * 60 * 60 * 1000);
+
+/** Gates whose name holds every word of `term`, as search results. */
+export function matchTollGates(gates: TollGate[], term: string, limit = 5): GeoResult[] {
+  const words = term.toLowerCase().split(/\s+/).filter(Boolean);
+  return gates
+    .filter(g => words.every(w => g.name.toLowerCase().includes(w)))
+    .slice(0, limit)
+    .map(g => ({ name: `GT ${g.name}`, context: g.ruas ? `Tol ${g.ruas}, Jasa Marga` : 'Jasa Marga', lat: g.lat, lng: g.lng, kind: 'poi', source: 'jasamarga' as const }));
+}
+
 /** Photon answers most of what a type-ahead is asked; below this it needs help. */
 const ENOUGH_FROM_PHOTON = 3;
 
@@ -162,6 +177,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get('q') || '').trim();
+    const tollTerm = q.match(TOLL_QUERY)?.[1];
     const lat = parseFloat(searchParams.get('lat') || '');
     const lng = parseFloat(searchParams.get('lng') || '');
 
@@ -179,10 +195,11 @@ export async function GET(request: Request) {
         /* Photon leads and usually suffices. Nominatim is asked only when
            Photon comes back thin, because its public instance allows one
            request a second for everyone using it — see lib/nominatim.ts. */
-        const photon = (await optional(searchPhoton(q, lat, lng))) || [];
-        if (photon.length >= ENOUGH_FROM_PHOTON) return mergeResults(photon, []);
-        const supplement = (await optional(searchNominatim(q))) || [];
-        return mergeResults(photon, supplement);
+        const gates = tollTerm ? matchTollGates((await optional(tollGates())) || [], tollTerm) : [];
+        const photon = (await optional(searchPhoton(tollTerm ?? q, lat, lng))) || [];
+        if (photon.length + gates.length >= ENOUGH_FROM_PHOTON) return mergeResults([...gates, ...photon], []);
+        const supplement = (await optional(searchNominatim(tollTerm ?? q))) || [];
+        return mergeResults([...gates, ...photon], supplement);
       },
       10 * 60 * 1000,
     )();

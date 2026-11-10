@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { canManageUsers } from '@/lib/ops/access';
 import { currentUser } from '@/lib/ops/current-user';
+import { requestIp, writeAudit } from '@/lib/ops/audit';
 import { cctvTokenSource, listCctvTokenStatus, updateStoredCctvToken } from '@/lib/cctv-tokens';
 import { clearTptIndex } from '../tpt';
+import { clearFlussonicToken } from '../tpt-flussonic';
 import { releaseCctvRegion } from '../route';
 
 export const dynamic = 'force-dynamic';
@@ -29,11 +31,21 @@ export async function POST(request: Request) {
   const source = cctvTokenSource(id);
   if (!source) return NextResponse.json({ error: 'Sumber token tidak dikenal.' }, { status: 400 });
 
-  const saved = await updateStoredCctvToken(id, body.token);
-  if (!saved.ok) return NextResponse.json({ error: saved.error }, { status: 400 });
+  let saved: Awaited<ReturnType<typeof updateStoredCctvToken>>;
+  try {
+    saved = await updateStoredCctvToken(id, body.token);
+  } catch (error) {
+    console.error(`[OSIRIS] CCTV token update failed: ${source.id}`, error);
+    await writeAudit({ action: 'cctv_token_update', result: 'error', actorId: user.id, ip: requestIp(request), detail: source.id });
+    return NextResponse.json({ error: 'Token gagal disimpan.' }, { status: 500 });
+  }
+  if (!saved.ok) {
+    await writeAudit({ action: 'cctv_token_update', result: 'rejected', actorId: user.id, ip: requestIp(request), detail: source.id });
+    return NextResponse.json({ error: saved.error }, { status: 400 });
+  }
 
-  if (source.id === 'jakarta') clearTptIndex();
+  if (source.id === 'jakarta') { clearTptIndex(); clearFlussonicToken(); }
   releaseCctvRegion(source.region);
-  console.info(`[OSIRIS] CCTV token updated: ${source.id}`);
-  return NextResponse.json({ ok: true, id: source.id });
+  await writeAudit({ action: 'cctv_token_update', result: saved.persisted ? 'ok' : 'memory_only', actorId: user.id, ip: requestIp(request), detail: source.id });
+  return NextResponse.json({ ok: true, id: source.id, persisted: saved.persisted });
 }

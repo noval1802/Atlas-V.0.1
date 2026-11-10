@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, X, MapPin, Navigation, Building2, Globe2, Landmark } from 'lucide-react';
+import { parseCoordinates } from '@/lib/geo';
 
 /* ═══════════════════════════════════════════════════════════════
    OSIRIS — Enhanced Search / Locate Bar
@@ -114,20 +115,12 @@ export default function SearchBar({ onLocate, alwaysExpanded = false, center = n
     return () => document.removeEventListener('mousedown', handler);
   }, [open, alwaysExpanded]);
 
-  const parseCoords = (s: string): { lat: number; lng: number } | null => {
-    const m = s.trim().match(/^([+-]?\d+\.?\d*)[,\s]+([+-]?\d+\.?\d*)$/);
-    if (!m) return null;
-    const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
-    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return { lat, lng };
-    return null;
-  };
-
   const handleSearch = useCallback(async (q: string) => {
     setValue(q);
     setSelectedIdx(-1);
 
     // Direct coordinate input
-    const coords = parseCoords(q);
+    const coords = parseCoordinates(q);
     if (coords) {
       setResults([{
         label: `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
@@ -242,7 +235,7 @@ export default function SearchBar({ onLocate, alwaysExpanded = false, center = n
           value={value}
           onChange={(e) => handleSearch(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="SEARCH ADDRESS, CITY, OR COORDINATES..."
+          placeholder="KOTA, JALAN, GERBANG TOL, ATAU KOORDINAT..."
           className="flex-1 bg-transparent text-[11px] text-[var(--text-primary)] font-mono tracking-wider outline-none placeholder:text-[var(--text-muted)]"
           autoComplete="off"
           spellCheck={false}

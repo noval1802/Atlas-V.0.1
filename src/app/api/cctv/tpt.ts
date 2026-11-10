@@ -1,4 +1,7 @@
 import type { CctvCamera, CctvStreamType } from './types';
+import { getTptAccessToken } from '@/lib/tpt-vault';
+import { isIP } from 'node:net';
+import { isPublicIp } from '@/lib/ssrf-guard';
 
 /**
  * Jakarta TPT cameras from `https://api.e-smarteye.com/api/releases/tpt_cctv/`.
@@ -167,7 +170,7 @@ async function loadIndex(): Promise<Index | null> {
 
 async function readIndex(): Promise<Index | null> {
   const epoch = indexEpoch;
-  const token = process.env.TPT_CCTV_TOKEN;
+  const token = await getTptAccessToken();
   if (!token) return index;
   const response = await fetch(LIST_URL, {
     headers: {
@@ -194,15 +197,11 @@ async function readIndex(): Promise<Index | null> {
   return index;
 }
 
+/** Literal private addresses are dropped at map time; hostnames are checked again at fetch time by safeFetch. */
 function isPrivateHost(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (host === 'localhost' || host.endsWith('.local')) return true;
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!match) return false;
-  const octets = match.slice(1).map(Number);
-  if (octets.some(part => part > 255)) return true;
-  const [a, b] = octets;
-  return a === 10 || a === 127 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || a === 0;
+  return isIP(host) !== 0 && !isPublicIp(host);
 }
 
 function text(value: unknown): string {

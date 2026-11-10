@@ -59,6 +59,10 @@ describe('TPT cameras', () => {
     });
     expect(mapped?.camera.stream_url).toBeUndefined();
     expect(JSON.stringify(mapped).includes('10.17')).toBe(false);
+    for (const host of ['169.254.169.254', '100.64.0.1', '[::1]', '[fd00::1]']) {
+      const row = { id: 'local2', lat: -6.2, lng: 106.8, link_embed: `http://${host}/embed.html` };
+      expect(tptCamera(row)?.camera.stream_url, host).toBeUndefined();
+    }
   });
 
   it('rewrites playlist entries onto this server and drops the session query', () => {

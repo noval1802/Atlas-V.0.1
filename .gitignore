@@ -76,3 +76,6 @@ nginx/certs/
 
 # Database dumps written by the osiris-backup service (BACKUP_PATH).
 backups/
+
+# Pentest reports stay local: this repo is public.
+docs/security/pentest-*.md

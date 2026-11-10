@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, List, Map, PanelLeftClose, PanelLeftOpen, Users } from "lucide-react";
 import { PortalMenu } from "@/components/ops/portal-menu";
+import { AtlasChat } from "@/components/ops/atlas-chat";
 import { OperatorBoard, type SituationRow } from "@/app/(id)/operator/operator-board";
 import {
   filterSituations,
@@ -481,6 +482,7 @@ export function OperatorDashboard({
           </main>
         </div>
       </div>
+      <AtlasChat />
     </div>
   );
 }

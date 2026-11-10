@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
+import { safeFetch } from '@/lib/ssrf-guard';
 import { rewriteTptPlaylist, safeMediaPath, tptEmbedUrl } from '../../tpt';
+import { getFlussonicStreamToken } from '../../tpt-flussonic';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Plays one TPT Flussonic camera without putting the portal session in the
  * browser. `file` is a path inside that camera's own directory.
+ *
+ * Flussonic rejects the portal access token; it needs a short-lived stream
+ * token minted from it (see tpt-flussonic.ts).
  */
 export async function GET(request: Request) {
-  const token = process.env.TPT_CCTV_TOKEN;
+  const token = await getFlussonicStreamToken();
   if (!token) return NextResponse.json({ error: 'TPT CCTV is not configured' }, { status: 404 });
 
   const { searchParams } = new URL(request.url);
@@ -37,11 +42,16 @@ export async function GET(request: Request) {
   }
   target.searchParams.set('token', token);
 
-  const upstream = await fetch(target, {
-    headers: { Accept: '*/*', 'User-Agent': 'Mozilla/5.0' },
-    signal: AbortSignal.timeout(20_000),
-    cache: 'no-store',
-  });
+  // The embed host comes from upstream data, so every hop must resolve to a public address.
+  let upstream: Response;
+  try {
+    upstream = await safeFetch(target.toString(), {
+      headers: { Accept: '*/*', 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch {
+    return NextResponse.json({ error: 'Camera unavailable' }, { status: 502 });
+  }
   if (!upstream.ok || !upstream.body) {
     return NextResponse.json({ error: 'Camera unavailable' }, { status: 502 });
   }

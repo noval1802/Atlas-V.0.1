@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone Node utility scripts, not part of the Next app build. They use
+    // CommonJS (require) legitimately, so the app's browser/TS rules don't apply.
+    "scratch/**",
+    "intel/**",
   ]),
 ]);
 

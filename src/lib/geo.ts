@@ -172,3 +172,25 @@ export function compassPoint(deg: number): string {
   const points = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
   return points[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
 }
+
+/* One coordinate: decimal or degrees°minutes'seconds", optionally with a
+   hemisphere — N/S/E/W or the Indonesian LU/LS/BT/BB. */
+const COORD_PART = String.raw`([+-]?\d+(?:\.\d+)?)\s*°?\s*(?:(\d+(?:\.\d+)?)\s*['′]\s*)?(?:(\d+(?:\.\d+)?)\s*(?:["″]|'')\s*)?(LU|LS|BT|BB|[NSEW])?`;
+const COORD_PAIR = new RegExp(`^${COORD_PART}\\s*[,;\\s]\\s*${COORD_PART}$`, 'i');
+
+/** "-6.2, 106.8", "6°12'30\"S 106°49'E" or "6.2 LS 106.8 BT" as a point; null otherwise. */
+export function parseCoordinates(s: string): { lat: number; lng: number } | null {
+  const m = s.trim().match(COORD_PAIR);
+  if (!m) return null;
+  const part = (deg: string, min?: string, sec?: string, hemi?: string) => {
+    const value = Math.abs(parseFloat(deg)) + (min ? parseFloat(min) / 60 : 0) + (sec ? parseFloat(sec) / 3600 : 0);
+    const h = hemi?.toUpperCase();
+    const negative = deg.startsWith('-') || h === 'S' || h === 'LS' || h === 'W' || h === 'BB';
+    return { value: negative ? -value : value, isLng: h === 'E' || h === 'W' || h === 'BT' || h === 'BB' };
+  };
+  let a = part(m[1], m[2], m[3], m[4]);
+  let b = part(m[5], m[6], m[7], m[8]);
+  if (a.isLng && !b.isLng) [a, b] = [b, a]; // "106.8 BT 6.2 LS"
+  if (Math.abs(a.value) > 90 || Math.abs(b.value) > 180) return null;
+  return { lat: a.value, lng: b.value };
+}

@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
     const response = await fetch(targetUrl.toString(), { signal: AbortSignal.timeout(15000),
       headers: {
         'Accept': '*/*',
-        'User-Agent': 'Osiris-Tile-Proxy/1.0',
+        // CARTO's basemap CDN 403s unknown User-Agents; it serves browser traffic.
+        'User-Agent': 'Mozilla/5.0',
       },
       // Using Next.js fetch cache options to heavily cache tiles locally
       next: {

@@ -3,8 +3,8 @@ import { stealthFetch } from '@/lib/stealthFetch';
 
 /**
  * Jasa Marga toll layers from JID WFS: the CCTV layers, variable-message
- * signs (`shp:vms`), and kilometre posts (`shp:batas_km`). `shp:gerbang`
- * is the toll-gate inventory and is not requested.
+ * signs (`shp:vms`), and kilometre posts (`shp:batas_km`). `shp:gerbang`,
+ * the toll-gate inventory, feeds location search instead (fetchTollGates).
  *
  * The layer token stays on the server. Per-camera session tokens and encoder
  * addresses stay there too. A picture is the public HLS playlist, a public
@@ -155,7 +155,7 @@ function mapFeature(feature: Feature, typeName: (typeof LAYERS)[number]): CctvCa
   return jasamargaCamera(feature, typeName.replace('shp:cctv_', ''));
 }
 
-async function fetchLayer(token: string, typeName: (typeof LAYERS)[number]): Promise<CctvCamera[]> {
+async function wfsFeatures(token: string, typeName: string): Promise<Feature[]> {
   const url = new URL(WFS);
   url.searchParams.set('CQL_FILTER', ' ');
   url.searchParams.set('service', 'WFS');
@@ -173,8 +173,12 @@ async function fetchLayer(token: string, typeName: (typeof LAYERS)[number]): Pro
   });
   if (!response.ok) throw new Error(`${typeName} HTTP ${response.status}`);
   const body = await response.json() as { features?: Feature[] };
+  return body.features ?? [];
+}
+
+async function fetchLayer(token: string, typeName: (typeof LAYERS)[number]): Promise<CctvCamera[]> {
   const cameras: CctvCamera[] = [];
-  for (const feature of body.features ?? []) {
+  for (const feature of await wfsFeatures(token, typeName)) {
     const camera = mapFeature(feature, typeName);
     if (camera) cameras.push(camera);
   }
@@ -193,4 +197,24 @@ export async function fetchJasamargaCameras(): Promise<CctvCamera[]> {
     }
   }));
   return batches.flat();
+}
+
+export interface TollGate {
+  name: string;
+  ruas: string;
+  lat: number;
+  lng: number;
+}
+
+/** Jasa Marga's toll gates, for "GT Cawang"-style searches. */
+export async function fetchTollGates(): Promise<TollGate[]> {
+  const token = process.env.JASAMARGA_WFS_TOKEN;
+  if (!token) return [];
+  const gates: TollGate[] = [];
+  for (const feature of await wfsFeatures(token, 'shp:gerbang')) {
+    const point = pointInIndonesia(feature);
+    const name = text(feature.properties?.nama_gerbang);
+    if (point && name) gates.push({ name, ruas: text(feature.properties?.nama_ruas), ...point });
+  }
+  return gates;
 }
