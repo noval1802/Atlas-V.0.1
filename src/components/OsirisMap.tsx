@@ -27,7 +27,7 @@ import type { ActiveLayers } from '@/lib/layer-feeds';
 import { type AlertPinReport, type FlightRow, type MapData, type SatellitePoint } from '@/lib/map-data';
 import type { VolcanoReport } from '@/lib/magma';
 import {
-  clickedProperties, pointCoordinates,
+  clickedProperties, pointCoordinates, earthquakeProperties, formatWib, QUAKE_LABEL_MAX_AGE_H,
   type BalloonPopup, type CameraPopup, type ChokePopup,
   type EarthquakePopup, type FirePopup, type VolcanoPopup, type FlightPopup,
   type GdeltEventPopup, type IncidentPopup, type KotamaopsPopup, type NewsPopup,
@@ -464,13 +464,15 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
       map.addLayer({ id: 'day-night-fill', type: 'fill', source: 'day-night', paint: { 'fill-color': isGhost ? '#0D0030' : '#000022', 'fill-opacity': 0.35 }});
 
-      // Earthquakes — amber threat spectrum
+      // Earthquakes — amber threat spectrum. Opacity falls with age (age_h): BMKG's
+      // M5+ list can hold quakes weeks old, which must not read as current.
+      const quakeFade: maplibregl.ExpressionSpecification = ['interpolate',['linear'],['get','age_h'], 0,1, 24,0.7, 168,0.35, 720,0.15];
       map.addLayer({ id: 'eq-circles', type: 'circle', source: 'earthquakes', paint: {
         'circle-radius': ['interpolate',['linear'],['get','magnitude'], 2.5,4, 5,12, 7,24],
         'circle-color': ['interpolate',['linear'],['get','magnitude'], 2.5,'#F9A825', 4,'#E65100', 6,'#D32F2F'],
-        'circle-opacity': 0.55, 'circle-blur': 0.3, 'circle-stroke-width': 1, 'circle-stroke-color': '#F9A825', 'circle-stroke-opacity': 0.25,
+        'circle-opacity': ['*', 0.6, quakeFade], 'circle-blur': 0.3, 'circle-stroke-width': 1, 'circle-stroke-color': '#F9A825', 'circle-stroke-opacity': ['*', 0.35, quakeFade],
       }});
-      map.addLayer({ id: 'eq-label', type: 'symbol', source: 'earthquakes', filter: ['>=',['get','magnitude'],4.5], layout: {
+      map.addLayer({ id: 'eq-label', type: 'symbol', source: 'earthquakes', filter: ['all', ['>=',['get','magnitude'],4.5], ['<',['get','age_h'],QUAKE_LABEL_MAX_AGE_H]], layout: {
         'text-field': ['concat','M',['to-string',['get','magnitude']]], 'text-size': 9, 'text-font': ['Open Sans Regular'], 'text-offset': [0,1.5],
       }, paint: { 'text-color': '#F9A825', 'text-halo-color': '#000', 'text-halo-width': 1 }});
 
@@ -1095,6 +1097,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       popup(coords, `<div style="${pStyle}border:1px solid rgba(255,149,0,0.3);">
         <div style="color:#FF9500;font-size:14px;font-weight:700;margin-bottom:4px;">M${htmlEsc(String(p.magnitude ?? ''))} EARTHQUAKE</div>
         <div style="font-size:9px;color:#E8E6E0;margin-bottom:8px;">${htmlEsc(p.place||'Unknown location')}</div>
+        <div style="font-size:9px;margin-bottom:6px;"><span style="color:#5C5A54;">TIME</span><br/><span style="color:#E8E6E0;">${typeof p.time === 'number' ? `${htmlEsc(formatWib(p.time))} · ${htmlEsc(timeAgo(p.time))}` : 'unknown'}</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9px;">
           <div><span style="color:#5C5A54;">DEPTH</span><br/><span style="color:#E8E6E0;">${htmlEsc(String(p.depth||'—'))}km</span></div>
           <div><span style="color:#5C5A54;">COORDS</span><br/><span style="color:#E8E6E0;">${coords[1].toFixed(3)}, ${coords[0].toFixed(3)}</span></div>
@@ -1666,7 +1669,8 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
   useEffect(() => {
     if (!mapReady) return;
-    setGeo('earthquakes', activeLayers.earthquakes && data.earthquakes ? data.earthquakes.map(eq => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [eq.lng, eq.lat] }, properties: { id: eq.id, magnitude: eq.magnitude, place: eq.place, depth: eq.depth, source: eq.source } })) : []);
+    const now = Date.now();
+    setGeo('earthquakes', activeLayers.earthquakes && data.earthquakes ? data.earthquakes.map(eq => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [eq.lng, eq.lat] }, properties: earthquakeProperties(eq, now) })) : []);
   }, [mapReady, data.earthquakes, activeLayers.earthquakes, setGeo]);
 
   useEffect(() => {

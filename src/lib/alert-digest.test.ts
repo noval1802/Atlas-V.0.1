@@ -94,6 +94,21 @@ describe('buildThreads', () => {
 });
 
 describe('buildAlertBrief', () => {
+  /* BMKG's M5+ list reaches back weeks; a stale big quake must not be named as the headline. */
+  it('names the strongest recent quake, not a bigger one from weeks ago, and states its age', () => {
+    const brief = buildAlertBrief({ news: [], earthquakes: [
+      { magnitude: 7.1, place: 'Banda Sea', time: NOW - 18 * 86_400_000 },
+      { magnitude: 5.4, place: 'Selatan Jawa', time: NOW - 3 * 3_600_000 },
+    ] }, NOW);
+    expect(brief.seismic?.strongest).toMatchObject({ magnitude: 5.4, place: 'Selatan Jawa' });
+    expect(brief.bottomLine).toContain('Strongest quake: M5.4 Selatan Jawa (3h ago).');
+  });
+
+  it('falls back to an old quake only when nothing recent exists, with its age', () => {
+    const brief = buildAlertBrief({ news: [], earthquakes: [{ magnitude: 6.0, place: 'Laut Maluku', time: NOW - 18 * 86_400_000 }] }, NOW);
+    expect(brief.bottomLine).toContain('Strongest quake: M6.0 Laut Maluku (18d ago).');
+  });
+
   it('states the leading theatre and its sourcing in the bottom line', () => {
     const brief = buildAlertBrief({
       news: [
@@ -109,7 +124,7 @@ describe('buildAlertBrief', () => {
 
     expect(brief.bottomLine).toBe(
       'Russia–Ukraine war leads the feed: 2 reports from 2 channels, carried by both Western and Russian-aligned channels.'
-      + ' Also active: Yemen & Red Sea (1). Strongest quake: M6.2 80 km S of Kuril.',
+      + ' Also active: Yemen & Red Sea (1). Strongest quake: M6.2 80 km S of Kuril (2h ago).',
     );
     expect(brief.coverage).toMatchObject({ reports: 3, breaking: 1, corroborated: 1 });
     expect(brief.seismic).toMatchObject({ count: 2, significant: 1, strongest: { magnitude: 6.2, tsunami: true } });

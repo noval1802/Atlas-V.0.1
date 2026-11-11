@@ -56,6 +56,43 @@ export interface EarthquakePopup extends Record<string, unknown> {
   place?: string;
   depth?: number | string;
   source?: string;
+  url?: string;
+  /** Epoch ms of the event; null when the feed gave none. */
+  time?: number | null;
+}
+
+/** BMKG's "latest M5+" list can hold quakes weeks old; past this age a quake gets no magnitude label. */
+export const QUAKE_LABEL_MAX_AGE_H = 72;
+
+/**
+ * Map properties for one quake. `age_h` drives the circle fade and the label
+ * cut-off, so an old event can no longer look like a new one. A quake with no
+ * time is treated as old (fully faded, unlabelled) rather than as current.
+ */
+export function earthquakeProperties(
+  eq: { id?: string; magnitude?: number; place?: string; depth?: number; source?: string; url?: string; time?: number },
+  now: number,
+) {
+  const time = typeof eq.time === 'number' && Number.isFinite(eq.time) ? eq.time : null;
+  return {
+    id: eq.id,
+    magnitude: eq.magnitude,
+    place: eq.place,
+    depth: eq.depth,
+    source: eq.source,
+    url: eq.url,
+    time,
+    age_h: time == null ? 9999 : Math.max(0, (now - time) / 3_600_000),
+  };
+}
+
+const WIB = new Intl.DateTimeFormat('id-ID', {
+  timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+});
+
+/** "10 Nov 2026 14.32 WIB" — the time zone Pusdalops reads in. */
+export function formatWib(ms: number): string {
+  return `${WIB.format(ms)} WIB`;
 }
 
 export interface VolcanoPopup extends Record<string, unknown> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clickedProperties, pointCoordinates, type FlightPopup, htmlEsc, urlSafe } from './map-popup';
+import { clickedProperties, earthquakeProperties, formatWib, pointCoordinates, type FlightPopup, htmlEsc, urlSafe } from './map-popup';
 
 describe('pointCoordinates', () => {
   it('reads a point as longitude then latitude', () => {
@@ -46,5 +46,22 @@ describe('popup escaping', () => {
     for (const url of ['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,x', ' https://x', '', undefined]) {
       expect(urlSafe(url)).toBe('#');
     }
+  });
+});
+
+describe('earthquakeProperties', () => {
+  const now = Date.UTC(2026, 10, 11, 6, 0);
+  it('carries the event time and its age in hours so the map can fade old quakes', () => {
+    const p = earthquakeProperties({ id: 'q1', magnitude: 5.2, time: now - 3 * 3_600_000 }, now);
+    expect(p.time).toBe(now - 3 * 3_600_000);
+    expect(p.age_h).toBeCloseTo(3);
+  });
+
+  it('treats a quake with no time as old, never as current', () => {
+    expect(earthquakeProperties({ magnitude: 6 }, now)).toMatchObject({ time: null, age_h: 9999 });
+  });
+
+  it('formats the time in WIB', () => {
+    expect(formatWib(Date.UTC(2026, 10, 11, 7, 32))).toMatch(/11 Nov 2026.*14.32 WIB$/);
   });
 });

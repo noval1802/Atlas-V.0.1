@@ -395,7 +395,11 @@ export function buildAlertBrief({ news, earthquakes }: BriefInput, now = Date.no
 
   let seismic: AlertBrief['seismic'] = null;
   if (quakes.length) {
-    const top = [...quakes].sort((a, b) => (b.magnitude as number) - (a.magnitude as number))[0];
+    /* BMKG's M5+ list can reach back weeks, so prefer the strongest of the last
+       72 hours; an older one is named only when nothing recent exists, and the
+       bottom line then states its age. */
+    const recent = quakes.filter(q => { const t = toMs(q.time ?? null); return t != null && now - t <= 72 * 3_600_000; });
+    const top = [...(recent.length ? recent : quakes)].sort((a, b) => (b.magnitude as number) - (a.magnitude as number))[0];
     const at = toMs(top.time ?? null);
     seismic = {
       count: quakes.length,
@@ -445,7 +449,8 @@ export function buildAlertBrief({ news, earthquakes }: BriefInput, now = Date.no
     bottomLine = 'No news reports in the current feed window.';
   }
   if (seismic?.strongest && seismic.strongest.magnitude >= 5) {
-    bottomLine += ` Strongest quake: M${seismic.strongest.magnitude.toFixed(1)} ${seismic.strongest.place}.`;
+    const age = timeAgo(seismic.strongest.time, now);
+    bottomLine += ` Strongest quake: M${seismic.strongest.magnitude.toFixed(1)} ${seismic.strongest.place}${age ? ` (${age})` : ''}.`;
   }
 
   return {
