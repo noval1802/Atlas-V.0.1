@@ -204,8 +204,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': type,
         'X-Content-Type-Options': 'nosniff',
-        // Belt and braces: even if a browser rendered this as a document, it gets no script and no origin.
-        'Content-Security-Policy': "default-src 'none'; sandbox",
+        // Sandbox CSP for this route lives in next.config.ts (a route-level one is overridden there).
         'Cache-Control': 'public, max-age=5, stale-while-revalidate=10',
         'Access-Control-Allow-Origin': '*',
       },

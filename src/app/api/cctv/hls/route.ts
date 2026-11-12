@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { safeFetch } from '@/lib/ssrf-guard';
+import { mediaHeaders } from '@/lib/media-proxy';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,10 +79,10 @@ export async function GET(request: Request) {
   if (target.pathname.endsWith('.m3u8') || type.includes('mpegurl') || type.includes('m3u8')) {
     const playlist = rewriteHlsPlaylist(await upstream.text(), target);
     return new NextResponse(playlist, {
-      headers: { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' },
+      headers: mediaHeaders('application/vnd.apple.mpegurl'),
     });
   }
   return new NextResponse(upstream.body, {
-    headers: { 'Content-Type': type || 'video/mp2t', 'Cache-Control': 'no-store' },
+    headers: mediaHeaders(type),
   });
 }

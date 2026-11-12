@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { safeFetch } from '@/lib/ssrf-guard';
+import { mediaHeaders } from '@/lib/media-proxy';
 import { rewriteTptPlaylist, safeMediaPath, tptEmbedUrl } from '../../tpt';
 import { getFlussonicStreamToken } from '../../tpt-flussonic';
 
@@ -60,17 +61,11 @@ export async function GET(request: Request) {
   if (safeFile.endsWith('.m3u8') || type.includes('mpegurl') || type.includes('m3u8')) {
     const playlist = rewriteTptPlaylist(await upstream.text(), id, safeFile);
     return new NextResponse(playlist, {
-      headers: {
-        'Content-Type': 'application/vnd.apple.mpegurl',
-        'Cache-Control': 'no-store',
-      },
+      headers: mediaHeaders('application/vnd.apple.mpegurl'),
     });
   }
 
   return new NextResponse(upstream.body, {
-    headers: {
-      'Content-Type': type || 'video/mp2t',
-      'Cache-Control': 'no-store',
-    },
+    headers: mediaHeaders(type),
   });
 }

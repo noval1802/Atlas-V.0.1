@@ -88,6 +88,14 @@ const nextConfig: NextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
         ],
       },
+      /* Proxies relay bytes from third-party servers. Listed last so this CSP replaces
+         the page one above (the last matching rule wins; src/lib/next-config.test.ts pins it):
+         if a browser ever rendered a relayed response as a document, it gets no
+         script and no origin. */
+      ...['/api/cctv/hls', '/api/cctv/tpt/media', '/api/cctv/proxy', '/api/proxy-tiles'].map(source => ({
+        source,
+        headers: [{ key: 'Content-Security-Policy', value: "default-src 'none'; sandbox" }],
+      })),
     ];
   },
 };

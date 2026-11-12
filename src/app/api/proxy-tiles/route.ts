@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isCartoTileUrl } from '@/lib/tile-proxy';
 
+const TILE_TYPE = /^(image\/(png|jpeg|webp)|application\/(x-protobuf|vnd\.mapbox-vector-tile|json|octet-stream))$/;
+
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get('url');
 
@@ -35,8 +37,9 @@ export async function GET(request: NextRequest) {
 
     const data = await response.arrayBuffer();
     
-    // Forward the content-type from the upstream response
-    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    // Only tile, glyph and sprite types pass; anything else (HTML, SVG) goes out as opaque bytes.
+    const upstreamType = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+    const contentType = TILE_TYPE.test(upstreamType) ? upstreamType : 'application/octet-stream';
 
     return new NextResponse(data, {
       status: 200,

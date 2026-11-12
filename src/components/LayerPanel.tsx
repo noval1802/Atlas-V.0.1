@@ -70,59 +70,59 @@ const LAYER_GROUPS: LayerGroupDef[] = [
   },
   {
     label: 'MARITIME',
-    fullLabel: 'MARITIME',
+    fullLabel: 'MARITIM',
     icon: Ship,
     layers: [
-      { key: 'maritime', label: 'Maritime / Naval', dataKey: 'maritime_ships,maritime_ports,maritime_chokepoints' },
+      { key: 'maritime', label: 'Kapal & Pelabuhan', dataKey: 'maritime_ships,maritime_ports,maritime_chokepoints' },
     ],
   },
   {
     label: 'SURVEIL',
-    fullLabel: 'SURVEILLANCE',
+    fullLabel: 'PEMANTAUAN CCTV',
     icon: Camera,
     layers: [
-      { key: 'cctv_previews', label: 'Live Previews', dataKey: '', enabledBy: ['cctv', 'cctv_jm', 'cctv_jakarta', 'cctv_global'] },
+      { key: 'cctv_previews', label: 'Pratinjau Langsung', dataKey: '', enabledBy: ['cctv', 'cctv_jm', 'cctv_jakarta', 'cctv_global'] },
       { key: 'cctv_global', label: 'GLOBAL', dataKey: 'cameras', match: isGlobalCamera, indent: true },
       { key: 'cctv_jm', label: 'CCTV TOL', dataKey: 'cameras', match: isTollCamera, indent: true },
       { key: 'cctv', label: 'CCTV KOTA', dataKey: 'cameras', match: c => !isGlobalCamera(c) && !isTollCamera(c) && !isTptCamera(c), indent: true },
       { key: 'cctv_jakarta', label: 'CCTV JAKARTA', dataKey: 'cameras', source: 'TPT CCTV', indent: true },
-      { key: 'live_news', label: 'Live News Feeds', dataKey: 'live_feeds', indent: true },
+      { key: 'live_news', label: 'Siaran Berita Langsung', dataKey: 'live_feeds', indent: true },
     ],
   },
   {
     label: 'HAZARD',
-    fullLabel: 'NATURAL HAZARDS',
+    fullLabel: 'BENCANA ALAM',
     icon: CloudLightning,
     layers: [
-      { key: 'earthquakes', label: 'Earthquakes', dataKey: 'earthquakes' },
-      { key: 'fires', label: 'Active Fires', dataKey: 'fires' },
+      { key: 'earthquakes', label: 'Gempa Bumi', dataKey: 'earthquakes' },
+      { key: 'fires', label: 'Titik Api', dataKey: 'fires' },
       { key: 'volcanoes', label: 'Gunung Api (MAGMA)', dataKey: 'volcanoes' },
       { key: 'volcano_l1', label: 'Level I · Normal', dataKey: 'volcanoes', parent: 'volcanoes', match: volcanoAt(1) },
       { key: 'volcano_l2', label: 'Level II · Waspada', dataKey: 'volcanoes', parent: 'volcanoes', match: volcanoAt(2) },
       { key: 'volcano_l3', label: 'Level III · Siaga', dataKey: 'volcanoes', parent: 'volcanoes', match: volcanoAt(3) },
       { key: 'volcano_l4', label: 'Level IV · Awas', dataKey: 'volcanoes', parent: 'volcanoes', match: volcanoAt(4) },
       { key: 'volcano_erupt', label: 'Erupsi', description: 'Sedang erupsi, apa pun levelnya', dataKey: 'volcanoes', parent: 'volcanoes', match: v => v.erupting === true },
-      { key: 'weather', label: 'Severe Weather', dataKey: 'weather_events' },
+      { key: 'weather', label: 'Cuaca Ekstrem', dataKey: 'weather_events' },
     ],
   },
   {
     label: 'THREAT',
-    fullLabel: 'THREATS & INTEL',
+    fullLabel: 'ANCAMAN & INTELIJEN',
     icon: AlertTriangle,
     layers: [
-      { key: 'global_incidents', label: 'Global Incidents', dataKey: 'gdelt' },
-      { key: 'alert_pins', label: 'Live Alert Pins', dataKey: 'alert_pins' },
-      { key: 'gdelt_events', label: 'GDELT Events', dataKey: 'gdelt_events' },
+      { key: 'global_incidents', label: 'Insiden Global', dataKey: 'gdelt' },
+      { key: 'alert_pins', label: 'Pin Peringatan Langsung', dataKey: 'alert_pins' },
+      { key: 'gdelt_events', label: 'Peristiwa GDELT', dataKey: 'gdelt_events' },
     ],
   },
   {
     label: 'DISPLAY',
-    fullLabel: 'DISPLAY',
+    fullLabel: 'TAMPILAN',
     icon: Sun,
     layers: [
-      { key: 'day_night', label: 'Day / Night Cycle', dataKey: '' },
-      { key: 'terrain_3d', label: '3D Buildings', description: 'City detail · zoom 14.5+', dataKey: '' },
-      { key: 'terrain_elevation', label: '3D Terrain', description: 'Mountains · zoom 10+', dataKey: '' },
+      { key: 'day_night', label: 'Siang / Malam', dataKey: '' },
+      { key: 'terrain_3d', label: 'Gedung 3D', description: 'Detail kota · zoom 14.5+', dataKey: '' },
+      { key: 'terrain_elevation', label: 'Relief 3D', description: 'Pegunungan · zoom 10+', dataKey: '' },
     ],
   },
 ];
@@ -198,11 +198,11 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
   };
   const terrainDetails = activeLayers.terrain_elevation ? (
     <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] p-2.5 text-[10px] text-white/60">
-      <p role="status">{terrainStatus === 'idle' ? `Terrain at zoom ${TERRAIN_MIN_ZOOM}+ · zoom in` : terrainStatus === 'waiting' ? 'Terrain starts when you stop moving' : terrainStatus === 'loading' ? 'Loading nearby terrain…' : terrainStatus === 'error' ? 'Terrain unavailable; the map is still usable.' : 'Terrain on'}</p>
-      {terrainStatus === 'idle' && <button type="button" onClick={onTerrainFocus} className="mt-2 min-h-8 rounded border border-white/15 px-2 text-[var(--gold-primary)] hover:bg-white/10">Zoom to terrain</button>}
-      {terrainStatus === 'error' && <button type="button" onClick={onTerrainRetry} className="mt-2 min-h-8 rounded border border-white/15 px-2 text-[var(--gold-primary)] hover:bg-white/10">Retry terrain</button>}
+      <p role="status">{terrainStatus === 'idle' ? `Relief muncul di zoom ${TERRAIN_MIN_ZOOM}+ · perbesar peta` : terrainStatus === 'waiting' ? 'Relief dimuat saat peta berhenti bergerak' : terrainStatus === 'loading' ? 'Memuat relief di sekitar…' : terrainStatus === 'error' ? 'Relief tidak tersedia; peta tetap bisa dipakai.' : 'Relief aktif'}</p>
+      {terrainStatus === 'idle' && <button type="button" onClick={onTerrainFocus} className="mt-2 min-h-8 rounded border border-white/15 px-2 text-[var(--gold-primary)] hover:bg-white/10">Perbesar ke relief</button>}
+      {terrainStatus === 'error' && <button type="button" onClick={onTerrainRetry} className="mt-2 min-h-8 rounded border border-white/15 px-2 text-[var(--gold-primary)] hover:bg-white/10">Coba lagi</button>}
       <p className="mt-2 text-white/35">Nearby detail only · cached tiles</p>
-      <a className="mt-1 inline-block underline underline-offset-2" href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener noreferrer">Terrain credits</a>
+      <a className="mt-1 inline-block underline underline-offset-2" href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md" target="_blank" rel="noopener noreferrer">Sumber data relief</a>
     </div>
   ) : null;
 
@@ -287,7 +287,7 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
         {/* MOBILE GHOST TOGGLE */}
         {setTheme && (
           <div className="flex items-center justify-between pt-3 border-t border-white/[0.06] px-1">
-            <span className="text-[10px] font-mono tracking-[0.2em] text-white/25 uppercase">Ghost Protocol</span>
+            <span className="text-[10px] font-mono tracking-[0.2em] text-white/25 uppercase">Mode Ghost</span>
             <button
               onClick={() => setTheme(theme === 'core' ? 'ghost' : 'core')}
               className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
@@ -343,7 +343,7 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
               <button
                 onClick={() => setPinnedGroup(isPinned ? null : group.label)}
                 aria-expanded={isOpen}
-                aria-label={`${group.fullLabel}${activeCount ? ` — ${activeCount} active` : ''}`}
+                aria-label={`${group.fullLabel}${activeCount ? ` — ${activeCount} aktif` : ''}`}
                 title={group.fullLabel}
                 className="relative w-10 h-10 flex items-center justify-center cursor-pointer rounded-lg transition-all duration-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
                 style={{
@@ -404,18 +404,17 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
                       <span className="text-[10px] font-mono tracking-[0.2em] uppercase text-white/35 flex-1">
                         {group.fullLabel}
                       </span>
-                      {/* Switching eight satellite layers one at a time is the
-                          kind of thing that makes a panel feel unfinished. */}
+                      {/* One click switches the whole group instead of each layer in turn. */}
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleGroup(group.layers); }}
                         className="px-1.5 py-0.5 rounded text-[10px] font-mono tracking-wider text-white/40 hover:text-white hover:bg-white/10 transition-colors"
                       >
-                        {activeCount > 0 ? 'NONE' : 'ALL'}
+                        {activeCount > 0 ? 'MATIKAN' : 'SEMUA'}
                       </button>
                       {isPinned && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setPinnedGroup(null); }}
-                          aria-label="Close"
+                          aria-label="Tutup"
                           className="px-1.5 py-0.5 rounded text-[10px] font-mono text-white/40 hover:text-white hover:bg-white/10 transition-colors"
                         >
                           ✕
@@ -434,7 +433,7 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
                             onClick={() => toggle(layer.key)}
                             aria-pressed={!!isLayerActive}
                             aria-label={layer.label}
-                            title={dormant ? 'Turn the layer above on to use this' : undefined}
+                            title={dormant ? 'Aktifkan layer di atasnya untuk memakai ini' : undefined}
                             className={`relative w-full flex items-center gap-3 py-1.5 rounded-md hover:bg-white/[0.05] transition-colors cursor-pointer text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30 ${layer.parent || layer.indent ? 'pl-[22px] pr-1' : 'px-1'} ${dormant ? 'opacity-40' : ''}`}
                           >
                             {(layer.parent || layer.indent) && <SubLayerStem />}

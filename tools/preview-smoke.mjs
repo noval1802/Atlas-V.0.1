@@ -86,7 +86,7 @@ async function click(label) {
 }
 async function openDisplay() {
   if (scenario === 'mobile') { await click('LAYERS'); await pause(400); }
-  else if (!await evaluate(`document.querySelector('button[title="DISPLAY"]')?.getAttribute('aria-expanded') === 'true'`)) { await click('DISPLAY'); await pause(250); }
+  else if (!await evaluate(`document.querySelector('button[title="TAMPILAN"]')?.getAttribute('aria-expanded') === 'true'`)) { await click('TAMPILAN'); await pause(250); }
 }
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const deadline = setTimeout(() => {
@@ -143,9 +143,9 @@ try {
       await pause(1000);
       measurements.afterRapidZoom = await zoom();
       checks.push({ name: 'Three rapid zoom taps preserve all three steps', passed: Math.abs(measurements.afterRapidZoom - measurements.beforeZoom - 3) < 0.15 });
-      await click('3D Terrain');
+      await click('Relief 3D');
       await pause(2000);
-      for (let i = 0; i < 12; i++) { await click(i % 2 ? '2D Map' : '3D Terrain'); await pause(80); }
+      for (let i = 0; i < 12; i++) { await click(i % 2 ? '2D Map' : 'Relief 3D'); await pause(80); }
       await pause(2000);
       await check('Rapid projection switching keeps one usable map', `document.querySelector('[data-map-status]')?.dataset.mapStatus === 'ready' && document.querySelectorAll('.maplibregl-canvas').length === 1`);
       await check('Final flat projection is applied', `document.querySelector('[data-map-status]')?.dataset.mapProjection === 'mercator'`);
@@ -157,29 +157,29 @@ try {
       const camera = () => evaluate(`JSON.parse(document.querySelector('[data-map-status]').dataset.mapCamera)`);
       const unchanged = (name, before, after) => checks.push({ name, passed: ['zoom', 'pitch', 'bearing', 'lat', 'lng'].every(key => Math.abs(before[key] - after[key]) < 0.00001) });
       measurements.overviewBefore = await camera();
-      await click('3D Terrain'); await pause(1500);
+      await click('Relief 3D'); await pause(1500);
       measurements.overviewAfter = await camera();
       unchanged('Enabling terrain at overview zoom leaves the camera alone', measurements.overviewBefore, measurements.overviewAfter);
-      await click('3D Terrain'); await pause(500);
+      await click('Relief 3D'); await pause(500);
       for (let i = 0; i < 5; i++) { await click('Zoom in'); await pause(60); }
       await pause(2000);
       measurements.closeupBefore = await camera();
-      await click('3D Terrain'); await pause(8000);
+      await click('Relief 3D'); await pause(8000);
       measurements.closeupAfter = await camera();
       await check('Terrain is rendered for the close-up camera check', `document.body.innerText.includes('Terrain on')`);
       unchanged('Loading mountain elevation does not auto-zoom or tilt', measurements.closeupBefore, measurements.closeupAfter);
-      await click('3D Terrain'); await pause(1500);
+      await click('Relief 3D'); await pause(1500);
       measurements.disabled = await camera();
       unchanged('Disabling terrain preserves the chosen camera', measurements.closeupBefore, measurements.disabled);
       await click('2D Map'); await pause(750);
       measurements.flatBefore = await camera();
-      await click('3D Terrain'); await pause(4000);
+      await click('Relief 3D'); await pause(4000);
       measurements.flatAfter = await camera();
       unchanged('Enabling terrain from flat mode does not zoom or tilt', measurements.flatBefore, measurements.flatAfter);
     }
     if (scenario === 'mobile') {
       await openDisplay();
-      await click('3D Terrain');
+      await click('Relief 3D');
       await pause(1_500);
       await check('Mobile terrain selection remains zoom gated', `document.body.innerText.includes('Terrain at zoom 10+') && !performance.getEntriesByType('resource').some(r => r.name.includes('elevation-tiles-prod'))`);
       await check('Mobile viewport has no horizontal overflow', `document.documentElement.scrollWidth === window.innerWidth`);
@@ -189,7 +189,7 @@ try {
     if (scenario === 'terrain') {
       await openDisplay();
       await check('Terrain sits beside Buildings, not in the view strip', `!!document.querySelector('button[aria-label="3D Buildings"]') && !!document.querySelector('button[aria-label="3D Terrain"]') && !document.querySelector('button[title="3D Terrain Globe"]')`);
-      await click('3D Terrain');
+      await click('Relief 3D');
       await pause(1_500);
       await check('Globe terrain selection is zoom gated', `document.body.innerText.includes('Terrain at zoom 10+') && !performance.getEntriesByType('resource').some(r => r.name.includes('elevation-tiles-prod'))`);
       await click('Zoom to terrain');
@@ -197,12 +197,12 @@ try {
       await check('Zoomed terrain finishes loading', `document.body.innerText.includes('Terrain on')`);
       const terrainScreenshot = await command('Page.captureScreenshot', { format: 'png' });
       await writeFile(join(profile, 'terrain.png'), Buffer.from(terrainScreenshot.data, 'base64'));
-      await click('3D Terrain');
+      await click('Relief 3D');
       await pause(1_500);
       await check('Terrain toggles off without replacing the canvas', `document.querySelector('[data-map-status]')?.dataset.mapStatus === 'ready' && document.querySelectorAll('.maplibregl-canvas').length === 1 && !document.body.innerText.includes('Terrain on')`);
       const before = await evaluate(`performance.getEntriesByType('resource').filter(r => r.name.includes('elevation-tiles-prod')).length`);
       const reenableStarted = Date.now();
-      await click('3D Terrain');
+      await click('Relief 3D');
       while (Date.now() - reenableStarted < 12000 && !await evaluate(`document.body.innerText.includes('Terrain on')`)) await pause(200);
       measurements.terrainReenableMs = Date.now() - reenableStarted;
       const after = await evaluate(`performance.getEntriesByType('resource').filter(r => r.name.includes('elevation-tiles-prod')).length`);
@@ -218,7 +218,7 @@ try {
     if (scenario === 'imagery') {
       await openDisplay();
       await click('Day / Night Cycle');
-      await click('3D Terrain'); await pause(500);
+      await click('Relief 3D'); await pause(500);
       await click('Zoom to terrain'); await pause(8000);
       for (let i = 0; i < 2; i++) { await click('Zoom in'); await pause(60); }
       await click('Satellite View'); await pause(8000);
@@ -233,7 +233,7 @@ try {
       await check('Building close-up keeps the map usable', `document.querySelector('[data-map-status]')?.dataset.mapStatus === 'ready' && document.querySelector('button[aria-label="3D Buildings"]')?.getAttribute('aria-pressed') === 'true'`);
       await check('Buildings reuse the existing vector tiles without elevation', `!performance.getEntriesByType('resource').some(r => /openfreemap|elevation-tiles-prod/.test(r.name))`);
       if (process.env.COMBINED_TERRAIN) {
-        await click('3D Terrain'); await pause(7000);
+        await click('Relief 3D'); await pause(7000);
         await check('Buildings and terrain work together on one canvas', `document.body.innerText.includes('Terrain on') && document.querySelector('button[aria-label="3D Buildings"]')?.getAttribute('aria-pressed') === 'true' && document.querySelectorAll('.maplibregl-canvas').length === 1`);
       }
     }
