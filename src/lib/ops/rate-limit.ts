@@ -23,3 +23,8 @@ export function rateLimit(key: string, limit: number, windowMs: number, now = Da
 export function resetRateLimits(): void {
   buckets.clear();
 }
+
+/** Give back the latest hit, e.g. after a request that turned out legitimate. */
+export function refund(key: string): void {
+  buckets.get(key)?.pop();
+}

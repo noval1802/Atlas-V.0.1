@@ -158,7 +158,7 @@ function VideoMedia({ cam: camera, onReady, onFail }: MediaProps) {
       }
       /* A short buffer: eight of these would otherwise each hold seconds of
          video for a tile the size of a postage stamp. */
-      const instance = new Hls({ enableWorker: false, maxBufferLength: 6 });
+      const instance = new Hls({ enableWorker: false, maxBufferLength: 6, backBufferLength: 10 });
       hls = instance;
       instance.on(Hls.Events.ERROR, (_e, data) => { if (data.fatal) onFail(); });
       instance.loadSource(url);

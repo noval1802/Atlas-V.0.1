@@ -73,24 +73,32 @@ export function useCameraFeed(camera: WatchedCamera | null) {
     setError(false);
     setImageUrl(null);
 
-    // Cleanup previous HLS / FLV instance
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
+    /* Every branch hands back this teardown, so closing the viewer, swapping a
+       SPACE tile or retrying stops the old stream instead of leaving it
+       downloading in the background. */
+    let cancelled = false;
+    let nativeVideo: HTMLVideoElement | null = null;
+    const teardown = () => {
+      cancelled = true;
+      hlsRef.current?.destroy();
       hlsRef.current = null;
-    }
-    if (flvRef.current) {
-      flvRef.current.destroy();
+      flvRef.current?.destroy();
       flvRef.current = null;
-    }
+      if (nativeVideo) {
+        nativeVideo.removeAttribute('src');
+        nativeVideo.load();
+      }
+    };
 
     if (externalOnly) {
       setLoading(false);
-      return;
+      return teardown;
     }
 
     if (streamType === 'hls' && camera.stream_url) {
       if (Hls.isSupported() && videoRef.current) {
-        const hls = new Hls({ enableWorker: false });
+        // Live feed: keep ~10s behind the playhead, not the whole session (hls.js default is Infinity).
+        const hls = new Hls({ enableWorker: false, backBufferLength: 10 });
         hlsRef.current = hls;
         hls.loadSource(camera.stream_url);
         hls.attachMedia(videoRef.current);
@@ -102,23 +110,27 @@ export function useCameraFeed(camera: WatchedCamera | null) {
           if (data.fatal) setError(true);
         });
       } else if (videoRef.current?.canPlayType('application/vnd.apple.mpegurl')) {
-        videoRef.current.src = camera.stream_url;
-        videoRef.current.addEventListener('loadedmetadata', () => {
+        nativeVideo = videoRef.current;
+        nativeVideo.src = camera.stream_url;
+        nativeVideo.addEventListener('loadedmetadata', () => {
           setLoading(false);
           videoRef.current?.play().catch(() => {});
-        });
+        }, { once: true });
       }
-      return;
+      return teardown;
     }
 
     // HTTP-FLV (e.g. Surakarta): no browser plays FLV natively, so mpegts.js is
     // loaded only when an FLV camera is actually opened.
     if (streamType === 'flv' && camera.stream_url) {
       const url = camera.stream_url;
-      let cancelled = false;
       import('mpegts.js').then(({ default: mpegts }) => {
         if (cancelled || !videoRef.current || !mpegts.isSupported()) { if (!cancelled) setError(true); return; }
-        const player = mpegts.createPlayer({ type: 'flv', url, isLive: true, cors: true });
+        const player = mpegts.createPlayer(
+          { type: 'flv', url, isLive: true, cors: true },
+          // Off by default in mpegts.js; without it a live tile buffers the whole session.
+          { autoCleanupSourceBuffer: true, autoCleanupMaxBackwardDuration: 30, autoCleanupMinBackwardDuration: 10 },
+        );
         flvRef.current = player;
         player.attachMediaElement(videoRef.current);
         player.on(mpegts.Events.ERROR, () => setError(true));
@@ -126,17 +138,17 @@ export function useCameraFeed(camera: WatchedCamera | null) {
         setLoading(false);
         videoRef.current.play().catch(() => {});
       }).catch(() => { if (!cancelled) setError(true); });
-      return () => { cancelled = true; };
+      return teardown;
     }
 
     if (streamType === 'mjpeg' && camera.stream_url) {
       setLoading(false);
-      return;
+      return teardown;
     }
 
     if ((streamType === 'iframe' || streamType === 'mp4') && streamUrl) {
       setLoading(false);
-      return;
+      return teardown;
     }
 
     // JPG fallback
@@ -148,6 +160,7 @@ export function useCameraFeed(camera: WatchedCamera | null) {
       setError(true);
       setLoading(false);
     }
+    return teardown;
   }, [camera, streamType, streamUrl, externalOnly, retryCount]);
 
   // Auto-refresh for JPGs

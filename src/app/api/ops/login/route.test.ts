@@ -13,6 +13,10 @@ vi.mock("@/lib/ops/db", () => ({
         state.users.find((user) => user.username === where.username) ?? null,
       update: async () => ({}),
     },
+    authAudit: {
+      findFirst: async ({ where }: { where: { action: string; actorId: string; ip: string } }) =>
+        state.audits.find((a) => a.action === where.action && a.actorId === where.actorId && a.ip === where.ip) ?? null,
+    },
   }),
 }));
 
@@ -126,5 +130,32 @@ describe("POST /api/ops/login", () => {
     }
     expect(statuses.slice(0, 20)).toEqual(Array(20).fill(401));
     expect(statuses[20]).toBe(429);
+  });
+
+  describe("account lockout by strangers", () => {
+    const owner = { "x-real-ip": "198.51.100.7" };
+    const stranger = (n: number) => ({ "x-real-ip": `203.0.113.${n + 1}` });
+    beforeEach(() => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      state.users = [{ id: "u-admin", username: "admin", passwordHash: "scrypt$real$hash", role: "SUPER_ADMIN", active: true, accountStatus: "ACTIVE", sessionVersion: 0 }];
+    });
+    const fillAccountBucket = async () => {
+      for (let n = 0; n < 20; n += 1) expect((await login({ username: "admin", password: "salah" }, stranger(n))).status).toBe(401);
+    };
+
+    it("does not spend the limit on correct passwords", async () => {
+      for (let n = 0; n < 12; n += 1) expect((await login({ username: "admin", password: "kata-sandi-benar" }, owner)).status).toBe(200);
+    });
+
+    it("still admits the owner from an address the account used before", async () => {
+      expect((await login({ username: "admin", password: "kata-sandi-benar" }, owner)).status).toBe(200);
+      await fillAccountBucket();
+      expect((await login({ username: "admin", password: "kata-sandi-benar" }, owner)).status).toBe(200);
+    });
+
+    it("keeps a new address out while the account bucket is full, even with the right password", async () => {
+      await fillAccountBucket();
+      expect((await login({ username: "admin", password: "kata-sandi-benar" }, { "x-real-ip": "192.0.2.99" })).status).toBe(429);
+    });
   });
 });
