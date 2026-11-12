@@ -7,7 +7,7 @@
 - **[V]** terkonfirmasi dan sudah diverifikasi ulang langsung oleh auditor utama.
 - **[H]** hipotesis, perlu diuji.
 
-**Status pelaksanaan (12 Nov 2026):** ✅ Selesai · 🟡 Sebagian · ⏳ Belum · ➖ Tidak berlaku. "Working tree" berarti perubahan sudah ada di kode lokal tetapi belum di-commit.
+**Status pelaksanaan (12 Nov 2026):** ✅ Selesai · 🟡 Sebagian · ⏳ Belum · ➖ Tidak berlaku.
 
 Roadmap disusun 29 Oktober 2026 (commit `b3c6477`). Sejak itu yang tuntas baru P0-02 (sisi kode) dan P2-05; beberapa butir lain sebagian. Pelacakan pesawat dan satelit dihapus (`dc942ec`), sehingga butir yang hanya menyangkut pesawat menjadi tidak berlaku. Bukti dan nomor baris di bawah tetap seperti saat audit; sebagian sudah bergeser.
 
@@ -76,7 +76,7 @@ Roadmap disusun 29 Oktober 2026 (commit `b3c6477`). Sejak itu yang tuntas baru P
 | P1-03 | Tidak ada manajemen insiden [K] | `schema.prisma:90-120` (`incidentCount` diketik manual) | Model `Incident` + `IncidentEvent` (status, penanggung jawab, timeline, penutupan); transisi status ditegakkan di server; verifikasi manusia untuk SIAGA | Alur buat → tugaskan → selesaikan tercatat di timeline dan audit | ⏳ Belum. Tidak ada model insiden; `incidentCount` masih manual. |
 | P1-04 | Latensi data inti [V] | Gempa 15 menit dan tidak diambil saat tab tersembunyi (`monitoring-dashboard.tsx:537`); layer lain 5 menit (`layer-feeds.ts:122`) | Gempa dan peringatan ≤60 detik; pesawat yang dipantau 15–30 detik; kelak SSE dari worker | Gempa baru di BMKG tampil ≤2 menit | 🟡 Sebagian. Server kini membaca BMKG dengan cache 1 menit (`92cfc10`, sebelum audit), tetapi browser masih mem-poll gempa tiap 15 menit dan dilewati saat tab tersembunyi. Bagian pesawat ➖ (`dc942ec`). |
 | P1-05 | `stealthFetch` memalsukan IP dan merotasi UA [V] | `stealthFetch.ts:8,59,78-79`, 27 berkas | Hapus header palsu; UA jujur; API key dan cache | `grep X-Forwarded-For src/lib/stealthFetch.ts` kosong; feed tetap berjalan | ⏳ Belum. Header IP palsu masih ada di `stealthFetch.ts`; dipakai 23 berkas. |
-| P1-06 | Player video bocor saat ditutup [V] | `camera-feed-view.tsx:69-130`: tidak ada `destroy()` saat unmount; cleanup FLV tidak menghancurkan player | Cleanup effect memanggil `hls.destroy()` dan `flv.destroy()` | Membuka dan menutup 20 kamera tidak menyisakan request segmen di tab Network | 🟡 Sebagian. Teardown HLS/FLV/video native saat unmount dan batas buffer sudah ada di working tree (`camera-feed-view.tsx`), belum di-commit dan belum diuji dengan 20 kamera. |
+| P1-06 | Player video bocor saat ditutup [V] | `camera-feed-view.tsx:69-130`: tidak ada `destroy()` saat unmount; cleanup FLV tidak menghancurkan player | Cleanup effect memanggil `hls.destroy()` dan `flv.destroy()` | Membuka dan menutup 20 kamera tidak menyisakan request segmen di tab Network | 🟡 Sebagian. Teardown HLS/FLV/video native saat unmount dan batas buffer sudah ada di `356bd31` (`camera-feed-view.tsx`), belum diuji dengan 20 kamera. |
 | P1-07 | Tidak ada CI gate [V] | `.github/workflows/docker-publish.yml` (publish manual saja) | Workflow lint, typecheck, test, dan build pada setiap push dan PR | PR yang merusak tes otomatis merah | ⏳ Belum. Hanya `docker-publish.yml` (manual). |
 | P1-08 | Tidak ada observability [K] | ~97 `console.*`; tidak ada metrik atau alert | Log JSON terstruktur, `/api/health/sources`, alert ke admin saat layanan atau backup gagal | Mematikan Postgres memicu notifikasi ≤5 menit | ⏳ Belum. Masih ±86 `console.*`, tanpa log terstruktur atau alert. |
 | P1-09 | Deploy Docker belum pernah diverifikasi penuh [K] | `AUDIT_MONITORING_SITUASI_NASIONAL.md:309` | Uji `docker compose up` bersih di server target dan catat hasilnya | Runbook berisi log uji yang berhasil | ⏳ Belum. Tidak ada catatan uji `docker compose up` di server target. |
@@ -90,7 +90,7 @@ Roadmap disusun 29 Oktober 2026 (commit `b3c6477`). Sejak itu yang tuntas baru P
 | ID | Masalah | Evidence | Solusi | Status (12 Nov) |
 |---|---|---|---|---|
 | P2-01 | CSP longgar (`unsafe-inline`, `https:`) [K] | `next.config.ts:75-76` | Nonce CSP, `connect-src` allowlist | ⏳ Belum. CSP masih memakai `unsafe-inline`. |
-| P2-02 | Lockout akun lewat rate limit [K] | `login/route.ts:27-31` | Penundaan progresif atau CAPTCHA | 🟡 Sebagian. Mitigasi lockout (slot dikembalikan saat login berhasil, alamat yang pernah dipakai pemilik akun tetap bisa masuk) ada di working tree, belum di-commit. Penundaan progresif/CAPTCHA belum. |
+| P2-02 | Lockout akun lewat rate limit [K] | `login/route.ts:27-31` | Penundaan progresif atau CAPTCHA | 🟡 Sebagian. Mitigasi lockout (slot dikembalikan saat login berhasil, alamat yang pernah dipakai pemilik akun tetap bisa masuk) ada di `356bd31`. Penundaan progresif/CAPTCHA belum. |
 | P2-03 | Ketergantungan internet: Google Fonts, tile CARTO, Nominatim, OSRM, resolver DNS publik nginx [K] | `globals.css:1`, `proxy-tiles/route.ts`, `nginx.conf:38` | Self-host font, PMTiles Indonesia, geocoder | ⏳ Belum. Google Fonts, tile CARTO, geocoder luar, dan resolver DNS publik nginx masih dipakai. |
 | P2-04 | Backup tidak terenkripsi, di host sama, kegagalan tidak memberi tahu siapa pun [K] | `ops/backup/backup.sh:19,24,37` | Enkripsi, salinan luar host, notifikasi gagal, latihan restore bulanan | ⏳ Belum. Backup belum terenkripsi, belum ada salinan luar host maupun notifikasi gagal. |
 | P2-05 | Proxy HLS/TPT mengikuti redirect tanpa cek ulang [K] | `cctv/hls/route.ts`, `tpt/media/route.ts:39-40` | `safeFetch` / `redirect:'manual'` | ✅ Selesai. Proxy HLS (`c0838be`) dan media TPT (`355a0e0`) kini lewat `safeFetch` yang memeriksa ulang setiap redirect. |
@@ -120,7 +120,7 @@ Roadmap disusun 29 Oktober 2026 (commit `b3c6477`). Sejak itu yang tuntas baru P
 
 ## Urutan implementasi yang disarankan
 
-*Status per 12 Nov: dari Minggu 1 baru P0-02 (sisi kode) yang selesai; P1-06 ada di working tree. Butir lain masih terbuka.*
+*Status per 12 Nov: dari Minggu 1 baru P0-02 (sisi kode) yang selesai; P1-06 selesai di `356bd31`. Butir lain masih terbuka.*
 
 1. **Minggu 1 — kebersihan cepat (tanpa perubahan arsitektur):**
    - P0-02 rotasi kredensial.

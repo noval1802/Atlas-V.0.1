@@ -77,8 +77,8 @@ lalu dibatalkan karena stream-nya tidak bisa diputar lewat proxy.
 | — | Audit ulang dengan debat 9 agent: 26 temuan dipertahankan (tabel di bawah) |
 | `d1b3b69` | Gempa: waktu tampil di popup (WIB), gempa lama memudar dan tanpa label |
 | `dc942ec` | **Fitur pesawat dan satelit dihapus seluruhnya.** Pesawat akan dibangun ulang memakai API resmi Flightradar24 (berbayar). Satelit tidak dipakai. Basemap citra satelit tetap ada. |
-| *(belum di-commit)* | Login: admin tidak bisa dikunci orang lain (temuan 10) |
-| *(belum di-commit)* | Pemutar kamera dihentikan saat ditutup; buffer video dibatasi (temuan 3 dan 11) |
+| `356bd31` | Login: admin tidak bisa dikunci orang lain (temuan 10) |
+| `356bd31` | Pemutar kamera dihentikan saat ditutup; buffer video dibatasi (temuan 3 dan 11) |
 
 ### Status temuan audit ulang (11 Nov 2026)
 
@@ -90,15 +90,15 @@ Detail teknis temuan keamanan yang masih terbuka sengaja tidak ditulis di sini, 
 |---|---|---|
 | 1 | Proxy video HLS/TPT perlu membatasi jenis konten yang diteruskan | ⏳ |
 | 2 | AI chat memakai model eksternal; perlu keputusan kebijakan dan flag aktif/nonaktif | ⏳ (menunggu keputusan) |
-| 3 | Pemutar kamera tidak dihentikan saat viewer/tile ditutup | ✅ (belum di-commit) |
+| 3 | Pemutar kamera tidak dihentikan saat viewer/tile ditutup | ✅ `356bd31` |
 | 4 | Form situasi bisa menimpa edit operator lain tanpa peringatan | ⏳ |
 | 5 | CCTV TPT Jakarta macet berkala dan mati saat portal error sebentar | ⏳ |
 | 6 | Refresh data pesawat menahan permintaan | ➖ `dc942ec` |
 | 7 | Satelit mengunduh ulang dari CelesTrak terus-menerus | ➖ `dc942ec` |
 | 8 | Cache menyajikan data basi sebagai data segar | ⏳ |
 | 9 | Gempa lama tampil seperti baru | ✅ `d1b3b69` |
-| 10 | Akun admin bisa dikunci orang lain lewat batas login | ✅ (belum di-commit) |
-| 11 | Buffer video multiview tumbuh tanpa batas | ✅ (belum di-commit) |
+| 10 | Akun admin bisa dikunci orang lain lewat batas login | ✅ `356bd31` |
+| 11 | Buffer video multiview tumbuh tanpa batas | ✅ `356bd31` |
 | 12 | `/api/gdelt-events` tanpa cache dan berat | ⏳ |
 | 13 | AI chat rusak setelah satu jawaban panjang | ⏳ |
 | 14 | Pemindahan operator antar-Kotamaops tidak tercatat di audit | ⏳ |

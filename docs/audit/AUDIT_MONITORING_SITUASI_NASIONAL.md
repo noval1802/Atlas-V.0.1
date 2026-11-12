@@ -327,7 +327,7 @@ Angka acuan dari pengukuran sebelumnya, satu proses Node: `/api/health` 316 req/
 - **Identitas:** logo ATLAS animasi menggantikan ikon mata (`be5387d`).
 - **Baru, perlu keputusan:** chat AI operator (`/api/ai/chat`, `355a0e0`) memanggil LLM eksternal. Hanya teks ketikan operator yang dikirim, tanpa data situasi, tetapi tetap bertentangan dengan arah S2 (tanpa data keluar ke layanan asing) sampai ada keputusan kebijakan atau LLM on-prem.
 
-**Di working tree (belum di-commit):** teardown player video saat penampil ditutup, dan penyesuaian rate limit login.
+**`356bd31` (12 Nov):** teardown player video saat penampil ditutup, dan penyesuaian rate limit login.
 
 **Masih terbuka (utama):** U1–U6 (status di peta, dasbor pimpinan, Bahasa Indonesia, ukuran huruf, auto-refresh, jam tiga zona), alur pelaporan 2.5, peta mandiri S1, sumber BNPB/SiPongi/BIG, CI/CD internal, sertifikat CA internal, backup di luar host, dan uji `docker compose up` sungguhan.
 

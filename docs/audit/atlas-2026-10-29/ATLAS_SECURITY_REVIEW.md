@@ -74,12 +74,12 @@ Celah utamanya:
 | ID lama | Status sekarang |
 |---|---|
 | F-001 gerbang sesi tidak ter-commit | ✅ Selesai |
-| F-002 rate limit bisa digeser dengan XFF palsu | ✅ Selesai; efek lockout juga sudah ditutup (S-02, working tree) |
+| F-002 rate limit bisa digeser dengan XFF palsu | ✅ Selesai; efek lockout juga sudah ditutup (S-02, `356bd31`) |
 | F-003 link reset mengikuti Host | ✅ Selesai |
 | F-004 kredensial di working tree | 🟡 Sebagian — dikeluarkan dari working tree; rotasi nilai lemah belum terverifikasi (S-04) |
 | F-005 peran viewer membaca semua situasi | 🟡 Sebagian — menunggu keputusan produk |
 | F-006 enumerasi pendaftaran | ✅ Selesai |
-| Pentest F-01 lockout | ✅ Selesai (S-02, working tree) |
+| Pentest F-01 lockout | ✅ Selesai (S-02, `356bd31`) |
 | Pentest F-02 CSRF via X-Forwarded-Host | ⏳ Terbuka (S-10) |
 | Pentest F-03/F-04 route osint dan sdk/ingest | ➖ Tidak berlaku (route dihapus, 7e62735) |
 | Pentest F-05 dependensi | ✅ Selesai (runtime) |

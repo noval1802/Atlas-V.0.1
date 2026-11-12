@@ -9,7 +9,7 @@
 > - **Baru (`355a0e0`):** layer gunung api MAGMA/PVMBG (`/api/volcanoes`); chat AI operator (`/api/ai/chat`) yang memanggil LLM eksternal, sehingga ada satu tujuan data keluar baru; vault sesi TPT Jakarta terenkripsi di DB (model `TptSession`, migrasi keempat).
 > - **Auth dan pengguna:** kebijakan sandi minimum 12 dan bootstrap admin sekali jalan (`547f807`), rotasi SUPER_ADMIN dengan konfirmasi dan pemulihan lokal (`17cd4f2`), UI Pengguna V2 (`414ba45`), pemeriksaan isi artefak build (`2135def`).
 > - **Angka yang bergeser:** `OsirisMap.tsx` kini ±2.290 baris, `monitoring-dashboard.tsx` ±1.340 baris, 43 route handler, 4 migrasi Prisma.
-> - **Working tree (belum di-commit):** teardown player video saat ditutup, dan penyesuaian rate limit login.
+> - **`356bd31` (12 Nov):** teardown player video saat ditutup, dan penyesuaian rate limit login.
 > - **Tidak berubah:** satu proses tanpa worker, polling tanpa push, `timestamp` = waktu respons, indikator "ONLINE" statis, CI hanya publish manual, backup belum terenkripsi.
 
 **Tanggal:** 29 Oktober 2026 · **Metode:** baca kode (read-only), unit test, typecheck. Tidak ada deploy, load test, atau pengujian layanan luar.

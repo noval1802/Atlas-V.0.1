@@ -22,7 +22,7 @@ Probe hidup pada tanggal yang sama hanya `GET` tanpa cookie ke `http://127.0.0.1
 ### F-002 — Batas percobaan login dapat digeser
 
 - **Keparahan:** HIGH
-- **Status:** ✅ Selesai (4a078a6; perbaikan agar orang lain tidak bisa mengunci akun ada di working tree, belum di-commit). Belum diuji dengan percobaan login.
+- **Status:** ✅ Selesai (4a078a6; penguncian akun oleh orang lain ditutup di 356bd31). Belum diuji dengan percobaan login.
 - **Lokasi:** `rateLimit` di `src/lib/ops/rate-limit.ts`. Pemanggilan di `src/app/api/ops/login/route.ts`. `requestIp` di `src/lib/ops/audit.ts`.
 - **Skenario:** penghitung hanya hidup di memori proses. Kedua kunci login memuat IP. IP diambil dari hop pertama `X-Forwarded-For`. Saat peta melewati 5000 kunci, seluruh peta dikosongkan.
 - **Bukti:** kode ketiga fungsi dibaca pada 2026-10-17. Tidak ada tes serangan yang dijalankan.

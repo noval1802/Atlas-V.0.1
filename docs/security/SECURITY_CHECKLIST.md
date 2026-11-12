@@ -34,7 +34,7 @@ Status yang dipakai: `✅ Selesai`, `🟡 Sebagian`, `⏳ Terbuka`, `➖ Tidak b
 
 ### AUTH-03 Batas percobaan login
 
-- **Status:** ✅ Selesai (4a078a6; perbaikan penguncian akun oleh pihak lain ada di working tree, belum di-commit)
+- **Status:** ✅ Selesai (4a078a6; penguncian akun oleh pihak lain ditutup di 356bd31)
 - **Bukti:** `src/lib/ops/rate-limit.ts` menyimpan hit di memori dan mengosongkan peta di atas 5000 kunci. `requestIp` mengambil hop pertama `X-Forwarded-For`. Lihat F-002.
 - **Risiko:** tebakan sandi dapat melewati batas 30 per 15 menit.
 - **Rekomendasi:** batas per nama pengguna dan penghitung yang tidak mudah direset.

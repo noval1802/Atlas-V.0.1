@@ -111,7 +111,7 @@ Prioritas perbaikan:
 - Tidak ada MFA. — ⏳ Terbuka
 - `stealthFetch`. — ⏳ Terbuka
 - CSP longgar. — ⏳ Terbuka
-- Lockout akun lewat rate limit. — ✅ Selesai (working tree, belum di-commit)
+- Lockout akun lewat rate limit. — ✅ Selesai (`356bd31`)
 - Backup tidak terenkripsi. — ⏳ Terbuka
 - Kebocoran data pencarian dan koordinat ke pihak ketiga. — ⏳ Terbuka
 
@@ -129,7 +129,7 @@ Detail di [ATLAS_SECURITY_REVIEW.md](ATLAS_SECURITY_REVIEW.md).
 - **Risiko:**
   - Payload pesawat dikirim penuh, lalu 90% dibuang di browser. — ➖ Tidak berlaku (pelacakan pesawat dihapus, dc942ec)
   - Video mengalir lewat proses Node. — ⏳ Terbuka
-  - Player video bocor saat ditutup. — ✅ Selesai (working tree, belum di-commit)
+  - Player video bocor saat ditutup. — ✅ Selesai (`356bd31`)
   - Semua state di memori satu proses (tidak bisa lebih dari satu instance, hilang saat restart). — ⏳ Terbuka
   - Fetch di browser tanpa timeout. — ⏳ Terbuka
 
@@ -198,7 +198,7 @@ Detail di [ATLAS_SECURITY_REVIEW.md](ATLAS_SECURITY_REVIEW.md).
 4. **P1-02/P1-03** — Tidak ada alur alert → ack → insiden → penugasan → penutupan. — ⏳ Terbuka
 5. **P1-07/P1-08** — Tidak ada CI gate maupun monitoring; kegagalan baru diketahui dari pengguna. — ⏳ Terbuka
 
-Lainnya yang penting: `stealthFetch` memalsukan IP (P1-05, ⏳ Terbuka), player video bocor (P1-06, ✅ Selesai — working tree, belum di-commit), dan gempa diperbarui tiap 15 menit (P1-04, ⏳ Terbuka).
+Lainnya yang penting: `stealthFetch` memalsukan IP (P1-05, ⏳ Terbuka), player video bocor (P1-06, ✅ Selesai — `356bd31`), dan gempa diperbarui tiap 15 menit (P1-04, ⏳ Terbuka).
 
 ## 12. Arsitektur TO-BE
 
