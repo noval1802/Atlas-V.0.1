@@ -1,5 +1,7 @@
 # 08 — Konteks ATLAS untuk perancang UI/UX (ringkasan eksekutif)
 
+> Catatan 12 November 2026: layer pesawat (watch list) dan satelit sudah dihapus. Basemap citra satelit tetap ada. Panel Style Studio sudah tidak ada; yang tersisa hanya penerapan setelan tersimpan lewat `src/lib/style-tokens.ts`.
+
 Dokumen ini adalah titik masuk untuk merancang upgrade UI **ATLAS Premium Hybrid** (navy gelap, cyan, gold) tanpa merusak fitur yang ada. Semua isinya diambil dari source code aktual per 30 Oktober 2026. Detail dan bukti `file:baris` ada di dokumen 00–07; dokumen ini hanya merangkum.
 
 **Batas bukti:** halaman yang butuh login **belum pernah dilihat** saat discovery, karena tidak ada login yang dipakai. Tampilan visualnya berstatus UNVERIFIED. Yang terverifikasi di runtime hanya halaman publik (screenshot di `screenshots/`) dan perilaku gerbang akses.

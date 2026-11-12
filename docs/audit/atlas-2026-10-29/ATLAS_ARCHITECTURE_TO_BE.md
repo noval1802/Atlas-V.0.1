@@ -1,5 +1,7 @@
 # ATLAS — Arsitektur TO-BE (realistis, tanpa overengineering)
 
+**Status diperbarui:** 12 November 2026 (dicek terhadap kode terkini).
+
 **Prinsip:**
 - Tetap **modular monolith Next.js + PostgreSQL**.
 - Tambah **satu proses worker** di codebase yang sama, bukan microservices, dan tanpa Kubernetes.
@@ -37,6 +39,26 @@
  Backup: pg_dump terenkripsi → salinan di luar host, latihan restore terjadwal
  CI: lint + typecheck + test + build pada setiap push
 ```
+
+## 1a. Status pencapaian (12 Nov 2026)
+
+Tanda: ✅ Selesai · 🟡 Sebagian · ⏳ Belum · ➖ Tidak berlaku.
+
+| Komponen TO-BE | Status | Catatan |
+|---|---|---|
+| `atlas-worker` + adapter per sumber | ⏳ | Feed masih diambil di dalam request web. |
+| PostgreSQL untuk state, histori, `LISTEN/NOTIFY` | ⏳ | Hanya data ops/auth dan (baru) sesi TPT yang disimpan; feed belum punya histori. |
+| Tabel `source_status` / `/api/health/sources` | ⏳ | Belum ada. |
+| Aturan alert, tabel alert dan insiden | ⏳ | Belum ada. |
+| SSE `/api/stream` | ⏳ | Masih polling. |
+| Auth + MFA | 🟡 | Kebijakan sandi dan rotasi SUPER_ADMIN selesai (`547f807`, `17cd4f2`); MFA belum. |
+| MediaMTX/go2rtc, WebRTC, rekaman | ⏳ | Belum ada; video masih lewat proxy Node. |
+| Penerima ADS-B sendiri | ➖ | Pelacakan pesawat dihapus (`dc942ec`); rencana pemilik memakai API Flightradar24 berbayar. |
+| nginx limit_req, cache tile ber-sesi | ⏳ | Belum ada `limit_req`; konfigurasi nginx tidak berubah sejak audit. |
+| Self-host tile, font, geocoder | ⏳ | Masih memakai layanan luar. Chat AI (`355a0e0`) menambah satu tujuan data keluar. |
+| Observability (log JSON, alert kegagalan) | ⏳ | Belum. |
+| Backup terenkripsi di luar host | ⏳ | Belum. |
+| CI lint + typecheck + test + build | ⏳ | Hanya workflow publish manual. |
 
 ## 2. Alasan setiap perubahan
 

@@ -1,5 +1,7 @@
 # Konsep: Agent Penyusun Lapsit Otomatis
 
+> Catatan 12 November 2026: endpoint `/api/sdk/ingest` yang disebut di sini sudah dihapus (28 Okt 2026) bersama SDK.
+
 **Tanggal:** 27 Oktober 2026
 **Status:** konsep untuk dikerjakan nanti. Belum disetujui untuk dibangun. Satu keputusan besar masih terbuka (bagian 8).
 **Asal:** diskusi pemilik proyek dengan Claude, 27 Okt 2026.

@@ -11,7 +11,7 @@ Semua peran aktif boleh memanggil endpoint ini: `SUPER_ADMIN`, `ADMIN`, `OPERATO
 Peta dan monitoring, semuanya `GET` kecuali disebut lain:
 
 - `/api/maritime`
-- `/api/earthquakes`, `/api/fires`, `/api/weather`, `/api/air-quality`
+- `/api/earthquakes`, `/api/fires`, `/api/weather`, `/api/air-quality`, `/api/volcanoes`, `/api/volcanoes/report`
 - `/api/news`, `/api/live-news`, `/api/gdelt`, `/api/gdelt-events`
 - `/api/region-dossier`, `/api/stats`, `/api/directions`
 - `/api/geo`, `/api/geo/reverse`, `/api/geosearch`, `/api/proxy-tiles`
@@ -19,14 +19,15 @@ Peta dan monitoring, semuanya `GET` kecuali disebut lain:
 
 CCTV dan media, `GET`:
 
-- `/api/cctv`, `/api/cctv/proxy`, `/api/cctv/resolve`, `/api/cctv/stream-status`
+- `/api/cctv`, `/api/cctv/proxy`, `/api/cctv/hls`, `/api/cctv/resolve`, `/api/cctv/stream-status`
 - `/api/cctv/tpt/media`, `/api/cctv/texas/snapshot`
 
 ## Juga semua peran
 
-AI, `POST`, dengan batas laju di handler. Ringkasan dibuat di server ini tanpa model eksternal:
+AI, `POST`, dengan batas laju di handler:
 
-- `/api/ai/overview`
+- `/api/ai/overview`: ringkasan dibuat di server ini tanpa model eksternal.
+- `/api/ai/chat`: isi chat dikirim ke penyedia AI eksternal (Anthropic). Menjawab 503 bila server belum dikonfigurasi.
 
 Situasi, baca:
 
@@ -67,6 +68,10 @@ Tanpa sesi operator:
 ## Dihapus 27 Okt 2026
 
 Alat OSINT dan pemindai (`/api/osint/*`, `/api/scanner`), lapisan siber (`/api/malware`, `/api/cyber-attacks`, `/api/cyber-threats`, `/api/cloudflare-radar`, `/api/radar`), SDK (`/api/sdk/*`), dan `/api/github-webhook`.
+
+## Dihapus 12 Nov 2026
+
+Pelacakan pesawat dan satelit: `/api/flights`, `/api/aircraft`, `/api/flight-route`, `/api/satellites`, `/api/satellites/orbit`. Basemap citra satelit tetap ada.
 
 ## Masih menunggu keputusan
 

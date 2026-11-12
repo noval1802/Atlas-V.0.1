@@ -1,5 +1,7 @@
 # 04 — Alur Pengguna ATLAS (AS-IS)
 
+> Catatan 12 November 2026: `FlightWatchPanel` dan tesnya sudah dihapus bersama pelacakan pesawat dan satelit.
+
 Tanggal pemeriksaan: 2026-10-30. Rujukan halaman ada di `01_ATLAS_PAGE_INVENTORY.md`.
 
 Dokumen ini hanya menyebut nama field body permintaan, tanpa nilainya. Pesan galat dikutip persis dari kode.

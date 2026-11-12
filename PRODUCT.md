@@ -12,7 +12,7 @@ Primary users are Operator Pusdalops and Operator Kodam, on duty. Their job is t
 
 ## Product Purpose
 
-ATLAS — Advanced Tactical Location & Analytics System lets an operator on duty see the live monitoring map and keep the current situation of each Kotamaops. Success is a clear picture of what is happening and a saved current row the next operator can trust. The display name applies only to the map application in `/home/localhost/osiris`.
+ATLAS — Advanced Tactical Location & Analytics System lets an operator on duty see the live monitoring map and keep the current situation of each Kotamaops. Success is a clear picture of what is happening and a saved current row the next operator can trust. The display name applies only to the map application in this repository.
 
 ## Positioning
 
@@ -20,7 +20,7 @@ The display name is ATLAS — Advanced Tactical Location & Analytics System. Thi
 
 ## Operating Context
 
-The operator signs in at `/masuk`, watches the map at `/peta`, and works the situation board at `/operator`. User management is at `/pengguna`. Local development serves the app with `npm run dev -- --hostname 0.0.0.0 --port 3005` from `/home/localhost/osiris`.
+The operator signs in at `/masuk`, watches the map at `/peta`, and works the situation board at `/operator`. User management is at `/pengguna`. Local development serves the app with `npm run dev` from this repository (see README).
 
 ## Capabilities and Constraints
 
@@ -34,7 +34,6 @@ Confirmed:
 
 Undecided, and not to be invented:
 
-- Whether public upstream links and the README's global-demo positioning stay. They were not adopted as this deployment's position.
 - Whether unit crests and the karhutla figures are frozen design constraints. They are current operational content, not a visual theme.
 
 ## Brand Commitments
@@ -43,10 +42,10 @@ The display name is ATLAS — Advanced Tactical Location & Analytics System. Ope
 
 ## Evidence on Hand
 
-- Running Next.js app in `/home/localhost/osiris`, with routes `/masuk`, `/peta`, `/operator`, and `/pengguna`.
+- Running Next.js app in this repository, with routes `/masuk`, `/peta`, `/operator`, and `/pengguna`.
 - Access rules in `docs/akses-endpoint.md` and `src/lib/ops/access.ts`.
 - No `DESIGN.md` yet. The incumbent interface is the code and assets already in the app.
-- The README still describes the upstream public demo. That description is not the position confirmed here. Do not fabricate customers, testimonials, or a public launch claim.
+- The README describes ATLAS as an internal Pusdalops system and credits the upstream OSIRIS project. Do not fabricate customers, testimonials, or a public launch claim.
 
 ## Product Principles
 

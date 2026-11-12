@@ -1,5 +1,7 @@
 # 03 — Design System ATLAS (AS-IS)
 
+> Catatan 12 November 2026: token warna peta untuk kategori satelit (sat comms, military, navigation, earth, science, dll.) sudah dihapus; di `globals.css` tinggal `--map-cctv`. Panel Style Studio (`StyleStudio.tsx`) dihapus 28 Okt 2026; yang tersisa hanya mesin tokennya di `src/lib/style-tokens.ts`.
+
 > Dokumen discovery, read-only, 30 Okt 2026. Sumber utama: `src/app/globals.css` (2746 baris), `src/lib/style-tokens.ts` (446), `src/lib/map-palette.ts` (148), `src/components/ops/auth-frame.tsx`.
 > Angka frekuensi = hasil `grep -o` pada `src/components/**/*.tsx` + `src/app/**/*.tsx` (tanpa test). Rasio kontras dihitung dengan rumus WCAG 2.x (luminans relatif).
 > Label: **[TOKEN]** = terpusat; **[HARDCODE]** = nilai literal; **[INFERENSI]** = kesimpulan analis.

@@ -1,5 +1,7 @@
 # 07 — Batasan Redesign UI ATLAS ("Premium Hybrid")
 
+> Catatan 12 November 2026: `/api/aircraft`, `FlightWatchPanel` (beserta tesnya), dan layer pesawat/satelit sudah dihapus; ukuran baris `OsirisMap.tsx` di sini tidak lagi cocok. Panel Style Studio sudah tidak ada; yang tersisa hanya penerapan setelan tersimpan lewat `src/lib/style-tokens.ts`.
+
 Tanggal: 2026-10-30. Dasar: dokumen 00–06 dan verifikasi kode sumber pada tanggal ini. Dokumen ini adalah **pagar** untuk redesign visual (navy gelap, cyan, gold): apa yang tidak boleh rusak, apa yang aman diubah, dan tes yang wajib lulus. ID isu `UX-xx` merujuk ke `06_ATLAS_UX_GAP_ANALYSIS.md`.
 
 Singkatan path sama dengan doc 06 (`BOARD`, `PAGE`, `DASH`, `OPD`, `CSS`, `MAP`) ditambah `ACCESS` = `src/lib/ops/access.ts`, `GATE` = `src/lib/ops/gate.ts`.

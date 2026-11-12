@@ -1,5 +1,7 @@
 # 06 — Analisis Celah UX ATLAS (AS-IS → Premium Hybrid)
 
+> Catatan 12 November 2026: `SatelliteCard` dan tombol popup `window.osirisWatchFlight` sudah dihapus bersama pelacakan pesawat dan satelit; rujukan baris `OsirisMap.tsx` di sini tidak lagi cocok.
+
 Tanggal: 2026-10-30. Sumber: dokumen 00–05 di folder ini, tangkapan layar `screenshots/`, dan **verifikasi ulang di kode sumber** (setiap rujukan `file:line` di bawah dibaca ulang pada tanggal ini). Tidak ada kode, konfigurasi, atau DB yang diubah. Tidak ada login, build, atau akses jaringan luar.
 
 ## Cara membaca

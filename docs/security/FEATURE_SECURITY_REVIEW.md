@@ -1,5 +1,7 @@
 # Feature Security Review
 
+**Status diperbarui:** 12 November 2026 (dicek terhadap kode terkini).
+
 Salin template ini ke catatan perubahan saat sebuah fitur, perbaikan, refactor, API, database, atau deployment disentuh. Ini catatan tinjauan manual, bukan sertifikasi.
 
 Perbarui `SECURITY_CHECKLIST.md` dan `SECURITY_FINDINGS.md` hanya untuk item yang bukti barunya diperiksa. Jangan menandai `PASS` karena build hijau. Jangan commit, push, migrasi, atau deploy dari template ini.

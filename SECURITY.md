@@ -1,7 +1,7 @@
 # Security Policy
 
 ## Responsible Usage
-The ATLAS Project provides powerful Open Source Intelligence (OSINT) and cybersecurity monitoring tools designed to visualize and analyze global threat landscapes. 
+ATLAS is an internal situation-monitoring map for authorized personnel. The OSINT reconnaissance and cyber-threat layers inherited from the upstream project have been removed. 
 
 **By using this software, you agree to the following:**
 1. **Defensive Use Only:** The tools, scripts, and intelligence capabilities provided in this repository must be used strictly for defensive, educational, and authorized monitoring purposes.

@@ -1,5 +1,7 @@
 # 01 — Inventaris Halaman ATLAS (AS-IS)
 
+> Catatan 12 November 2026: layer pesawat dan satelit, `FlightWatchPanel` (beserta tesnya), `/api/aircraft`, dan `/api/flight-route` sudah dihapus. Basemap citra satelit tetap ada.
+
 Tanggal pemeriksaan: 2026-10-30. Cakupan: `src/app/(id)` dan `src/app/(en)` (Next.js 16 App Router, React 19, Prisma/PostgreSQL).
 Dokumen ini hanya mencatat keadaan saat ini. Tidak ada kode yang diubah.
 

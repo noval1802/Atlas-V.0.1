@@ -8,9 +8,9 @@ Sistem ini internal dan aksesnya terbatas bagi personel berwenang. Semua halaman
 
 | Bagian | Isi |
 |---|---|
-| **Peta situasi** (`/peta`) | Peta MapLibre berpusat di NKRI. Layer Kotamaops TNI AD/AL/AU, CCTV (Jasa Marga, TPT Jakarta, dan kamera publik), kapal, gempa, titik api, cuaca, dan peringatan langsung. |
+| **Peta situasi** (`/peta`) | Peta MapLibre berpusat di NKRI. Layer Kotamaops TNI AD/AL/AU, CCTV (Jasa Marga, TPT Jakarta, dan kamera publik), kapal, gempa, gunung api, titik api, cuaca, dan peringatan langsung. |
 | **SPACE / Multiviewer** (`/peta/multiview`) | CCTV pilihan operator ditampilkan dalam grid layar penuh dengan preset tata letak otomatis. |
-| **Dasbor operator** (`/operator`) | Status situasi per Kotamaops (KONDUSIF / WASPADA / SIAGA), personel, kejadian, catatan, dan riwayat revisi. |
+| **Dasbor operator** (`/operator`) | Status situasi per Kotamaops (KONDUSIF / WASPADA / SIAGA), personel, kejadian, catatan, dan riwayat revisi. Chat AI (bila dikonfigurasi di server). |
 | **Manajemen pengguna** (`/pengguna`) | Persetujuan akun, peran, dan audit login. Khusus admin. |
 | **Akun** | Masuk, daftar (menunggu persetujuan admin), lupa dan atur ulang sandi. |
 

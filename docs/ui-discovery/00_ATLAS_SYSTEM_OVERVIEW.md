@@ -1,5 +1,7 @@
 # 00 — ATLAS: Ikhtisar Sistem (AS-IS)
 
+> Catatan 12 November 2026: pelacakan pesawat dan satelit sudah dihapus: `/api/flights`, `/api/aircraft`, `/api/flight-route`, `/api/satellites`, `/api/satellites/orbit`, `FlightWatchPanel`, `SatelliteCard`, `src/lib/orbit.ts`, paket `satellite.js`, serta sumber OpenSky/adsb.*/CelesTrak/SatNOGS dan variabel `OPENSKY_CLIENT_ID/SECRET`. Basemap citra satelit tetap ada.
+
 > Dokumen discovery read-only, disusun 2026-10-30 dari kode di `/home/wizard/Atlas-V.0.1`.
 > Penanda: **[CONFIRMED]** = terlihat langsung di kode (file:baris dicantumkan).
 > **[UNVERIFIED]** = butuh login/runtime/DB untuk dibuktikan; tidak diuji (tanpa build, tanpa query DB, tanpa jaringan).

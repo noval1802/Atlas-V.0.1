@@ -15,7 +15,6 @@ The existing bottom view strip still selects globe/flat and map/satellite imager
 - Two simultaneous elevation requests, 12-second request deadline, shared in-flight work, cancellable requests, and an 8 MiB encoded-tile LRU. Browser HTTP caching is also used. GPU resources are not persisted across page reloads.
 - Camera pitch is limited to 60 degrees in every view, so enabling terrain never has to flatten an existing camera. Terrain caps pixel ratio at 1.5 and restores the previous pixel ratio when disabled.
 - Buildings reuse the existing CARTO building source and appear from zoom 14.5. Enabling them alone does not download elevation.
-- Satellite GPU programs are cached per projection variant; inactive satellite layers compile no programs. Picking and orbit programs are created only when needed.
 
 ## Regression checks
 
@@ -29,12 +28,11 @@ $env:SMOKE_SCENARIO='terrain'
 node tools/preview-smoke.mjs
 ```
 
-Other scenarios: `startup`, `zoom`, `terrain-camera`, `mobile`, `recovery`, `imagery`, `buildings`, `satellites`.
+Other scenarios: `startup`, `zoom`, `terrain-camera`, `mobile`, `recovery`, `imagery`, `buildings`.
 `CHROME_PATH` selects a Chromium browser; the default is the installed Windows Chrome.
 `PROFILE_TERRAIN=1` captures a CPU profile in the test's temporary output folder.
 Each test uses an isolated headless profile, never the user's browser profile.
-Imagery/building/camera tests substitute only localhost geolocation responses; the satellite
-test substitutes a 200-object localhost feed. Map tiles and elevation remain real.
+Imagery/building/camera tests substitute only localhost geolocation responses. Map tiles and elevation remain real.
 
 The automated checks cover rapid zoom taps, source/canvas reuse, terrain gating,
 same-area cache reuse, mobile overflow, view switching, and failure/retry behavior.
@@ -69,7 +67,6 @@ a short hitch; headless timing is diagnostic, not a promised frame rate.
 
 The repository has pre-existing lint debt. External data feeds are independently
 fallible: CCTV catalog retries preserve successful regions, but cannot make an
-offline provider or camera available. Existing provider configuration/rate limits,
-and intermittent market-feed CORS failures, are separate from terrain rendering.
+offline provider or camera available. Existing provider configuration and rate limits are separate from terrain rendering.
 
 The local preview does not deploy or merge changes; release through a reviewed PR.

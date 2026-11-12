@@ -1,5 +1,7 @@
 # ATLAS — Laporan Audit Teknis Komprehensif
 
+**Status diperbarui:** 12 November 2026 (dicek terhadap kode terkini).
+
 **Tanggal:** 29 Oktober 2026
 **Cakupan:** seluruh repository `Atlas-V.0.1` (branch `master`)
 **Mode:** READ-ONLY. Kode, database, dan konfigurasi tidak diubah. Satu-satunya berkas yang dibuat adalah dokumen di folder ini.
@@ -66,7 +68,7 @@ Arsitektur modular monolith **sudah tepat** dan tidak perlu ditulis ulang.
 | Stack | Next.js 16 + React 19, Prisma + PostgreSQL, MapLibre; layanan `intel/` (Express); nginx |
 | Pola | Hybrid modular monolith (satu proses web dan satu layanan intel) |
 | Data permanen | Hanya pengguna, Kotamaops, situasi + revisi, reset kata sandi, audit auth |
-| Feed langsung | BMKG, FIRMS, EONET/GDACS, OpenSky/adsb.fi, aisstream, Telegram/RSS, ~20 ribu CCTV publik — semuanya di memori, lewat polling |
+| Feed langsung | BMKG, FIRMS, EONET/GDACS, OpenSky/adsb.fi (➖ dihapus, dc942ec), aisstream, Telegram/RSS, ~20 ribu CCTV publik — semuanya di memori, lewat polling |
 | Real-time | Tidak ada push. Polling 10 detik (kapal), 5 menit (layer), 15 menit (gempa) |
 | Worker / event bus | Tidak ada |
 
@@ -81,7 +83,7 @@ Lihat [ATLAS_FEATURE_GAP_ANALYSIS.md](ATLAS_FEATURE_GAP_ANALYSIS.md). Ringkasnya
 | Status | Modul |
 |---|---|
 | IMPLEMENTED | User management (tanpa MFA), ringkasan heuristik lokal |
-| PARTIAL | Dashboard, CCTV publik, GIS, ADS-B, AIS, event (di browser), reporting, monitoring |
+| PARTIAL | Dashboard, CCTV publik, GIS, ADS-B (➖ dihapus, dc942ec), AIS, event (di browser), reporting, monitoring |
 | MOCK/statis | Indikator ONLINE, lapsit karhutla, angka insiden manual, alert (hanya urutan tampilan) |
 | NOT IMPLEMENTED | Incident management, communication, IoT, WebRTC, kamera milik sendiri, rekaman, video analytics, MFA |
 
@@ -92,26 +94,26 @@ Lihat [ATLAS_FEATURE_GAP_ANALYSIS.md](ATLAS_FEATURE_GAP_ANALYSIS.md). Ringkasnya
   - `sourceCache` menggabungkan request yang bersamaan dan menyajikan data lama saat sumber gagal.
   - Proxy CCTV memakai allowlist.
 - **Gap:**
-  - Tidak ada status per sumber.
-  - Timestamp respons menyesatkan.
-  - Tidak ada histori.
-  - Pengambilan data berjalan di dalam request web.
-  - Cakupan Indonesia lemah pada fallback ADS-B dan AIS.
-  - `stealthFetch` memalsukan IP di 27 berkas.
-  - Banyak fungsi bergantung pada internet publik (tile, font, geocoder), sehingga tidak siap untuk jaringan tertutup.
+  - Tidak ada status per sumber. — ⏳ Terbuka
+  - Timestamp respons menyesatkan. — ⏳ Terbuka
+  - Tidak ada histori. — ⏳ Terbuka
+  - Pengambilan data berjalan di dalam request web. — ⏳ Terbuka
+  - Cakupan Indonesia lemah pada fallback ADS-B dan AIS. — ADS-B ➖ Tidak berlaku (dc942ec); AIS ⏳ Terbuka
+  - `stealthFetch` memalsukan IP di 27 berkas. — ⏳ Terbuka
+  - Banyak fungsi bergantung pada internet publik (tile, font, geocoder), sehingga tidak siap untuk jaringan tertutup. — ⏳ Terbuka
 
 ## 6. Penilaian keamanan
 
 Fondasinya baik: sesi, RBAC, pembatasan Kodam, SSRF, dan tidak ada SQLi maupun open redirect.
 
 Prioritas perbaikan:
-- Kredensial SUPER_ADMIN dan DB yang lemah (**P0**).
-- Tidak ada MFA.
-- `stealthFetch`.
-- CSP longgar.
-- Lockout akun lewat rate limit.
-- Backup tidak terenkripsi.
-- Kebocoran data pencarian dan koordinat ke pihak ketiga.
+- Kredensial SUPER_ADMIN dan DB yang lemah (**P0**). — 🟡 Sebagian (547f807, 17cd4f2): kebijakan sandi diperkuat, rotasi belum terverifikasi
+- Tidak ada MFA. — ⏳ Terbuka
+- `stealthFetch`. — ⏳ Terbuka
+- CSP longgar. — ⏳ Terbuka
+- Lockout akun lewat rate limit. — ✅ Selesai (working tree, belum di-commit)
+- Backup tidak terenkripsi. — ⏳ Terbuka
+- Kebocoran data pencarian dan koordinat ke pihak ketiga. — ⏳ Terbuka
 
 Detail di [ATLAS_SECURITY_REVIEW.md](ATLAS_SECURITY_REVIEW.md).
 
@@ -125,11 +127,11 @@ Detail di [ATLAS_SECURITY_REVIEW.md](ATLAS_SECURITY_REVIEW.md).
   - Cache dibatasi.
   - Fan-out request dibatasi.
 - **Risiko:**
-  - Payload pesawat dikirim penuh, lalu 90% dibuang di browser.
-  - Video mengalir lewat proses Node.
-  - Player video bocor saat ditutup.
-  - Semua state di memori satu proses (tidak bisa lebih dari satu instance, hilang saat restart).
-  - Fetch di browser tanpa timeout.
+  - Payload pesawat dikirim penuh, lalu 90% dibuang di browser. — ➖ Tidak berlaku (pelacakan pesawat dihapus, dc942ec)
+  - Video mengalir lewat proses Node. — ⏳ Terbuka
+  - Player video bocor saat ditutup. — ✅ Selesai (working tree, belum di-commit)
+  - Semua state di memori satu proses (tidak bisa lebih dari satu instance, hilang saat restart). — ⏳ Terbuka
+  - Fetch di browser tanpa timeout. — ⏳ Terbuka
 
 ## 8. Penilaian UI/UX
 
@@ -138,13 +140,13 @@ Detail di [ATLAS_SECURITY_REVIEW.md](ATLAS_SECURITY_REVIEW.md).
   - Peta responsif.
   - Halaman operator memakai live region dan waktu WIB.
 - **Gap:**
-  - Indikator kesehatan palsu.
-  - Tidak ada tanda usia data.
-  - Alert mudah terlewat (tanpa suara dan tanpa `aria-live`).
-  - 155 teks berukuran 9px, terlalu kecil untuk video wall.
-  - Bahasa campur Inggris dan Indonesia.
-  - Tidak ada panel detail insiden.
-  - Shortcut keyboard tidak cocok dengan bantuannya.
+  - Indikator kesehatan palsu. — ⏳ Terbuka
+  - Tidak ada tanda usia data. — ⏳ Terbuka
+  - Alert mudah terlewat (tanpa suara dan tanpa `aria-live`). — ⏳ Terbuka
+  - 155 teks berukuran 9px, terlalu kecil untuk video wall. — ⏳ Terbuka
+  - Bahasa campur Inggris dan Indonesia. — ⏳ Terbuka
+  - Tidak ada panel detail insiden. — ⏳ Terbuka
+  - Shortcut keyboard tidak cocok dengan bantuannya. — ⏳ Terbuka
 
 ## 9. Kesiapan produksi
 
@@ -156,20 +158,20 @@ Detail di [ATLAS_SECURITY_REVIEW.md](ATLAS_SECURITY_REVIEW.md).
   - TLS di nginx.
   - Backup harian dengan retensi 14 hari dan skrip restore.
 - **Belum:**
-  - CI untuk test dan lint.
-  - Monitoring dan alert kegagalan.
-  - Verifikasi `docker compose up` penuh.
-  - Backup di luar host dan terenkripsi.
-  - Latihan restore rutin.
-  - Rollback.
-  - Runbook dan SOP operator.
-  - Retensi data.
-  - Failover.
+  - CI untuk test dan lint. — ⏳ Terbuka (workflow hanya publish image Docker)
+  - Monitoring dan alert kegagalan. — ⏳ Terbuka
+  - Verifikasi `docker compose up` penuh. — ⏳ Terbuka
+  - Backup di luar host dan terenkripsi. — ⏳ Terbuka
+  - Latihan restore rutin. — ⏳ Terbuka
+  - Rollback. — ⏳ Terbuka
+  - Runbook dan SOP operator. — ⏳ Terbuka
+  - Retensi data. — ⏳ Terbuka
+  - Failover. — ⏳ Terbuka
 
 **Risiko paling kritis yang menghalangi produksi:**
-1. Kredensial lemah tanpa MFA.
-2. Tidak ada deteksi kegagalan, baik bagi operator maupun admin.
-3. Deploy belum pernah terbukti berjalan.
+1. Kredensial lemah tanpa MFA. — 🟡 Sebagian (kebijakan sandi sudah ada; MFA dan rotasi belum)
+2. Tidak ada deteksi kegagalan, baik bagi operator maupun admin. — ⏳ Terbuka
+3. Deploy belum pernah terbukti berjalan. — ⏳ Terbuka
 
 ## 10. Scorecard
 
@@ -190,13 +192,13 @@ Detail di [ATLAS_SECURITY_REVIEW.md](ATLAS_SECURITY_REVIEW.md).
 
 ## 11. Temuan kritis
 
-1. **P0-01** — Indikator "ONLINE" palsu, dan data basi tampil seolah terkini.
-2. **P0-02** — Kredensial SUPER_ADMIN dan DB lemah (diperparah oleh tidak adanya MFA, P1-01).
-3. **P0-03** — Edit situasi saling menimpa diam-diam, dan papan operator tidak menyegarkan sendiri.
-4. **P1-02/P1-03** — Tidak ada alur alert → ack → insiden → penugasan → penutupan.
-5. **P1-07/P1-08** — Tidak ada CI gate maupun monitoring; kegagalan baru diketahui dari pengguna.
+1. **P0-01** — Indikator "ONLINE" palsu, dan data basi tampil seolah terkini. — ⏳ Terbuka
+2. **P0-02** — Kredensial SUPER_ADMIN dan DB lemah (diperparah oleh tidak adanya MFA, P1-01). — 🟡 Sebagian (547f807, 17cd4f2): rotasi kredensial dan MFA belum
+3. **P0-03** — Edit situasi saling menimpa diam-diam, dan papan operator tidak menyegarkan sendiri. — ⏳ Terbuka
+4. **P1-02/P1-03** — Tidak ada alur alert → ack → insiden → penugasan → penutupan. — ⏳ Terbuka
+5. **P1-07/P1-08** — Tidak ada CI gate maupun monitoring; kegagalan baru diketahui dari pengguna. — ⏳ Terbuka
 
-Lainnya yang penting: `stealthFetch` memalsukan IP (P1-05), player video bocor (P1-06), dan gempa diperbarui tiap 15 menit (P1-04).
+Lainnya yang penting: `stealthFetch` memalsukan IP (P1-05, ⏳ Terbuka), player video bocor (P1-06, ✅ Selesai — working tree, belum di-commit), dan gempa diperbarui tiap 15 menit (P1-04, ⏳ Terbuka).
 
 ## 12. Arsitektur TO-BE
 

@@ -1,5 +1,17 @@
 # ATLAS — Arsitektur AS-IS
 
+**Status diperbarui:** 12 November 2026 (dicek terhadap kode terkini).
+
+> **Snapshot 29 Oktober 2026** (commit `b3c6477`). Isi di bawah sengaja tidak diubah. **Perubahan sesudahnya:**
+> - **Pesawat dan satelit dihapus** (`dc942ec`): `/api/flights`, `/api/aircraft`, `/api/flight-route`, `/api/satellites`, panel dan layer terkait. OpenSky/adsb.fi di alur data dan diagram, serta poin "pesawat dikirim utuh ~10 ribu", tidak berlaku lagi. Mode citra satelit peta dasar tetap ada.
+> - **CCTV Indonesia:** 15 sumber kota/provinsi baru (`c0838be`), sehingga ada ±23 sumber Indonesia (BPJT, Bandung, Gresik, Aceh, Semarang, Surakarta sudah masuk sebelum snapshot lewat `48b7671`, `ec2fa04`). Panel dipecah menjadi GLOBAL/TOL/KOTA/JAKARTA, region luar negeri yang mati dibuang, dan server memeriksa kesehatan stream (`cf2ab8e`). Proxy HLS dan media TPT kini lewat `safeFetch` (`c0838be`, `355a0e0`).
+> - **Gempa dan cuaca BMKG** (`92cfc10`) sudah berlaku saat snapshot. Sesudahnya gempa menampilkan waktu WIB dan memudar sesuai usia (`d1b3b69`).
+> - **Baru (`355a0e0`):** layer gunung api MAGMA/PVMBG (`/api/volcanoes`); chat AI operator (`/api/ai/chat`) yang memanggil LLM eksternal, sehingga ada satu tujuan data keluar baru; vault sesi TPT Jakarta terenkripsi di DB (model `TptSession`, migrasi keempat).
+> - **Auth dan pengguna:** kebijakan sandi minimum 12 dan bootstrap admin sekali jalan (`547f807`), rotasi SUPER_ADMIN dengan konfirmasi dan pemulihan lokal (`17cd4f2`), UI Pengguna V2 (`414ba45`), pemeriksaan isi artefak build (`2135def`).
+> - **Angka yang bergeser:** `OsirisMap.tsx` kini ±2.290 baris, `monitoring-dashboard.tsx` ±1.340 baris, 43 route handler, 4 migrasi Prisma.
+> - **Working tree (belum di-commit):** teardown player video saat ditutup, dan penyesuaian rate limit login.
+> - **Tidak berubah:** satu proses tanpa worker, polling tanpa push, `timestamp` = waktu respons, indikator "ONLINE" statis, CI hanya publish manual, backup belum terenkripsi.
+
 **Tanggal:** 29 Oktober 2026 · **Metode:** baca kode (read-only), unit test, typecheck. Tidak ada deploy, load test, atau pengujian layanan luar.
 
 ## 1. Stack

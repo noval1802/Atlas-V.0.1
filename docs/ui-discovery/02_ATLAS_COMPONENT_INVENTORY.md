@@ -1,5 +1,7 @@
 # 02 — Inventaris Komponen UI ATLAS (AS-IS)
 
+> Catatan 12 November 2026: `SatelliteCard`, `FlightWatchPanel`, dan tombol popup `window.osirisWatchFlight` sudah dihapus bersama pelacakan pesawat dan satelit.
+
 > Dokumen discovery, read-only. Semua angka berasal dari `grep`/`wc` pada working tree `/home/wizard/Atlas-V.0.1` (30 Okt 2026).
 > Path relatif terhadap root repo. Notasi `file:baris` merujuk baris sumber saat dokumen ditulis.
 > Pemisahan istilah: **token terpusat** = CSS custom property di `src/app/globals.css` / konstanta kelas bersama; **hardcoded** = hex, px, inline style, nilai arbitrer Tailwind; **inferensi** = pola yang disimpulkan, ditandai eksplisit.
