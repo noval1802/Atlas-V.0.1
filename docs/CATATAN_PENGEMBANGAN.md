@@ -79,6 +79,7 @@ lalu dibatalkan karena stream-nya tidak bisa diputar lewat proxy.
 | `dc942ec` | **Fitur pesawat dan satelit dihapus seluruhnya.** Pesawat akan dibangun ulang memakai API resmi Flightradar24 (berbayar). Satelit tidak dipakai. Basemap citra satelit tetap ada. |
 | `356bd31` | Login: admin tidak bisa dikunci orang lain (temuan 10) |
 | `356bd31` | Pemutar kamera dihentikan saat ditutup; buffer video dibatasi (temuan 3 dan 11) |
+| `d780930` | Proxy kamera dan tile hanya meneruskan tipe media; CSP sandbox berlaku (temuan 1). Label panel layer berbahasa Indonesia |
 
 ### Status temuan audit ulang (11 Nov 2026)
 
@@ -88,7 +89,7 @@ Detail teknis temuan keamanan yang masih terbuka sengaja tidak ditulis di sini, 
 
 | No | Temuan | Status |
 |---|---|---|
-| 1 | Proxy video HLS/TPT perlu membatasi jenis konten yang diteruskan | ⏳ |
+| 1 | Proxy video HLS/TPT perlu membatasi jenis konten yang diteruskan | ✅ `d780930` |
 | 2 | AI chat memakai model eksternal; perlu keputusan kebijakan dan flag aktif/nonaktif | ⏳ (menunggu keputusan) |
 | 3 | Pemutar kamera tidak dihentikan saat viewer/tile ditutup | ✅ `356bd31` |
 | 4 | Form situasi bisa menimpa edit operator lain tanpa peringatan | ⏳ |
@@ -123,5 +124,5 @@ Detail teknis temuan keamanan yang masih terbuka sengaja tidak ditulis di sini, 
 ## Tahap berikutnya
 
 - Integrasi **Flightradar24** (API resmi berbayar). Kode pesawat lama bisa dijadikan acuan dari riwayat git (`d1b3b69` dan sebelumnya).
-- Menyelesaikan temuan terbuka di atas, dimulai dari 1, 4 dan 8.
+- Menyelesaikan temuan terbuka di atas, dimulai dari 2 (keputusan AI chat), 4 dan 8.
 - Membuat pull request `feat/cctv-indonesia-and-global` ke `master`.
