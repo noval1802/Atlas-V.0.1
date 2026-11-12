@@ -6,17 +6,13 @@ import { GET, clearStatsSnapshot } from './route';
 const { viaFetch } = vi.hoisted(() => ({
   viaFetch: (name: string) => ({ GET: () => fetch(`http://feed/api/${name}`) }),
 }));
-vi.mock('../flights/route', () => viaFetch('flights'));
-vi.mock('../satellites/route', () => viaFetch('satellites'));
 vi.mock('../cctv/route', () => viaFetch('cctv'));
 vi.mock('../weather/route', () => viaFetch('weather'));
 vi.mock('../gdelt/route', () => viaFetch('gdelt'));
 
-/* Each computation calls five of the app's own feeds. These tests count those
-   calls, because the defect was that every caller paid for all five. */
+/* Each computation calls three of the app's own feeds. These tests count those
+   calls, because the defect was that every caller paid for all of them. */
 const baseFeeds = (): Record<string, unknown> => ({
-  flights: { commercial_flights: [1, 2], private_flights: [3], private_jets: [], military_flights: [4] },
-  satellites: { satellites: [1, 2, 3] },
   cctv: { cameras: [1, 2, 3, 4, 5] },
   weather: { events: [1] },
   gdelt: { events: [1, 2, 3, 4] },
@@ -58,7 +54,7 @@ describe('GET /api/stats', () => {
   it('counts each feed', async () => {
     mockFetch();
     const body = await (await request()).json();
-    expect(body.stats).toEqual({ flights: 4, sats: 3, cctv: 5, weather: 1, incidents: 4 });
+    expect(body.stats).toEqual({ cctv: 5, weather: 1, incidents: 4 });
   });
 
   it('serves a burst of concurrent callers from one computation', async () => {
@@ -66,7 +62,7 @@ describe('GET /api/stats', () => {
     const burst = Array.from({ length: 50 }, request);
     release();
     const bodies = await Promise.all(burst.map(response => response.then(r => r.json())));
-    expect(calls).toBe(5);
+    expect(calls).toBe(3);
     expect(new Set(bodies.map(b => JSON.stringify(b.stats))).size).toBe(1);
   });
 
@@ -75,24 +71,24 @@ describe('GET /api/stats', () => {
     await request();
     at('2026-01-01T00:00:29Z');
     await request();
-    expect(calls).toBe(5);
+    expect(calls).toBe(3);
   });
 
   it('answers from a stale snapshot at once while refreshing behind it', async () => {
     mockFetch();
     await request();
 
-    feeds.satellites = { satellites: [1] };
+    feeds.cctv = { cameras: [1] };
     mockFetch({ hold: true });
     at('2026-01-01T00:00:31Z');
     // Resolves while the refresh is still held open: the caller never waits on it.
     const stale = await (await request()).json();
-    expect(stale.stats.sats).toBe(3);
-    expect(calls).toBe(5);
+    expect(stale.stats.cctv).toBe(5);
+    expect(calls).toBe(3);
 
     release();
-    await vi.waitFor(async () => expect((await (await request()).json()).stats.sats).toBe(1));
-    expect(calls).toBe(5); // the waiting callers shared the one refresh
+    await vi.waitFor(async () => expect((await (await request()).json()).stats.cctv).toBe(1));
+    expect(calls).toBe(3); // the waiting callers shared the one refresh
   });
 
   it('keeps serving the last good snapshot when a refresh fails', async () => {
@@ -104,7 +100,7 @@ describe('GET /api/stats', () => {
 
     const response = await request();
     expect(response.status).toBe(200);
-    expect((await response.json()).stats.sats).toBe(3);
+    expect((await response.json()).stats.cctv).toBe(5);
     await vi.waitFor(() => expect(logged).toHaveBeenCalledWith('Stats refresh failed:', expect.any(Error)));
   });
 
@@ -117,27 +113,27 @@ describe('GET /api/stats', () => {
     feeds.gdelt = { events: [1] };
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       const feed = new URL(url).pathname.split('/').pop()!;
-      if (feed === 'satellites') throw new TypeError('fetch failed');
+      if (feed === 'cctv') throw new TypeError('fetch failed');
       return new Response(JSON.stringify(feeds[feed] ?? {}), { status: 200 });
     }));
     at('2026-01-01T00:00:31Z');
     await request();
     await vi.waitFor(async () => expect((await (await request()).json()).stats.incidents).toBe(1));
-    expect((await (await request()).json()).stats.sats).toBe(3);
+    expect((await (await request()).json()).stats.cctv).toBe(5);
   });
 
   it('does not treat a computation that reached no feed as fresh', async () => {
     let attempts = 0;
     vi.stubGlobal('fetch', vi.fn(async () => { attempts++; throw new TypeError('fetch failed'); }));
     await request();
-    expect(attempts).toBe(5);
+    expect(attempts).toBe(3);
     // Still inside what would be the TTL, but nothing was learned: try again.
     at('2026-01-01T00:00:05Z');
     await request();
-    await vi.waitFor(() => expect(attempts).toBe(10));
+    await vi.waitFor(() => expect(attempts).toBe(6));
 
     mockFetch();
-    await vi.waitFor(async () => expect((await (await request()).json()).stats.sats).toBe(3));
+    await vi.waitFor(async () => expect((await (await request()).json()).stats.cctv).toBe(5));
   });
 
   it('reports a failure when there is no snapshot to fall back on', async () => {

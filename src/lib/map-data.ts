@@ -38,19 +38,6 @@ interface MapPointRow {
   lng?: number;
 }
 
-/** An aircraft position the map and the watch panel read. */
-export interface FlightRow extends MapPointRow {
-  callsign?: string;
-  heading?: number;
-  alt?: number;
-  model?: string;
-  speed_knots?: number;
-  registration?: string;
-  icao24?: string;
-  grounded?: boolean;
-  squawk?: string;
-}
-
 export interface PortRow extends MapPointRow {
   name?: string;
   country?: string;
@@ -167,18 +154,6 @@ export interface NewsRow {
   coords?: [number, number] | null;
 }
 
-/** Fields the satellite layer and its popup read. */
-export interface SatellitePoint {
-  name: string;
-  lat: number;
-  lng: number;
-  alt: number;
-  color?: string;
-  mission?: string;
-  category?: string;
-  noradId?: string;
-}
-
 /** A Live Alerts report as the pin layer reads it. */
 export interface AlertPinReport {
   id: string;
@@ -214,17 +189,9 @@ export interface NewsMeta {
  */
 export interface MapData {
   kotamaops?: KotamaopsPoint[];
-  commercial_flights?: FlightRow[];
-  private_flights?: FlightRow[];
-  private_jets?: FlightRow[];
-  military_flights?: FlightRow[];
   maritime_ports?: PortRow[];
   maritime_chokepoints?: ChokepointRow[];
   maritime_ships?: ShipRow[];
-  satellites?: SatellitePoint[];
-  /** Epoch the satellite positions were propagated for. */
-  satellites_at?: string;
-  category_counts?: Record<string, number>;
   cameras?: CatalogCamera[];
   earthquakes?: EarthquakeRow[];
   fires?: FireRow[];
@@ -241,7 +208,7 @@ export interface MapData {
 }
 
 /**
- * The array stored under a catalog key such as `commercial_flights`.
+ * The array stored under a catalog key such as `maritime_ships`.
  * A missing key or a non-array (a feed that has not landed, or a bad payload)
  * is skipped, so callers do not report a confident zero.
  */

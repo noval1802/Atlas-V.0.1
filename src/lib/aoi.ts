@@ -61,18 +61,8 @@ interface LayerSpec {
  * adding a layer here is the only step needed to make it selectable.
  */
 export const AOI_LAYERS: LayerSpec[] = [
-  { key: 'commercial_flights', label: 'Commercial aircraft', color: '#00E5FF', labelFields: ['callsign', 'icao24'],
-    detail: e => [e.model, e.alt ? `${e.alt} m` : null].filter(Boolean).join(' · ') || undefined },
-  { key: 'private_flights', label: 'Private aircraft', color: '#76FF03', labelFields: ['callsign', 'icao24'],
-    detail: e => e.model || undefined },
-  { key: 'private_jets', label: 'Private jets', color: '#FFD500', labelFields: ['callsign', 'icao24'],
-    detail: e => e.model || undefined },
-  { key: 'military_flights', label: 'Military aircraft', color: '#FF3D3D', labelFields: ['callsign', 'icao24'],
-    detail: e => e.model || undefined },
   { key: 'maritime_ships', label: 'Vessels', color: '#448AFF', labelFields: ['name', 'mmsi', 'imo'],
     detail: e => e.destination || e.flag || undefined },
-  { key: 'satellites', label: 'Satellites', color: '#E040FB', labelFields: ['name', 'noradId'],
-    detail: e => (e.altitude ? `${Math.round(e.altitude)} km` : undefined) },
   { key: 'cameras', label: 'CCTV cameras', color: '#00E676', labelFields: ['name', 'id'],
     detail: e => [e.city, e.country].filter(Boolean).join(', ') || undefined },
   { key: 'earthquakes', label: 'Earthquakes', color: '#FF9500', labelFields: ['place', 'id'],

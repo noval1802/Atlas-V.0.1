@@ -14,7 +14,6 @@ import IntelFeed from '@/components/IntelFeed';
 import SearchBar from '@/components/SearchBar';
 import DirectionsBar, { type RouteResult, type LiveLocation } from '@/components/DirectionsBar';
 import NavigationView from '@/components/NavigationView';
-import FlightWatchPanel, { type WatchedFlight, type FlightTelemetry, type AircraftDetail, type Airport } from '@/components/FlightWatchPanel';
 import type { NavProgress } from '@/lib/navigation';
 import ScaleBar from '@/components/ScaleBar';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -145,55 +144,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
     { route: RouteResult; label: string; key: number } | null
   >(null);
   const [navProgress, setNavProgress] = useState<NavProgress | null>(null);
-  const [watchedFlights, setWatchedFlights] = useState<WatchedFlight[]>([]);
-  const [aircraftAirports, setAircraftAirports] = useState<Record<string, Airport[]>>({});
-
-  // The popup lives in raw map HTML, so it hands aircraft over through a global.
-  useEffect(() => {
-    (window as unknown as { osirisWatchFlight?: (f: WatchedFlight) => void }).osirisWatchFlight = (f) => {
-      if (!f?.icao24) return;
-      setWatchedFlights((prev) =>
-        prev.some((w) => w.icao24 === f.icao24) ? prev : [...prev, f].slice(-6));
-    };
-  }, []);
-
-  const removeWatched = useCallback((icao24: string) => {
-    setWatchedFlights((prev) => prev.filter((w) => w.icao24 !== icao24));
-    setAircraftAirports((prev) => {
-      const next = { ...prev };
-      delete next[icao24];
-      return next;
-    });
-  }, []);
-
-  const handleAircraftDetail = useCallback((icao24: string, detail: AircraftDetail | null) => {
-    const ports = [detail?.origin, detail?.destination]
-      .filter((a): a is Airport => Boolean(a && Number.isFinite(a.lat) && Number.isFinite(a.lng)));
-    setAircraftAirports((prev) => (ports.length ? { ...prev, [icao24]: ports } : prev));
-  }, []);
-
-  // Telemetry for watched aircraft, refreshed from whatever the feed last gave us.
-  const watchTelemetry = useMemo(() => {
-    const out: Record<string, FlightTelemetry> = {};
-    if (!watchedFlights.length) return out;
-    const buckets = [
-      mapData.commercial_flights, mapData.private_flights,
-      mapData.private_jets, mapData.military_flights,
-    ];
-    const wanted = new Set(watchedFlights.map((w) => w.icao24));
-    for (const bucket of buckets) {
-      for (const f of bucket || []) {
-        if (typeof f?.icao24 === 'string' && wanted.has(f.icao24) && typeof f.lat === 'number' && typeof f.lng === 'number') {
-          out[f.icao24] = {
-            lat: f.lat, lng: f.lng, alt: f.alt ?? 0,
-            speed_knots: f.speed_knots ?? 0, heading: f.heading ?? 0,
-            grounded: f.grounded, squawk: f.squawk,
-          };
-        }
-      }
-    }
-    return out;
-  }, [watchedFlights, mapData]);
 
   // A navigation session owns its own position watch. The planner's watch dies
   // with the planner when guidance takes over the panel, so guidance cannot
@@ -622,9 +572,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
 
   const data = mapData;
 
-  const totalFlights = useMemo(() => (
-    (data.commercial_flights?.length||0)+(data.private_flights?.length||0)+(data.private_jets?.length||0)+(data.military_flights?.length||0)
-  ), [data.commercial_flights, data.private_flights, data.private_jets, data.military_flights]);
 
 
   return (
@@ -799,7 +746,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
           onDrawCancel={() => { setDrawMode(null); setDrawProgress(null); }}
           onDrawComplete={handleDrawComplete}
           drawnPolygons={drawnPolygons}
-          aircraftAirports={aircraftAirports}
           tileProxy={tileProxy}
         />
       </ErrorBoundary>
@@ -866,24 +812,6 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
       </div>
 
 
-      {/* ── FLIGHT WATCH ── */}
-      {watchedFlights.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
-          className="absolute top-3 z-[380] w-[min(92vw,290px)] pointer-events-auto
-                     max-h-[calc(100vh-180px)] overflow-y-auto styled-scrollbar"
-          style={{ left: isMobile ? '12px' : '120px' }}
-        >
-          <FlightWatchPanel
-            watched={watchedFlights}
-            telemetry={watchTelemetry}
-            onRemove={removeWatched}
-            onLocate={(lat, lng) => setFlyToLocation({ lat, lng, zoom: 8, ts: Date.now() })}
-            onDetail={handleAircraftDetail}
-          />
-        </motion.div>
-      )}
-
       {/* ── MAP VIEW CONTROLS ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }} animate={revealed ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }} transition={hudIn(0.45)}
@@ -919,7 +847,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
         </div>
         <div className="flex items-center gap-3 mt-1.5 pl-[44px] min-w-0 pr-4">
           <span className="text-[9px] md:text-[9px] text-[var(--text-muted)] font-mono tracking-[0.2em] md:tracking-[0.3em] uppercase truncate">
-            REAL-TIME GLOBAL MONITORING <span className="hidden md:inline">· FLIGHTS · MARITIME · SATELLITES · CCTV · WEATHER · CYBER THREATS</span>
+            REAL-TIME GLOBAL MONITORING <span className="hidden md:inline">· MARITIME · CCTV · WEATHER · CYBER THREATS</span>
           </span>
         </div>
       </motion.div>
@@ -1253,9 +1181,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
                   {mobilePanel === 'layers' && (
                     <>
                       <div className="glass-panel-sm p-2 mb-2">
-                        <div className="grid grid-cols-4 gap-1 text-center">
-                          <div><div className="hud-label" style={{fontSize:'9px'}}>AIR</div><div className="hud-value text-[10px]">{totalFlights.toLocaleString()}</div></div>
-                          <div><div className="hud-label" style={{fontSize:'9px'}}>SAT</div><div className="hud-value text-[10px]">{(data.satellites?.length||0)}</div></div>
+                        <div className="grid grid-cols-2 gap-1 text-center">
                           <div><div className="hud-label" style={{fontSize:'9px'}}>CAM</div><div className="hud-value text-[10px]">{(data.cameras?.length||0)}</div></div>
                           <div><div className="hud-label" style={{fontSize:'9px'}}>WX</div><div className="hud-value text-[10px]" style={{color:'var(--accent-weather)'}}>{(data.weather_events?.length||0)}</div></div>
                         </div>

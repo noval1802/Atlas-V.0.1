@@ -51,14 +51,14 @@ describe('bboxOf', () => {
 
 describe('selectInPolygon', () => {
   const data = {
-    commercial_flights: [
-      { callsign: 'ABC123', lat: 0, lng: 0, model: 'A320' },      // in
-      { callsign: 'FAR999', lat: 40, lng: 40 },                    // out
-      { callsign: 'NOPOS' },                                       // no position
+    maritime_ships: [
+      { name: 'KRI ABC', lat: 0, lng: 0, destination: 'Surabaya' }, // in
+      { name: 'FAR999', lat: 40, lng: 40 },                          // out
+      { name: 'NOPOS' },                                             // no position
     ],
-    military_flights: [{ callsign: 'RCH01', lat: 0.5, lng: -0.5 }], // in
+    weather_events: [{ title: 'Storm', lat: 0.5, lng: -0.5 }],       // in
     cameras: [{ name: 'Cam A', lat: 0.2, lng: 0.2, city: 'Test', country: 'XX' }], // in
-    satellites: [],                       // present but empty
+    gdelt: [],                            // present but empty
     earthquakes: 'not-an-array',          // malformed
   };
 
@@ -66,26 +66,26 @@ describe('selectInPolygon', () => {
     const r = selectInPolygon(SQUARE, data);
     expect(r.total).toBe(3);
     const keys = r.groups.map(g => g.key).sort();
-    expect(keys).toEqual(['cameras', 'commercial_flights', 'military_flights']);
+    expect(keys).toEqual(['cameras', 'maritime_ships', 'weather_events']);
   });
 
   it('skips entities with no position rather than counting them', () => {
     const r = selectInPolygon(SQUARE, data);
-    const air = r.groups.find(g => g.key === 'commercial_flights')!;
-    expect(air.count).toBe(1);
-    expect(air.items[0].label).toBe('ABC123');
+    const ships = r.groups.find(g => g.key === 'maritime_ships')!;
+    expect(ships.count).toBe(1);
+    expect(ships.items[0].label).toBe('KRI ABC');
   });
 
   it('omits empty and malformed layers instead of reporting zero', () => {
     const r = selectInPolygon(SQUARE, data);
-    expect(r.groups.find(g => g.key === 'satellites')).toBeUndefined();
+    expect(r.groups.find(g => g.key === 'gdelt')).toBeUndefined();
     expect(r.groups.find(g => g.key === 'earthquakes')).toBeUndefined();
   });
 
   it('sorts groups by count, densest first', () => {
     const many = {
       cameras: Array.from({ length: 5 }, (_, i) => ({ name: 'C' + i, lat: 0, lng: 0 })),
-      military_flights: [{ callsign: 'M1', lat: 0, lng: 0 }],
+      maritime_ships: [{ name: 'M1', lat: 0, lng: 0 }],
     };
     const r = selectInPolygon(SQUARE, many);
     expect(r.groups[0].key).toBe('cameras');

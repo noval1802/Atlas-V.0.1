@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { GET as flightsFeed } from '../flights/route';
-import { GET as satellitesFeed } from '../satellites/route';
 import { GET as cctvFeed } from '../cctv/route';
 import { GET as weatherFeed } from '../weather/route';
 import { GET as gdeltFeed } from '../gdelt/route';
@@ -16,15 +14,15 @@ export const maxDuration = 60;
  * This endpoint ensures the Next.js server serves ~100 bytes instead of 10MB+
  * of raw GeoJSON mapping data when 10,000 users boot the dashboard simultaneously.
  * The underlying API routes utilize their own 45-60s TTL caching, meaning the
- * heavy external APIs (adsb.lol, USGS) are only hit once per minute, while this
+ * heavy external APIs are only hit once per minute, while this
  * lightweight stats route safely serves 10k concurrent users instantly.
  */
 
-type Stats = { flights: number; sats: number; cctv: number; weather: number; incidents: number };
+type Stats = { cctv: number; weather: number; incidents: number };
 type Snapshot = { stats: Stats; timestamp: string; at: number };
-const EMPTY: Stats = { flights: 0, sats: 0, cctv: 0, weather: 0, incidents: 0 };
+const EMPTY: Stats = { cctv: 0, weather: 0, incidents: 0 };
 
-/* One computation serves everyone. Each one pulls five of this app's own feeds —
+/* One computation serves everyone. Each one pulls three of this app's own feeds —
    CCTV alone is ~14MB — and parses them only to count. Next's data cache
    refuses anything over 2MB, so those fetches are `no-store`. The snapshot
    below is the cache: at most one computation per TTL, concurrent callers
@@ -50,9 +48,7 @@ const withTimeout = (feed: () => Promise<Response>) =>
 
 /** Counts for the feeds that answered; a feed that failed is simply absent. */
 async function computeStats(): Promise<Partial<Stats>> {
-  const [flightsRes, satsRes, cctvRes, weatherRes, gdeltRes] = await Promise.allSettled([
-    withTimeout(() => flightsFeed()),
-    withTimeout(() => satellitesFeed()),
+  const [cctvRes, weatherRes, gdeltRes] = await Promise.allSettled([
     withTimeout(() => cctvFeed(new Request('http://localhost/api/cctv'))),
     withTimeout(() => weatherFeed()),
     withTimeout(() => gdeltFeed()),
@@ -76,10 +72,6 @@ async function computeStats(): Promise<Partial<Stats>> {
     }
   };
 
-  await count(flightsRes, 'flights', d =>
-    (d.commercial_flights?.length || 0) + (d.private_flights?.length || 0) +
-    (d.private_jets?.length || 0) + (d.military_flights?.length || 0));
-  await count(satsRes, 'sats', d => d.satellites?.length || 0);
   await count(cctvRes, 'cctv', d => d.cameras?.length || 0);
   await count(weatherRes, 'weather', d => d.events?.length || 0);
   await count(gdeltRes, 'incidents', d => d.events?.length || 0);

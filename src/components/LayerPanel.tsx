@@ -3,7 +3,7 @@
 import { memo, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plane, Satellite, Sun, AlertTriangle, Camera,
+  Sun, AlertTriangle, Camera,
   CloudLightning, Ship, Database, Ghost,
   Flame, Tv, Radio, Mountain, Anchor, Shield
 } from 'lucide-react';
@@ -33,8 +33,6 @@ interface LayerDef {
   label: string;
   dataKey: string;
   description?: string;
-  /** Reads a bucket out of data.category_counts instead of a top-level array. */
-  catKey?: string;
   /** Counts only the Kotamaops of this matra. */
   matra?: Matra;
   /** Key of the layer this one modifies. Renders indented beneath it. */
@@ -71,35 +69,11 @@ const LAYER_GROUPS: LayerGroupDef[] = [
     ],
   },
   {
-    label: 'AVIATION',
-    fullLabel: 'AVIATION',
-    icon: Plane,
-    layers: [
-      { key: 'flights', label: 'Commercial', dataKey: 'commercial_flights' },
-      { key: 'private', label: 'Private', dataKey: 'private_flights' },
-      { key: 'jets', label: 'Private Jets', dataKey: 'private_jets' },
-      { key: 'military', label: 'Military', dataKey: 'military_flights' },
-    ],
-  },
-  {
     label: 'MARITIME',
     fullLabel: 'MARITIME',
     icon: Ship,
     layers: [
       { key: 'maritime', label: 'Maritime / Naval', dataKey: 'maritime_ships,maritime_ports,maritime_chokepoints' },
-    ],
-  },
-  {
-    label: 'SPACE',
-    fullLabel: 'SPACE TRACKING',
-    icon: Satellite,
-    layers: [
-      { key: 'satellites', label: 'All Satellites', dataKey: 'satellites' },
-      { key: 'sat_comms', label: 'Starlink / Comms', dataKey: 'satellites', catKey: 'comms' },
-      { key: 'sat_military', label: 'Military / Intel', dataKey: 'satellites', catKey: 'military' },
-      { key: 'sat_navigation', label: 'GPS / Navigation', dataKey: 'satellites', catKey: 'navigation' },
-      { key: 'sat_earth', label: 'Earth Observation', dataKey: 'satellites', catKey: 'earth_obs' },
-      { key: 'sat_science', label: 'Stations / Telescopes', dataKey: 'satellites', catKey: 'science' },
     ],
   },
   {
@@ -248,9 +222,6 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, theme = 'co
   const getCount = (layer: LayerDef): number | null => {
     if (!layer.dataKey) return null;
     if (layer.matra) return (data.kotamaops ?? []).filter((point) => point.matra === layer.matra).length;
-    if (layer.catKey && data.category_counts) {
-      return data.category_counts[layer.catKey] || 0;
-    }
     let total = 0;
     let found = false;
     for (const k of layer.dataKey.split(',')) {

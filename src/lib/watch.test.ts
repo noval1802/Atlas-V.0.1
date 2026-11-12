@@ -3,12 +3,12 @@ import { diffSweep, appendEvents, formatAgo, MAX_EVENTS, type WatchBaseline } fr
 import type { AoiReport } from './aoi';
 
 /** Build a sweep result holding the given callsigns in one layer. */
-const report = (labels: string[], layer = 'military_flights'): AoiReport => ({
+const report = (labels: string[], layer = 'maritime_ships'): AoiReport => ({
   total: labels.length,
   groups: labels.length
     ? [{
         key: layer,
-        label: layer === 'military_flights' ? 'Military aircraft' : layer,
+        label: layer === 'maritime_ships' ? 'Vessels' : layer,
         color: '#FF3D3D',
         count: labels.length,
         items: labels.slice(0, 50).map(l => ({ id: l, label: l, lat: 0, lng: 0 })),
@@ -21,7 +21,7 @@ describe('diffSweep', () => {
   it('produces no events on the first pass, only a baseline', () => {
     const { baseline, events } = diffSweep('aoi1', report(['RCH01', 'RCH02']), null);
     expect(events).toHaveLength(0);
-    expect(baseline.military_flights.size).toBe(2);
+    expect(baseline.maritime_ships.size).toBe(2);
   });
 
   it('reports an arrival', () => {
@@ -64,25 +64,25 @@ describe('diffSweep', () => {
     const mixed: AoiReport = {
       total: 2,
       groups: [
-        { key: 'military_flights', label: 'Military', color: '#f00', count: 1, items: [{ id: 'X1', label: 'X1', lat: 0, lng: 0 }], memberIds: ['X1'] },
+        { key: 'cameras', label: 'CCTV', color: '#f00', count: 1, items: [{ id: 'X1', label: 'X1', lat: 0, lng: 0 }], memberIds: ['X1'] },
         { key: 'maritime_ships', label: 'Vessels', color: '#00f', count: 1, items: [{ id: 'X1', label: 'X1', lat: 0, lng: 0 }], memberIds: ['X1'] },
       ],
     };
     const { baseline } = diffSweep('aoi1', mixed, null);
-    expect(baseline.military_flights.has('military_flights:X1')).toBe(true);
+    expect(baseline.cameras.has('cameras:X1')).toBe(true);
     expect(baseline.maritime_ships.has('maritime_ships:X1')).toBe(true);
 
-    // Removing only the aircraft must not report the vessel as gone.
+    // Removing only the camera must not report the vessel as gone.
     const onlyShip: AoiReport = { total: 1, groups: [mixed.groups[1]] };
     const next = diffSweep('aoi1', onlyShip, baseline);
     expect(next.events).toHaveLength(1);
-    expect(next.events[0]).toMatchObject({ kind: 'exit', layer: 'military_flights' });
+    expect(next.events[0]).toMatchObject({ kind: 'exit', layer: 'cameras' });
   });
 
   it('carries the layer label and colour onto the event', () => {
     const first = diffSweep('aoi1', report(['A']), null);
     const second = diffSweep('aoi1', report(['A', 'B']), first.baseline);
-    expect(second.events[0].layerLabel).toBe('Military aircraft');
+    expect(second.events[0].layerLabel).toBe('Vessels');
     expect(second.events[0].color).toBe('#FF3D3D');
   });
 

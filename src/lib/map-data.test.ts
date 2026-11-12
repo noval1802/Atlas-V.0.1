@@ -3,13 +3,13 @@ import { mapDataList, type MapData } from './map-data';
 
 describe('mapDataList', () => {
   const data: MapData = {
-    commercial_flights: [{ lat: 1, lng: 2, callsign: 'ABC' }],
-    satellites_at: '2026-10-10T00:00:00Z',
+    fires: [{ lat: 1, lng: 2 }],
+    news_meta: { fetchedAt: '2026-10-10T00:00:00Z' },
     earthquakes: [],
   };
 
   it('returns a stored list', () => {
-    expect(mapDataList(data, 'commercial_flights')).toEqual([{ lat: 1, lng: 2, callsign: 'ABC' }]);
+    expect(mapDataList(data, 'fires')).toEqual([{ lat: 1, lng: 2 }]);
   });
 
   it('treats an empty list as present', () => {
@@ -17,8 +17,8 @@ describe('mapDataList', () => {
   });
 
   it('skips a field that is not a list and a key that was never written', () => {
-    expect(mapDataList(data, 'satellites_at')).toBeUndefined();
-    expect(mapDataList(data, 'fires')).toBeUndefined();
+    expect(mapDataList(data, 'news_meta')).toBeUndefined();
+    expect(mapDataList(data, 'volcanoes')).toBeUndefined();
   });
 
   it('skips a malformed payload instead of counting it', () => {

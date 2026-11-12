@@ -58,13 +58,7 @@ chrome.stdio[4].on('data', chunk => {
     } else if (message.method === 'Fetch.requestPaused') {
       // Deterministic visual-test locations, confined to the localhost geo API.
       const location = scenario === 'buildings' ? { lat: 40.7128, lon: -74.006 } : { lat: 46.02, lon: 7.75 };
-      const satelliteFixture = {
-        satellites: Array.from({ length: 200 }, (_, i) => ({ name: `RENDER TEST ${i}`, noradId: String(90000 + i),
-          lat: -60 + (i % 20) * 6, lng: -170 + Math.floor(i / 20) * 34, alt: 550, color: '#38bdf8', category: 'comms', mission: 'Render test' })),
-        timestamp: new Date().toISOString(), total: 200, category_counts: { comms: 200 },
-      };
-      const payload = new URL(message.params.request.url).pathname === '/api/satellites'
-        ? satelliteFixture : { status: 'success', city: 'Visual test location', ...location };
+      const payload = { status: 'success', city: 'Visual test location', ...location };
       void command('Fetch.fulfillRequest', { requestId: message.params.requestId, responseCode: 200,
         responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
         body: Buffer.from(JSON.stringify(payload)).toString('base64'),
@@ -111,7 +105,6 @@ try {
   const system = await command('SystemInfo.getInfo', {}, null);
   measurements.graphics = { devices: system.gpu.devices, renderer: system.gpu.auxAttributes?.glRenderer, features: system.gpu.featureStatus };
   if (['imagery', 'buildings', 'terrain-camera'].includes(scenario)) await command('Fetch.enable', { patterns: [{ urlPattern: `${new URL(url).origin}/api/geo*` }] });
-  if (scenario === 'satellites') await command('Fetch.enable', { patterns: [{ urlPattern: `${new URL(url).origin}/api/satellites` }] });
   await command('Page.addScriptToEvaluateOnNewDocument', { source: `window.__previewLongTasks = []; new PerformanceObserver(list => { for (const e of list.getEntries()) window.__previewLongTasks.push({start: Math.round(e.startTime), ms: Math.round(e.duration)}); }).observe({type: 'longtask', buffered: true});` });
   if (scenario === 'recovery') await command('Network.setBlockedURLs', { urls: [`${new URL(url).origin}/dark-matter-style.json*`] });
   await command('Emulation.setDeviceMetricsOverride', scenario === 'mobile'
@@ -243,14 +236,6 @@ try {
         await click('3D Terrain'); await pause(7000);
         await check('Buildings and terrain work together on one canvas', `document.body.innerText.includes('Terrain on') && document.querySelector('button[aria-label="3D Buildings"]')?.getAttribute('aria-pressed') === 'true' && document.querySelectorAll('.maplibregl-canvas').length === 1`);
       }
-    }
-    if (scenario === 'satellites') {
-      await click('SPACE TRACKING'); await pause(250); await click('All Satellites'); await pause(2000);
-      await check('Satellite renderer receives the 200-object fixture', `document.querySelector('button[aria-label="All Satellites"]')?.textContent.includes('200')`);
-      for (let i = 0; i < 8; i++) { await click('Zoom out'); await pause(60); }
-      await pause(2000);
-      for (let i = 0; i < 4; i++) { await click('2D Map'); await pause(750); await click('3D Globe'); await pause(750); }
-      await check('Active satellite layer survives projection changes', `document.querySelector('[data-map-status]')?.dataset.mapStatus === 'ready' && document.querySelectorAll('.maplibregl-canvas').length === 1`);
     }
   }
   const result = await command('Runtime.evaluate', {

@@ -179,16 +179,15 @@ describe('map palette', () => {
   it('carries an edited layer colour through to its property', () => {
     const v = buildVars(settings({ map: { ...MAP_DEFAULTS, cctv: '#ff00ff' } }));
     expect(v['--map-cctv']).toBe('#ff00ff');
-    expect(v['--map-sat-military']).toBe(MAP_DEFAULTS.satMilitary);
   });
 
   it('sanitises map colours like every other colour', () => {
     // These land on body.style as text, so the same injection rules apply.
-    const hostile = { map: { cctv: 'red; } body { display: none } .x {', satEarth: '#0f0' } };
+    const hostile = { map: { cctv: 'red; } body { display: none } .x {' } };
     const out = sanitize(hostile, DEFAULTS);
     expect(out.map.cctv).toBe(MAP_DEFAULTS.cctv);
-    expect(out.map.satEarth).toBe('#00ff00');
     expect(JSON.stringify(out)).not.toContain('display');
+    expect(sanitize({ map: { cctv: '#0f0' } }, DEFAULTS).map.cctv).toBe('#00ff00');
   });
 
   it('survives a stored theme written before the map section existed', () => {

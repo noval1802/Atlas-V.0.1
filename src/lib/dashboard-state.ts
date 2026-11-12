@@ -1,7 +1,5 @@
 /** Counts from `/api/stats`. The header stores them; nothing else reads them yet. */
 export interface GlobalStats {
-  flights: number;
-  sats: number;
   cctv: number;
   weather: number;
   incidents: number;

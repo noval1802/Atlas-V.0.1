@@ -25,7 +25,7 @@ export interface WatchEvent {
   kind: WatchEventKind;
   /** Which AOI fired it. */
   aoiId: string;
-  /** Layer the object belongs to, e.g. military_flights. */
+  /** Layer the object belongs to, e.g. maritime_ships. */
   layer: string;
   layerLabel: string;
   color: string;

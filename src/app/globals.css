@@ -46,17 +46,6 @@
      What the map itself draws with. Mirrored in src/lib/map-palette.ts, which
      reads these back; the two copies are pinned together by its tests. */
   --map-cctv: #00e676;
-  --map-sat-comms: #00e676;
-  --map-sat-military: #ff3d3d;
-  --map-sat-navigation: #448aff;
-  --map-sat-earth: #90ee90;
-  --map-sat-science: #ffd700;
-  --map-sat-other: #00e5ff;
-  --map-flight-civil: #00e5ff;
-  --map-flight-private: #ffd700;
-  --map-flight-gov: #ff9500;
-  --map-flight-military: #ff0000;
-  --map-flight-unknown: #546e7a;
 
   /* ── Borders ── */
   --border-primary: rgba(var(--gold-rgb), 0.2);
@@ -140,14 +129,8 @@ body.theme-ghost {
   --scrollbar-thumb-hover: rgba(179, 136, 255, 0.5);
   --hover-accent: rgba(179, 136, 255, 0.1);
 
-  /* Phantom pulls the map's own layers into the violet range too. The
-     satellite entries are deliberately left alone: they are the signal that
-     nobody has overridden that category, so the feed's mission colours show. */
+  /* Phantom pulls the map's own layers into the violet range too. */
   --map-cctv: #b388ff;
-  --map-flight-civil: #b388ff;
-  --map-flight-private: #ce93d8;
-  --map-flight-gov: #d500f9;
-  --map-flight-unknown: #b388ff;
 }
 
 @theme inline {

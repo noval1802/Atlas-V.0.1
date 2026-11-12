@@ -14,7 +14,7 @@ describe("ops gate", () => {
   it("closes monitoring feeds and removed integrations", () => {
     expect(isPublicApi("/api/maritime")).toBe(false);
     expect(isPublicApi("/api/cctv")).toBe(false);
-    expect(isPublicApi("/api/flights")).toBe(false);
+    expect(isPublicApi("/api/cctv")).toBe(false);
     expect(isPublicApi("/api/proxy-tiles")).toBe(false);
     expect(isPublicApi("/api/ops/situations")).toBe(false);
     expect(isPublicApi("/api/ops/users")).toBe(false);

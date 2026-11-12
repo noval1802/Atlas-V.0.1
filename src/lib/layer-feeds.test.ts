@@ -24,8 +24,6 @@ describe('onceFeeds', () => {
   it('requests each active feed once, in load order', () => {
     const feeds = onceFeeds(withEveryLayer(true), new Set());
     expect(feeds.map(feed => feed.key)).toEqual([
-      'flights',
-      'satellites',
       'fires',
       'volcanoes',
       'maritime',
@@ -39,32 +37,16 @@ describe('onceFeeds', () => {
     expect(onceFeeds(withEveryLayer(true), new Set(feeds.map(feed => feed.key)))).toEqual([]);
   });
 
-  it('shares one flights request across the aviation toggles', () => {
-    const layers = withEveryLayer(false);
-    layers.military = true;
-    expect(onceFeeds(layers, new Set())).toEqual([
-      { key: 'flights', url: '/api/flights', transform: 'none', retryOnFailure: false },
-    ]);
-  });
-
-  it('shares one satellite catalogue across the sublayers', () => {
-    const layers = withEveryLayer(false);
-    layers.sat_earth = true;
-    const [feed] = onceFeeds(layers, new Set());
-    expect(feed.key).toBe('satellites');
-    expect(feed.url).toBe('/api/satellites');
-  });
-
-  it('lets a failed events load be asked again, and keeps a failed flights load marked', () => {
+  it('lets a failed events load be asked again, and keeps a failed fires load marked', () => {
     const layers = withEveryLayer(false);
     layers.gdelt_events = true;
-    layers.flights = true;
+    layers.fires = true;
     const feeds = onceFeeds(layers, new Set());
     expect(feeds.find(feed => feed.key === 'gdelt_events')).toMatchObject({
       url: '/api/gdelt-events?limit=600',
       retryOnFailure: true,
     });
-    expect(feeds.find(feed => feed.key === 'flights')?.retryOnFailure).toBe(false);
+    expect(feeds.find(feed => feed.key === 'fires')?.retryOnFailure).toBe(false);
     expect(onceFeeds(layers, new Set(['gdelt_events'])).some(feed => feed.key === 'gdelt_events')).toBe(false);
   });
 
@@ -98,9 +80,9 @@ describe('pollFeeds', () => {
     ]);
   });
 
-  it('polls aviation, balloons, radiation, volcanoes, and vessels when they are on', () => {
+  it('polls balloons, radiation, volcanoes, and vessels when they are on', () => {
     const feeds = pollFeeds(withEveryLayer(true));
-    expect(feeds.map(feed => feed.key)).toEqual(['flights', 'balloons', 'radiation', 'volcanoes', 'maritime']);
+    expect(feeds.map(feed => feed.key)).toEqual(['balloons', 'radiation', 'volcanoes', 'maritime']);
     expect(feeds.every(feed => feed.everyMs === LAYER_POLL_MS)).toBe(true);
   });
 
@@ -112,12 +94,7 @@ describe('pollFeeds', () => {
 
 describe('applyFeedTransform', () => {
   it('keeps the field names the map already reads', () => {
-    expect(applyFeedTransform('none', { commercial_flights: [] })).toEqual({ commercial_flights: [] });
-    expect(applyFeedTransform('satellites', { satellites: [], timestamp: 't' })).toEqual({
-      satellites: [],
-      timestamp: 't',
-      satellites_at: 't',
-    });
+    expect(applyFeedTransform('none', { fires: [] })).toEqual({ fires: [] });
     expect(applyFeedTransform('maritime', { ports: [1], chokepoints: [2], ships: [3], extra: true })).toEqual({
       maritime_ports: [1],
       maritime_chokepoints: [2],

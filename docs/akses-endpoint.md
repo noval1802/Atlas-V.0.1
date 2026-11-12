@@ -10,7 +10,7 @@ Semua peran aktif boleh memanggil endpoint ini: `SUPER_ADMIN`, `ADMIN`, `OPERATO
 
 Peta dan monitoring, semuanya `GET` kecuali disebut lain:
 
-- `/api/flights`, `/api/aircraft`, `/api/flight-route`, `/api/maritime`, `/api/satellites`, `/api/satellites/orbit`
+- `/api/maritime`
 - `/api/earthquakes`, `/api/fires`, `/api/weather`, `/api/air-quality`
 - `/api/news`, `/api/live-news`, `/api/gdelt`, `/api/gdelt-events`
 - `/api/region-dossier`, `/api/stats`, `/api/directions`

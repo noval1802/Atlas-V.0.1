@@ -16,7 +16,7 @@ const circle = toShape(
 const report: AoiReport = {
   total: 2,
   groups: [{
-    key: 'military_flights', label: 'Military aircraft', color: '#FF3D3D', count: 2,
+    key: 'maritime_ships', label: 'Vessels', color: '#FF3D3D', count: 2,
     items: [
       { id: 'a', label: 'RCH01', lat: 0.5, lng: 0.5, detail: 'C-17' },
       { id: 'b', label: 'BAD,"NAME"', lat: 0.25, lng: 0.25 },
@@ -51,7 +51,7 @@ describe('contentsToGeoJSON', () => {
     const fc = contentsToGeoJSON(area, report);
     expect(fc.features).toHaveLength(2);
     expect(fc.features[0].geometry).toEqual({ type: 'Point', coordinates: [0.5, 0.5] });
-    expect(fc.features[0].properties).toMatchObject({ aoi: area.name, layer: 'military_flights', label: 'RCH01' });
+    expect(fc.features[0].properties).toMatchObject({ aoi: area.name, layer: 'maritime_ships', label: 'RCH01' });
   });
 
   it('is empty when nothing was found', () => {

@@ -2,17 +2,7 @@ import type { MapData } from '@/lib/map-data';
 
 /** Which map layers are on. The page owns the state; this module only decides what to load. */
 export interface ActiveLayers {
-  flights: boolean;
-  private: boolean;
-  jets: boolean;
-  military: boolean;
   maritime: boolean;
-  satellites: boolean;
-  sat_comms: boolean;
-  sat_military: boolean;
-  sat_navigation: boolean;
-  sat_earth: boolean;
-  sat_science: boolean;
   balloons: boolean;
   cctv: boolean;
   /** Absent on the original map page. The monitoring dashboard sets these. */
@@ -47,17 +37,7 @@ export interface ActiveLayers {
 
 /** Most layers stay off so the first load stays small. */
 export const DEFAULT_ACTIVE_LAYERS: ActiveLayers = {
-  flights: false,
-  private: false,
-  jets: false,
-  military: false,
   maritime: false,
-  satellites: false,
-  sat_comms: false,
-  sat_military: false,
-  sat_navigation: false,
-  sat_earth: false,
-  sat_science: false,
   balloons: false,
   cctv: false,
   /* Jasa Marga toll cameras, switched separately from the public CCTV catalogue. */
@@ -99,7 +79,6 @@ export const DEFAULT_ACTIVE_LAYERS: ActiveLayers = {
 /** How an upstream JSON body is stored on the map data object. */
 export type FeedTransform =
   | 'none'
-  | 'satellites'
   | 'maritime'
   | 'balloons'
   | 'radiation'
@@ -132,18 +111,11 @@ export interface PollFeed {
   refreshFetchedKey?: string;
 }
 
-const FLIGHT_LAYERS = ['flights', 'military', 'jets', 'private'] as const satisfies readonly (keyof ActiveLayers)[];
-const SATELLITE_LAYERS = ['satellites', 'sat_comms', 'sat_military', 'sat_navigation', 'sat_earth', 'sat_science'] as const satisfies readonly (keyof ActiveLayers)[];
-
 /** Five minutes. These layers used to poll faster; the slower cadence is intentional. */
 export const LAYER_POLL_MS = 300_000;
 
 /** A moving vessel is worth a ten-second refresh. An empty AIS reply is not. */
 export const MARITIME_LIVE_MS = 10_000;
-
-function anyOn(layers: ActiveLayers, keys: readonly (keyof ActiveLayers)[]): boolean {
-  return keys.some(key => layers[key]);
-}
 
 interface OnceRule {
   key: string;
@@ -154,8 +126,6 @@ interface OnceRule {
 }
 
 const ONCE_RULES: OnceRule[] = [
-  { key: 'flights', url: '/api/flights', transform: 'none', retryOnFailure: false, when: layers => anyOn(layers, FLIGHT_LAYERS) },
-  { key: 'satellites', url: '/api/satellites', transform: 'satellites', retryOnFailure: false, when: layers => anyOn(layers, SATELLITE_LAYERS) },
   { key: 'fires', url: '/api/fires', transform: 'none', retryOnFailure: false, when: layers => layers.fires },
   { key: 'volcanoes', url: '/api/volcanoes', transform: 'none', retryOnFailure: true, when: layers => layers.volcanoes },
   { key: 'maritime', url: '/api/maritime', transform: 'maritime', retryOnFailure: false, when: layers => layers.maritime },
@@ -194,7 +164,6 @@ interface PollRule {
 }
 
 const POLL_RULES: PollRule[] = [
-  { key: 'flights', url: '/api/flights', transform: 'none', everyMs: LAYER_POLL_MS, schedule: 'interval', when: layers => anyOn(layers, FLIGHT_LAYERS) },
   { key: 'balloons', url: '/api/balloons', transform: 'balloons', everyMs: LAYER_POLL_MS, schedule: 'interval', when: layers => layers.balloons },
   { key: 'radiation', url: '/api/radiation', transform: 'radiation', everyMs: LAYER_POLL_MS, schedule: 'interval', when: layers => layers.radiation },
   // An eruption flag is worth seeing within minutes; the route caches MAGMA for ten.
@@ -229,9 +198,6 @@ export function applyFeedTransform(transform: FeedTransform, payload: unknown): 
   switch (transform) {
     case 'none':
       return body as Partial<MapData>;
-    case 'satellites':
-      // The catalogue is fetched once, so an orbit drawn later needs this epoch to pass through the marker.
-      return { ...body, satellites_at: body.timestamp } as Partial<MapData>;
     case 'maritime':
       return { maritime_ports: body.ports, maritime_chokepoints: body.chokepoints, maritime_ships: body.ships } as Partial<MapData>;
     case 'balloons':

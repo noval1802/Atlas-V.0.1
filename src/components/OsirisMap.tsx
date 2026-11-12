@@ -4,11 +4,9 @@ import { buildGeometry, closeRing, drawReducer, initialDrawState, measure, type 
 import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { installTerrainTileProtocol } from '@/lib/terrain-tiles';
-import { createSatelliteLayer, parseColor, SAT_MAX_ZOOM, type SatPoint } from '@/lib/satellite-layer';
-import { MAP_DEFAULTS, MAP_PALETTE_KEYS, readMapPalette, satColorFor, type MapPalette } from '@/lib/map-palette';
+import { MAP_DEFAULTS, MAP_PALETTE_KEYS, readMapPalette, type MapPalette } from '@/lib/map-palette';
 import { STYLE_EVENT } from '@/lib/style-tokens';
 import { ALERT_KINDS, timeAgo, type AlertKind } from '@/lib/alert-digest';
-import SatelliteCard, { type SatelliteDetail } from '@/components/SatelliteCard';
 import CctvPreviews, { type PreviewCamera } from '@/components/CctvPreviews';
 import MapControls from '@/components/MapControls';
 import LiveNewsPreviews, { type PreviewFeed } from '@/components/LiveNewsPreviews';
@@ -24,12 +22,12 @@ import { KARHUTLA_LAPSIT_AT, formatKarhutlaAmount, formatPersonel, karhutlaRepor
 import { KOTAMAOPS_FLAME_CODES, KOTAMAOPS_FLAME_FRAMES, KOTAMAOPS_FLAME_FRAME_MS, KOTAMAOPS_FLAME_HEIGHT, KOTAMAOPS_FLAME_WIDTH, drawKotamaopsFlame, kotamaopsFlameImageId, nextKotamaopsFlameFrame } from '@/lib/kotamaops-flame';
 import type { ArcGisMapLayer, MapEntity } from '@/lib/dashboard-state';
 import type { ActiveLayers } from '@/lib/layer-feeds';
-import { type AlertPinReport, type FlightRow, type MapData, type SatellitePoint } from '@/lib/map-data';
+import { type AlertPinReport, type MapData } from '@/lib/map-data';
 import type { VolcanoReport } from '@/lib/magma';
 import {
   clickedProperties, pointCoordinates, earthquakeProperties, formatWib, QUAKE_LABEL_MAX_AGE_H,
   type BalloonPopup, type CameraPopup, type ChokePopup,
-  type EarthquakePopup, type FirePopup, type VolcanoPopup, type FlightPopup,
+  type EarthquakePopup, type FirePopup, type VolcanoPopup,
   type GdeltEventPopup, type IncidentPopup, type KotamaopsPopup, type NewsPopup,
   type PortPopup, type RadiationPopup,
   type ShipPopup, type WeatherPopup,
@@ -40,8 +38,6 @@ import { applyBasemapTone } from '@/lib/basemap-tone';
 import { applyMapProjection } from '@/lib/map-projection';
 import { computeSolarTerminator } from '@/lib/solar-terminator';
 import 'maplibre-gl/dist/maplibre-gl.css';
-
-type SatelliteRow = SatellitePoint;
 
 interface OsirisWindow extends Window {
   _globeSpinTimer?: number;
@@ -110,8 +106,6 @@ interface OsirisMapProps {
   onFollowInterrupt?: () => void;
   /** Live navigation: tighter zoom and the map turned to face travel direction. */
   navigating?: boolean;
-  /** Corroborated endpoint airports for watched aircraft, keyed by icao24. */
-  aircraftAirports?: Record<string, Array<{ icao: string; iata?: string; city?: string; lat: number; lng: number }>>;
   /** Path of the nginx basemap cache (e.g. /proxy/tiles); null keeps the /api/proxy-tiles route. Read once, when the map is created. */
   tileProxy?: string | null;
 }
@@ -161,7 +155,7 @@ interface AlertPinFeature {
   properties: AlertPinProps;
 }
 
-function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightClick, onViewStateChange, onReady, flyToLocation, alertPinIds = null, projection = 'globe', terrainEnabled = false, terrainRetry = 0, terrainFocus = 0, onTerrainStatusChange, mapStyle = 'dark', demoMode = false, theme = 'core', drawnPolygons = [], arcgisLayers = [], drawMode = null, onDrawComplete, onDrawProgress, onDrawCancel, drawCommand = null, onMapCenter, route = null, userLocation = null, followUser = false, onFollowInterrupt, navigating = false, aircraftAirports = {}, tileProxy = null }: OsirisMapProps) {
+function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightClick, onViewStateChange, onReady, flyToLocation, alertPinIds = null, projection = 'globe', terrainEnabled = false, terrainRetry = 0, terrainFocus = 0, onTerrainStatusChange, mapStyle = 'dark', demoMode = false, theme = 'core', drawnPolygons = [], arcgisLayers = [], drawMode = null, onDrawComplete, onDrawProgress, onDrawCancel, drawCommand = null, onMapCenter, route = null, userLocation = null, followUser = false, onFollowInterrupt, navigating = false, tileProxy = null }: OsirisMapProps) {
   const tileProxyRef = useRef(tileProxy);
   /* The logo resolver lives in the map-init effect; it reads the latest Kotamaops from here. */
   const kotamaopsRef = useRef(data.kotamaops ?? []);
@@ -193,32 +187,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
   useEffect(() => { onReadyRef.current = onReady; }, [onReady]);
   const prevDrawnPolygonsRef = useRef<string[]>([]);
   const prevArcgisLayersRef = useRef<string[]>([]);
-  const satLayerRef = useRef<ReturnType<typeof createSatelliteLayer> | null>(null);
-  // pick() returns an index into the array last handed to setPoints, so the
-  // matching catalogue rows are kept in the same order to resolve it.
-  const satRowsRef = useRef<SatelliteRow[]>([]);
-  /** Index of the selected satellite in the array last handed to setPoints. */
-  const satPickedRef = useRef<number | null>(null);
-  /** The selection's NORAD id. The index moves whenever the catalogue is
-   *  re-polled and re-filtered; the id does not, so it is what identifies the
-   *  selection across a refresh and what discards a late orbit reply. */
-  const satSelectedIdRef = useRef<string | null>(null);
-  /** When the catalogue positions were propagated for, so an orbit can be drawn
-   *  around the marker rather than around the moment it was clicked. */
-  const satEpochRef = useRef<number | null>(null);
-  const [selectedSat, setSelectedSat] = useState<SatelliteDetail | null>(null);
-
-  /** Drops the selection: the ring, the orbit track and the readout together.
-   *  Leaving any one of them behind is what made a closed popup look like a
-   *  still-selected satellite. */
-  const clearSat = useCallback(() => {
-    if (satPickedRef.current === null && satSelectedIdRef.current === null) return;
-    satPickedRef.current = null;
-    satSelectedIdRef.current = null;
-    satLayerRef.current?.setSelected(null);
-    satLayerRef.current?.setOrbit(null);
-    setSelectedSat(null);
-  }, []);
   const drawingCoordsRef = useRef<number[][]>([]);
   const cameraColorRef = useRef('');
 
@@ -241,30 +209,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         (error) => console.warn('[OSIRIS]', error.message),
       );
     }
-  }, []);
-
-  // Create aircraft icon on canvas (for WebGL symbol layer)
-  const createIcon = useCallback((map: maplibregl.Map, id: string, color: string, size: number) => {
-    if (map.hasImage(id)) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = size; canvas.height = size;
-    const ctx = canvas.getContext('2d')!;
-    const cx = size / 2, cy = size / 2;
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - size * 0.4);
-    ctx.lineTo(cx - size * 0.12, cy + size * 0.1);
-    ctx.lineTo(cx - size * 0.4, cy + size * 0.2);
-    ctx.lineTo(cx - size * 0.4, cy + size * 0.3);
-    ctx.lineTo(cx - size * 0.12, cy + size * 0.15);
-    ctx.lineTo(cx, cy + size * 0.35);
-    ctx.lineTo(cx + size * 0.12, cy + size * 0.15);
-    ctx.lineTo(cx + size * 0.4, cy + size * 0.3);
-    ctx.lineTo(cx + size * 0.4, cy + size * 0.2);
-    ctx.lineTo(cx + size * 0.12, cy + size * 0.1);
-    ctx.closePath();
-    ctx.fill();
-    map.addImage(id, { width: size, height: size, data: new Uint8Array(ctx.getImageData(0, 0, size, size).data) });
   }, []);
 
   const createDot = useCallback((map: maplibregl.Map, id: string, color: string, size: number) => {
@@ -409,17 +353,8 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       const bootStyle = getComputedStyle(document.body);
       const boot = readMapPalette(name => bootStyle.getPropertyValue(name));
       const cameraColor = boot.cctv;
-      const flightCom = boot.flightCivil;
-      const flightPriv = boot.flightPrivate;
-      const flightGov = boot.flightGov;
-      const flightMil = boot.flightMilitary;
 
       // Create icons — OSIRIS Unified Palette
-      createIcon(map, 'plane-cyan', flightCom, 24);   
-      createIcon(map, 'plane-green', flightPriv, 24);   
-      createIcon(map, 'plane-pink', flightGov, 24);    
-      createIcon(map, 'plane-red', flightMil, 24);     
-      createIcon(map, 'plane-grey', boot.flightUnknown, 24);
       createDot(map, 'dot-gold', isGhost ? phantomPurple : '#D4AF37', 8);
       createDot(map, 'dot-red', isGhost ? phantomPurple : '#D32F2F', 10);
       createDot(map, 'dot-orange', isGhost ? phantomPurple : '#E65100', 10);
@@ -427,7 +362,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       createDot(map, 'dot-fire', isGhost ? phantomPurple : '#E65100', 10);
       createDot(map, 'dot-cctv', cameraColor, 10);
 
-      const sources = ['flights','military','jets','private-fl','satellites','earthquakes','volcanoes','gdelt','day-night','cctv','cctv-jm','cctv-jakarta','cctv-global','fires','weather','maritime','maritime-choke','maritime-ships','live-news', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'gdelt-events', 'alert-pins', 'kotamaops'];
+      const sources = ['earthquakes','volcanoes','gdelt','day-night','cctv','cctv-jm','cctv-jakarta','cctv-global','fires','weather','maritime','maritime-choke','maritime-ships','live-news', 'war-alerts-targets', 'war-alerts-lines', 'balloons', 'radiation', 'gdelt-events', 'alert-pins', 'kotamaops'];
       // Camera sources cluster so dense cities (Jakarta, Bandung) collapse to a
       // count below zoom 12 instead of a pile of overlapping icons. Clustering
       // stops below the preview zoom (13), so individual cameras are intact when
@@ -567,26 +502,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         'text-offset': [0, 2], 'text-max-width': 14, 'text-allow-overlap': false,
       }, paint: { 'text-color': '#7E57C2', 'text-halo-color': '#000', 'text-halo-width': 1, 'text-opacity': 0.8 }});
 
-      // Satellites.
-      // Every satellite is drawn once, by the custom 3D layer below, at its
-      // altitude. These two circle layers are kept defined — the source feeds
-      // the 3D layer and other code refers to them — but hidden: drawing the
-      // same satellite both flat on the ground and again up at altitude is
-      // what made the map read as half 2D and half 3D.
-      // Hit-testing is handled by the 3D layer's own GPU pick pass, since
-      // queryRenderedFeatures cannot see into a custom WebGL layer.
-      map.addLayer({ id: 'sat-glow', type: 'circle', source: 'satellites', layout: { visibility: 'none' }, paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,3, 5,6], 'circle-color': ['get','color'], 'circle-opacity': 0.3, 'circle-blur': 1,
-      }});
-      map.addLayer({ id: 'sat-dots', type: 'circle', source: 'satellites', layout: { visibility: 'none' }, paint: {
-        'circle-radius': ['interpolate',['linear'],['zoom'], 1,1.5, 5,3], 'circle-color': ['get','color'], 'circle-opacity': 1.0,
-      }});
-      // The spacecraft themselves, lifted to their orbit.
-      if (!map.getLayer('sat-3d')) {
-        satLayerRef.current = createSatelliteLayer('sat-3d');
-        map.addLayer(satLayerRef.current);
-      }
-
       // Maritime — ports & naval bases — ocean teal
       map.addLayer({ id: 'maritime-glow', type: 'circle', source: 'maritime', paint: {
         'circle-radius': ['interpolate',['linear'],['zoom'], 1,6, 5,12, 10,20],
@@ -666,20 +581,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         'text-size': 10, 'text-font': ['Open Sans Bold'],
         'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-max-width': 12, 'text-allow-overlap': false,
       }, paint: { 'text-color': alertColor, 'text-halo-color': '#000', 'text-halo-width': 1.2, 'text-opacity': 0.9 }});
-
-      // Flight layers (WebGL symbol — GPU rendered, handles 50K+ smooth)
-      const flightLayers = [
-        { id: 'fl-commercial', src: 'flights', icon: 'plane-cyan' },
-        { id: 'fl-private', src: 'private-fl', icon: 'plane-green' },
-        { id: 'fl-jets', src: 'jets', icon: 'plane-pink' },
-        { id: 'fl-military', src: 'military', icon: 'plane-red' },
-      ];
-      flightLayers.forEach(l => {
-        map.addLayer({ id: l.id, type: 'symbol', source: l.src, layout: {
-          'icon-image': l.icon, 'icon-size': ['interpolate',['linear'],['zoom'], 1,0.4, 5,0.7, 10,1],
-          'icon-rotate': ['get','heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
-        }, paint: { 'icon-opacity': 0.85 }});
-      });
 
       // Route layers are added later (after setMapReady) so they render on top of everything.
 
@@ -881,121 +782,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     const pStyle = `background:rgba(21,26,41,0.95);backdrop-filter:blur(16px);border-radius:10px;padding:16px;font-family:'JetBrains Mono',monospace;`;
     const linkStyle = `display:inline-block;margin-top:8px;padding:5px 12px;font-size:10px;letter-spacing:0.12em;text-decoration:none;border-radius:5px;font-family:'JetBrains Mono',monospace;`;
 
-    // ── XSS PROTECTION HELPERS ──
-    const idSafe = (value: unknown): string => String(value ?? '').replace(/[^a-zA-Z0-9_\.\-]/g, '');
-
-    const formatTime = (iso: string | null) => {
-      if (!iso) return '—';
-      try {
-        const d = new Date(iso);
-        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' });
-      } catch { return '—'; }
-    };
-
-    // ── Flights (with FlightAware + ADS-B Exchange links + ROUTE VISUALIZATION) ──
-    ['fl-commercial','fl-private','fl-jets','fl-military'].forEach(layer => {
-      map.on('click', layer, e => {
-        const p = clickedProperties<FlightPopup>(e);
-        const coords = pointCoordinates(e.features?.[0]?.geometry);
-        if (!p || !coords) return;
-        const cs = (p.callsign||'').trim();
-
-        // Show initial popup immediately (without route data)
-        const routeLoadingId = `route-info-${Date.now()}`;
-        popup(coords, `<div style="${pStyle}border:1px solid rgba(255,255,255,0.08);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <span style="color:#E8E6E0;font-size:15px;font-weight:700;letter-spacing:0.08em;">${htmlEsc(cs)}</span>
-            <span style="color:#5C5A54;font-size:10px;">${htmlEsc(p.icao24||'')}</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11px;">
-            <div><span style="color:#5C5A54;font-size:9px;">MODEL</span><br/><span style="color:#B0BEC5;">${htmlEsc(p.model||'—')}</span></div>
-            <div><span style="color:#5C5A54;font-size:9px;">ALT</span><br/><span style="color:#B0BEC5;">${p.alt?Math.round(p.alt)+'m':'—'}</span></div>
-            <div><span style="color:#5C5A54;font-size:9px;">SPEED</span><br/><span style="color:#B0BEC5;">${htmlEsc(String(p.speed_knots||'—'))}kt</span></div>
-            <div><span style="color:#5C5A54;font-size:9px;">HDG</span><br/><span style="color:#B0BEC5;">${Math.round(p.heading||0)}°</span></div>
-            <div><span style="color:#5C5A54;font-size:9px;">REG</span><br/><span style="color:#B0BEC5;">${htmlEsc(p.registration||'—')}</span></div>
-            <div><span style="color:#5C5A54;font-size:9px;">POS</span><br/><span style="color:#B0BEC5;">${coords[1].toFixed(2)},${coords[0].toFixed(2)}</span></div>
-          </div>
-          <div id="ac-${idSafe(p.icao24||'')}" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);">
-            <span style="color:#5C5A54;font-size:9px;letter-spacing:0.1em;">IDENTIFYING AIRFRAME…</span>
-          </div>
-          <button onclick="window.osirisWatchFlight && window.osirisWatchFlight({ icao24: '${idSafe(p.icao24||'')}', callsign: '${idSafe(cs)}' })" style="width:100%;margin-top:8px;padding:6px 12px;background:rgba(0,229,255,0.10);border:1px solid rgba(0,229,255,0.35);color:#7FE9FF;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:bold;letter-spacing:0.1em;border-radius:4px;cursor:pointer;">+ WATCH THIS AIRCRAFT</button>
-          <div id="${routeLoadingId}" style="margin-top:8px;padding:6px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
-            <span style="color:#5C5A54;font-size:9px;letter-spacing:0.1em;">RESOLVING ROUTE…</span>
-          </div>
-          <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap;">
-            <a href="https://www.flightaware.com/live/flight/${encodeURIComponent(cs)}" target="_blank" style="${linkStyle}color:#78909C;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);">FLIGHTAWARE</a>
-            <a href="https://globe.adsbexchange.com/?icao=${encodeURIComponent(p.icao24||'')}" target="_blank" style="${linkStyle}color:#78909C;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);">ADS-B</a>
-            <a href="https://www.radarbox.com/data/flights/${encodeURIComponent(cs)}" target="_blank" style="${linkStyle}color:#78909C;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);">RADARBOX</a>
-          </div>
-        </div>`);
-
-        // The transponder only reports a type code (often nothing at all), so
-        // resolve the real manufacturer/model and registration out of band.
-        if (p.icao24) {
-          fetch(`/api/aircraft?icao24=${encodeURIComponent(p.icao24)}`)
-            .then(r => (r.ok ? r.json() : null))
-            .then((d) => {
-              const el = document.getElementById(`ac-${p.icao24}`);
-              if (!el || !d || d.error) {
-                if (el) el.innerHTML = '<span style="color:#5C5A54;font-size:9px;">AIRFRAME NOT IN REGISTRY</span>';
-                return;
-              }
-              const bits = [d.registration, d.typeCode, d.operator].filter(Boolean)
-                .map((x: string) => htmlEsc(String(x))).join(' · ');
-              el.innerHTML =
-                `<div style="color:#E8E6E0;font-size:11px;line-height:1.35;">${htmlEsc(d.model || 'Unidentified type')}</div>` +
-                (bits ? `<div style="color:#78909C;font-size:9px;margin-top:2px;">${bits}</div>` : '');
-            })
-            .catch(() => {});
-        }
-
-        // Resolve origin/destination for the readout only. The line this used
-        // to draw was a straight hop between two airports, which is not the
-        // path flown — watched aircraft draw their real reported track instead.
-        const cleanCallsign = cs.replace(/\s+/g, '');
-        const routeParams = new URLSearchParams({
-          callsign: cleanCallsign,
-          icao24: p.icao24 || '',
-          lat: String(coords[1]),
-          lng: String(coords[0]),
-          speed: String(p.speed_knots || 0),
-        });
-        fetch(`/api/flight-route?${routeParams}`)
-          .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-          .then(routeData => {
-            const el = document.getElementById(routeLoadingId);
-            if (!el) return;
-            if (routeData.found && routeData.origin && routeData.destination) {
-              const depTime = formatTime(routeData.departureTime);
-              const arrTime = formatTime(routeData.arrivalTime);
-              const pct = Math.round((routeData.progress || 0) * 100);
-              const distKm = routeData.totalDistanceKm || 0;
-              el.innerHTML = `
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-                  <div><span style="color:#5C5A54;font-size:8px;">FROM</span><br/><span style="color:#E8E6E0;font-size:13px;font-weight:700;">${htmlEsc(routeData.origin.iata || routeData.origin.icao)}</span> <span style="color:#5C5A54;font-size:9px;">${htmlEsc(routeData.origin.city)}</span></div>
-                  <span style="color:#5C5A54;font-size:11px;">&rarr;</span>
-                  <div style="text-align:right;"><span style="color:#5C5A54;font-size:8px;">TO</span><br/><span style="color:#E8E6E0;font-size:13px;font-weight:700;">${htmlEsc(routeData.destination.iata || routeData.destination.icao)}</span> <span style="color:#5C5A54;font-size:9px;">${htmlEsc(routeData.destination.city)}</span></div>
-                </div>
-                <div style="height:2px;background:rgba(255,255,255,0.06);border-radius:1px;margin:6px 0;"><div style="width:${pct}%;height:100%;background:rgba(255,255,255,0.35);border-radius:1px;"></div></div>
-                <div style="display:flex;justify-content:space-between;font-size:10px;color:#78909C;">
-                  <span>DEP ${depTime}</span>
-                  <span>${pct}% &middot; ${distKm.toLocaleString()}km</span>
-                  <span>ARR ${arrTime}</span>
-                </div>
-              `;
-            } else {
-              el.innerHTML = `<span style="color:#5C5A54;font-size:9px;">NO SCHEDULED ROUTE</span>`;
-            }
-          })
-          .catch(() => {
-            const el = document.getElementById(routeLoadingId);
-            if (el) el.innerHTML = `<span style="color:#5C5A54;font-size:9px;">ROUTE UNAVAILABLE</span>`;
-          });
-      });
-      map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
-      map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
-    });
-
     // ── CCTV KOTA, TOL, JAKARTA, GLOBAL (opens CameraViewer panel) ──
     const openCamera = (e: maplibregl.MapLayerMouseEvent) => {
       const p = clickedProperties<CameraPopup>(e);
@@ -1104,96 +890,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         </div>
         <a href="${urlSafe(p.url || 'https://data.bmkg.go.id/gempabumi/')}" target="_blank" rel="noopener noreferrer" style="${linkStyle}color:#FF9500;border:1px solid rgba(255,149,0,0.4);background:rgba(255,149,0,0.1);">📊 ${htmlEsc(p.source || 'BMKG')}</a>
       </div>`);
-    });
-
-    // ── Satellites (SatNOGS powered) ──
-    // Layers with their own click handlers. The satellite pick defers to
-    // these, and to nothing else — the basemap is not a click target.
-    const CLICKABLE_LAYERS = new Set(['cctv-dots','cctv-jm-dots','cctv-jakarta-dots','cctv-global-dots','eq-circles','volcano-dots','fires-heat',
-      'gdelt-dots','weather-dots','maritime-dots','choke-dots','news-dots',
-      'balloon-dots','rad-dots','ship-dots','gdelt-events-dots',
-     'flight-dots','military-dots','jet-dots','private-dots','alert-pin-dots','kotamaops-icon','kotamaops-flame']);
-
-    // Satellites are picked on the GPU: the pick pass runs the same vertex
-    // shader as the visible one, so the target is always exactly where the
-    // marker was drawn — including its altitude. A ground-projected hit test
-    // would put the target under the satellite instead of on it.
-    map.on('click', e => {
-      const layer = satLayerRef.current;
-      if (!layer) return;
-      // Defer to any layer that has its own click handler, so a camera or an
-      // aircraft under the cursor is not stolen by a satellite behind it.
-      // Only those layers count: querying every feature matches the basemap
-      // land and water fills at essentially any point on the globe, which
-      // made this bail out every single time.
-      const hits = map.queryRenderedFeatures(e.point);
-      if (hits.some(f => f.layer?.id && CLICKABLE_LAYERS.has(f.layer.id))) return;
-      const idx = layer.pick(e.point.x, e.point.y);
-      const p = idx == null ? null : satRowsRef.current[idx];
-      // Clicking past every satellite is how a selection is dismissed, so an
-      // empty click has to clear the ring and the track rather than leave them
-      // lit over nothing.
-      if (idx == null || !p) { clearSat(); return; }
-
-      // The readout is a panel, not a MapLibre popup: a popup can only anchor
-      // to a ground coordinate, and these markers are drawn at altitude. Any
-      // other layer's popup is still welcome to the screen, but not on top of
-      // this selection.
-      popupRef.current?.remove();
-      layer.setOrbit(null);
-      satPickedRef.current = idx;
-      satSelectedIdRef.current = p.noradId ?? null;
-      layer.setSelected(idx);
-      setSelectedSat({ ...p, periodMinutes: null, track: p.noradId ? 'loading' : 'unavailable' });
-
-      // Draw the selected satellite's orbit. Fetched per click rather than
-      // bundled with the catalogue: that payload is already megabytes, and an
-      // operator looks at one orbit at a time.
-      if (p.noradId) {
-        const wanted = p.noradId;
-        // A slower reply for a satellite the operator has already moved on
-        // from must not draw over the one they are looking at now.
-        const stale = () => satSelectedIdRef.current !== wanted;
-        const mark = (track: SatelliteDetail['track'], periodMinutes: number | null = null) =>
-          setSelectedSat(prev => (prev && prev.noradId === wanted ? { ...prev, track, periodMinutes } : prev));
-        const at = satEpochRef.current;
-        fetch(`/api/satellites/orbit?id=${encodeURIComponent(wanted)}${at ? `&t=${at}` : ''}`)
-          .then(r => (r.ok ? r.json() : null))
-          .then(d => {
-            if (stale()) return;
-            if (!d?.segments?.length) { mark('unavailable'); return; }
-            layer.setOrbit(
-              d.segments.map((seg: number[][]) => seg.map(([lng, lat, altKm]) => ({ lng, lat, altKm }))),
-              parseColor(satColorFor(p.category, p.color, paletteRef.current)),
-            );
-            mark('ready', typeof d.periodMinutes === 'number' ? d.periodMinutes : null);
-          })
-          // No track is fine; the satellite still shows — but the readout says so
-          // rather than sitting on 'plotting' forever.
-          .catch(() => { if (!stale()) mark('unavailable'); });
-      }
-    });
-
-    // The cursor should say a satellite is clickable, like every other layer.
-    // Picking re-renders the entire catalogue and reads back from the GPU.
-    // Keep that work out of camera gestures and limit hover checks to 10/sec.
-    // Click selection above remains immediate and full precision.
-    let hoverFrame = 0;
-    let lastHoverPick = -Infinity;
-    map.on('mousemove', e => {
-      const layer = satLayerRef.current;
-      if (!layer || hoverFrame || map.isMoving() || performance.now() - lastHoverPick < 100) return;
-      hoverFrame = requestAnimationFrame(() => {
-        hoverFrame = 0;
-        if (map.isMoving()) return;
-        const canvas = map.getCanvas();
-        // Never fight another layer that has already claimed the cursor.
-        if (canvas.style.cursor && canvas.style.cursor !== 'pointer') return;
-        lastHoverPick = performance.now();
-        const over = layer.pick(e.point.x, e.point.y) != null;
-        if (over) canvas.style.cursor = 'pointer';
-        else if (canvas.style.cursor === 'pointer') canvas.style.cursor = '';
-      });
     });
 
     // ── Fires (with NASA FIRMS link) ──
@@ -1538,7 +1234,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       logosAlive = false;
       window.clearInterval(flameTimer);
       sizeToContainer.disconnect();
-      cancelAnimationFrame(hoverFrame);
       map.remove();
       mapRef.current = null;
     };
@@ -1571,25 +1266,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     ids.forEach(id => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none'); });
   }, []);
 
-  // Flight data → GeoJSON (GPU rendered)
-  useEffect(() => {
-    if (!mapReady) return;
-    const toFeatures = (arr: FlightRow[] | undefined, decimate: number = 1) => {
-      let filtered = arr ?? [];
-      if (decimate > 1) {
-        filtered = filtered.filter((_, i) => i % decimate === 0);
-      }
-      return filtered.map(f => ({
-        type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: [f.lng, f.lat] },
-        properties: { callsign: f.callsign, heading: f.heading || 0, alt: f.alt, model: f.model, speed_knots: f.speed_knots, registration: f.registration, icao24: f.icao24 },
-      }));
-    };
-    setGeo('flights', activeLayers.flights ? toFeatures(data.commercial_flights, 10) : []);
-    setGeo('private-fl', activeLayers.private ? toFeatures(data.private_flights, 2) : []);
-    setGeo('jets', activeLayers.jets ? toFeatures(data.private_jets, 2) : []);
-    setGeo('military', activeLayers.military ? toFeatures(data.military_flights) : []);
-  }, [mapReady, data.commercial_flights, data.private_flights, data.private_jets, data.military_flights, activeLayers.flights, activeLayers.private, activeLayers.jets, activeLayers.military]);
-
   /**
    * Pull the palette out of the document whenever it can have changed.
    *
@@ -1613,41 +1289,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       window.removeEventListener(STYLE_EVENT, read);
     };
   }, [theme]);
-
-    // Update aircraft icon colors dynamically on theme switch
-    useEffect(() => {
-      if (!mapReady || !mapRef.current) return;
-      const map = mapRef.current;
-
-      const updateMapIcon = (id: string, color: string, size: number) => {
-        if (!map.hasImage(id)) return;
-        const canvas = document.createElement('canvas');
-        canvas.width = size; canvas.height = size;
-        const ctx = canvas.getContext('2d')!;
-        const cx = size / 2, cy = size / 2;
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - size * 0.4);
-        ctx.lineTo(cx - size * 0.12, cy + size * 0.1);
-        ctx.lineTo(cx - size * 0.4, cy + size * 0.2);
-        ctx.lineTo(cx - size * 0.4, cy + size * 0.3);
-        ctx.lineTo(cx - size * 0.12, cy + size * 0.15);
-        ctx.lineTo(cx, cy + size * 0.35);
-        ctx.lineTo(cx + size * 0.12, cy + size * 0.15);
-        ctx.lineTo(cx + size * 0.4, cy + size * 0.3);
-        ctx.lineTo(cx + size * 0.4, cy + size * 0.2);
-        ctx.lineTo(cx + size * 0.12, cy + size * 0.1);
-        ctx.closePath();
-        ctx.fill();
-        map.updateImage(id, { width: size, height: size, data: new Uint8Array(ctx.getImageData(0, 0, size, size).data) });
-      };
-
-      updateMapIcon('plane-cyan', palette.flightCivil, 24);
-      updateMapIcon('plane-green', palette.flightPrivate, 24);
-      updateMapIcon('plane-pink', palette.flightGov, 24);
-      updateMapIcon('plane-red', palette.flightMilitary, 24);
-      updateMapIcon('plane-grey', palette.flightUnknown, 24);
-    }, [mapReady, palette]);
 
     /* Cameras share one marker image, so a colour change redraws it; the label colour is a paint property. */
     useEffect(() => {
@@ -1677,76 +1318,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     if (!mapReady) return;
     setGeo('volcanoes', activeLayers.volcanoes && data.volcanoes ? data.volcanoes.map(v => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [v.lng, v.lat] }, properties: { code: v.code, name: v.name, province: v.province, elevation: v.elevation, level: v.level, erupting: v.erupting, vona: v.vona } })) : []);
   }, [mapReady, data.volcanoes, activeLayers.volcanoes, setGeo]);
-
-  /** Catalogue rows -> the packed form the 3D layer draws. */
-  const toSatPoints = useCallback((rows: SatelliteRow[]): SatPoint[] => rows.map((s) => ({
-    lng: s.lng,
-    lat: s.lat,
-    altKm: s.alt,
-    color: parseColor(satColorFor(s.category, s.color, palette)),
-    // Stations are the ones an operator is usually looking for, so they get
-    // to be findable in a field of several hundred identical dots.
-    size: s.category === 'science' || /ISS|TIANGONG/i.test(s.name || '') ? 2.2 : 1,
-  })), [palette]);
-
-  /**
-   * Re-points the selection at the same satellite after a refresh.
-   *
-   * pick() returns an index into the last setPoints() array, and every poll
-   * rebuilds that array — a filtered one changes length as well as order. Left
-   * as a bare index the highlight ring quietly slides onto whichever satellite
-   * now sits at that slot, taking the readout with it.
-   */
-  const resyncSatSelection = useCallback((rows: SatelliteRow[]) => {
-    const id = satSelectedIdRef.current;
-    if (!id) return;
-    const i = rows.findIndex(r => r.noradId === id);
-    // Filtered out, or gone from the catalogue: there is nothing to point at.
-    if (i < 0) { clearSat(); return; }
-    satPickedRef.current = i;
-    satLayerRef.current?.setSelected(i);
-    // The satellite has moved since it was clicked; the readout should say where
-    // it is now, not where it was.
-    setSelectedSat(prev => (prev ? { ...prev, lat: rows[i].lat, lng: rows[i].lng, alt: rows[i].alt } : prev));
-  }, [clearSat]);
-
-  useEffect(() => {
-    if (!mapReady) return;
-    const sats = data.satellites ?? [];
-    const at = Date.parse(data.satellites_at ?? '');
-    satEpochRef.current = Number.isFinite(at) ? at : null;
-    
-    // If 'All Satellites' is on, show everything
-    if (activeLayers.satellites) {
-      setGeo('satellites', sats.map(s => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lng, s.lat] }, properties: { name: s.name, color: satColorFor(s.category, s.color, palette), mission: s.mission, alt: s.alt, noradId: s.noradId, category: s.category } })));
-      satRowsRef.current = sats;
-      satLayerRef.current?.setPoints(toSatPoints(sats));
-      resyncSatSelection(sats);
-      return;
-    }
-    
-    // Otherwise filter by enabled sub-layers
-    const enabledCategories: string[] = [];
-    if (activeLayers.sat_comms) enabledCategories.push('comms');
-    if (activeLayers.sat_military) enabledCategories.push('military');
-    if (activeLayers.sat_navigation) enabledCategories.push('navigation');
-    if (activeLayers.sat_earth) enabledCategories.push('earth_obs');
-    if (activeLayers.sat_science) enabledCategories.push('science');
-    
-    if (enabledCategories.length === 0) {
-      setGeo('satellites', []);
-      satRowsRef.current = [];
-      satLayerRef.current?.setPoints([]);
-      clearSat();
-      return;
-    }
-    
-    const filtered = sats.filter(s => s.category != null && enabledCategories.includes(s.category));
-    setGeo('satellites', filtered.map(s => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lng, s.lat] }, properties: { name: s.name, color: satColorFor(s.category, s.color, palette), mission: s.mission, alt: s.alt, noradId: s.noradId, category: s.category } })));
-    satRowsRef.current = filtered;
-    satLayerRef.current?.setPoints(toSatPoints(filtered));
-    resyncSatSelection(filtered);
-  }, [mapReady, data.satellites, activeLayers.satellites, activeLayers.sat_comms, activeLayers.sat_military, activeLayers.sat_navigation, activeLayers.sat_earth, activeLayers.sat_science, data.satellites_at, setGeo, toSatPoints, resyncSatSelection, clearSat]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -1944,20 +1515,9 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     if (!mapReady) return;
     setVis(['eq-circles','eq-label'], activeLayers.earthquakes);
     setVis(['volcano-dots','volcano-label'], activeLayers.volcanoes);
-    const anySat = activeLayers.satellites || activeLayers.sat_comms || activeLayers.sat_military || activeLayers.sat_navigation || activeLayers.sat_earth || activeLayers.sat_science;
-    // The circle layers stay hidden whatever the toggles say — the 3D layer
-    // is the single representation, and showing both drew every satellite
-    // twice, once flat on the ground and once at altitude.
-    setVis(['sat-glow','sat-dots'], false);
-    // Clearing the 3D layer is what actually turns satellites off.
-    if (!anySat) { satRowsRef.current = []; satLayerRef.current?.setPoints([]); }
     setVis(['gdelt-dots'], activeLayers.global_incidents);
     setVis(['gdelt-events-dots'], activeLayers.gdelt_events);
     setVis(['day-night-fill'], activeLayers.day_night);
-    setVis(['fl-commercial'], activeLayers.flights);
-    setVis(['fl-private'], activeLayers.private);
-    setVis(['fl-jets'], activeLayers.jets);
-    setVis(['fl-military'], activeLayers.military);
     setVis(['cctv-glow','cctv-dots','cctv-label','cctv-cluster','cctv-cluster-count'], activeLayers.cctv);
     setVis(['cctv-jm-glow','cctv-jm-dots','cctv-jm-label','cctv-jm-cluster','cctv-jm-cluster-count'], activeLayers.cctv_jm !== false);
     setVis(['cctv-jakarta-glow','cctv-jakarta-dots','cctv-jakarta-label','cctv-jakarta-cluster','cctv-jakarta-cluster-count'], activeLayers.cctv_jakarta !== false);
@@ -2447,71 +2007,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     map.easeTo({ pitch, bearing: 0, duration: 600 });
   }, [mapReady, navigating, projection, terrainEnabled, activeLayers.terrain_3d]);
 
-  // ── AIRPORTS FOR WATCHED AIRCRAFT ──
-  // The endpoints that survived corroboration against the aircraft's reported
-  // track — where the leg began and where it is booked to end.
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
-    const map = mapRef.current;
-    const SRC = 'watched-airports';
-    const IDS = ['watched-airport-glow', 'watched-airport-dot', 'watched-airport-label'];
-
-    // The same airport can serve several watched aircraft — draw it once.
-    const seen = new Set<string>();
-    const features = Object.values(aircraftAirports).flat()
-      .filter((a) => {
-        if (!a || seen.has(a.icao)) return false;
-        seen.add(a.icao);
-        return true;
-      })
-      .map((a) => ({
-        type: 'Feature' as const,
-        properties: { label: a.iata || a.icao, city: a.city || '' },
-        geometry: { type: 'Point' as const, coordinates: [a.lng, a.lat] },
-      }));
-
-    if (features.length === 0) {
-      IDS.forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
-      if (map.getSource(SRC)) map.removeSource(SRC);
-      return;
-    }
-
-    const fc = { type: 'FeatureCollection' as const, features };
-    if (!map.getSource(SRC)) map.addSource(SRC, { type: 'geojson', data: fc as never });
-    else (map.getSource(SRC) as maplibregl.GeoJSONSource).setData(fc as never);
-
-    if (!map.getLayer('watched-airport-glow')) {
-      map.addLayer({
-        id: 'watched-airport-glow', type: 'circle', source: SRC,
-        paint: { 'circle-radius': 13, 'circle-color': '#FFB300', 'circle-opacity': 0.16, 'circle-blur': 0.8 },
-      });
-    }
-    if (!map.getLayer('watched-airport-dot')) {
-      map.addLayer({
-        id: 'watched-airport-dot', type: 'circle', source: SRC,
-        paint: {
-          'circle-radius': 5,
-          'circle-color': '#FFFFFF',
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#FFB300',
-        },
-      });
-    }
-    if (!map.getLayer('watched-airport-label')) {
-      map.addLayer({
-        id: 'watched-airport-label', type: 'symbol', source: SRC,
-        layout: {
-          'text-field': ['get', 'label'],
-          'text-size': 11,
-          'text-font': ['Open Sans Bold'],
-          'text-offset': [0, 1.6],
-          'text-allow-overlap': true,
-        },
-        paint: { 'text-color': '#FFB300', 'text-halo-color': '#0C0E1A', 'text-halo-width': 1.5 },
-      });
-    }
-  }, [mapReady, aircraftAirports]);
-
   // ── ARCGIS LAYERS ──
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -2759,25 +2254,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
   // Escape clears the selection, the way it cancels a draw — an overlay that
   // can only be dismissed by hitting a 14px target is one that stays open.
-  useEffect(() => {
-    if (!selectedSat) return;
-    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') clearSat(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selectedSat, clearSat]);
-
-  // Zooming past the ceiling takes the satellites off the map, so a readout
-  // left over from before the zoom would be describing something no longer
-  // there — and its ring and orbit are already gone.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!mapReady || !map || !selectedSat) return;
-    const onZoom = () => { if (map.getZoom() > SAT_MAX_ZOOM) clearSat(); };
-    onZoom();
-    map.on('zoomend', onZoom);
-    return () => { map.off('zoomend', onZoom); };
-  }, [mapReady, selectedSat, clearSat]);
-
   return (
     <>
       <div ref={containerRef} className="absolute inset-0 w-full h-full" />
@@ -2805,7 +2281,6 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
           })}
         />
       )}
-      {selectedSat && <SatelliteCard sat={selectedSat} onClose={clearSat} />}
       {mapReady && <MapControls mapRef={mapRef} onInteract={onFollowInterrupt} />}
     </>
   );
