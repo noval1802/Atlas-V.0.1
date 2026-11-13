@@ -134,9 +134,12 @@ services:
     volumes:
       - ./ops/backup:/ops:ro
       - ${BACKUP_PATH:-./backups}:/backups
+    # The first dump runs at start; before migrations it would capture an empty database.
     depends_on:
       osiris-postgres:
         condition: service_healthy
+      osiris-migrate:
+        condition: service_completed_successfully
     logging: *logging
     restart: unless-stopped
 
