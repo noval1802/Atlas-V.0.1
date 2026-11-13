@@ -107,12 +107,13 @@ const LAYER_GROUPS: LayerGroupDef[] = [
   },
   {
     label: 'THREAT',
-    fullLabel: 'ANCAMAN & INTELIJEN',
+    fullLabel: 'SITUASI',
     icon: AlertTriangle,
     layers: [
       { key: 'global_incidents', label: 'Insiden Global', dataKey: 'gdelt' },
       { key: 'alert_pins', label: 'Pin Peringatan Langsung', dataKey: 'alert_pins' },
       { key: 'gdelt_events', label: 'Peristiwa GDELT', dataKey: 'gdelt_events' },
+      { key: 'security_points', label: 'Titik Pengamanan', dataKey: 'security_points', description: 'Belum ada data' },
     ],
   },
   {

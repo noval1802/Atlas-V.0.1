@@ -33,6 +33,8 @@ export interface ActiveLayers {
   terrain_3d: boolean;
   terrain_elevation: boolean;
   gdelt_events: boolean;
+  /** Titik pengamanan. Placeholder: belum ada sumber data, konsepnya menyusul. */
+  security_points: boolean;
 }
 
 /** Most layers stay off so the first load stays small. */
@@ -74,6 +76,7 @@ export const DEFAULT_ACTIVE_LAYERS: ActiveLayers = {
   terrain_3d: false,
   terrain_elevation: false,
   gdelt_events: false,
+  security_points: false,
 };
 
 /** How an upstream JSON body is stored on the map data object. */
