@@ -2,6 +2,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 const MAX_TURNS = 20;
 const MAX_CHARS = 2000;
+// An answer is up to max_tokens 4000 (about 4 characters a token); it comes back with the next question.
+const MAX_ANSWER_CHARS = 16_000;
 
 // The model sees only what the operator types here; no situation data is attached.
 export const CHAT_SYSTEM = `Anda adalah asisten ATLAS untuk operator Pusdalops TNI. Jawab dalam bahasa Indonesia, singkat dan jelas.
@@ -16,7 +18,7 @@ export function parseChatMessages(body: unknown): Anthropic.Beta.BetaMessagePara
     const content = (m as { content?: unknown })?.content;
     if ((role !== "user" && role !== "assistant") || typeof content !== "string") return null;
     const text = content.trim();
-    if (!text || text.length > MAX_CHARS) return null;
+    if (!text || text.length > (role === "user" ? MAX_CHARS : MAX_ANSWER_CHARS)) return null;
     out.push({ role, content: text });
   }
   return out[0].role === "user" && out[out.length - 1].role === "user" ? out : null;

@@ -23,4 +23,16 @@ describe("parseChatMessages", () => {
     expect(parseChatMessages({ messages: [{ role: "user", content: "a".repeat(2001) }] })).toBeNull();
     expect(parseChatMessages({ messages: Array(21).fill({ role: "user", content: "x" }) })).toBeNull();
   });
+
+  /* A full answer (max_tokens 4000) runs past 2000 characters; the next
+     question carried it back and every later message was refused with 400. */
+  it("accepts a long earlier answer but still caps it", () => {
+    const turns = (answer: string) => ({ messages: [
+      { role: "user", content: "jelaskan" },
+      { role: "assistant", content: answer },
+      { role: "user", content: "lanjut" },
+    ] });
+    expect(parseChatMessages(turns("a".repeat(9000)))).not.toBeNull();
+    expect(parseChatMessages(turns("a".repeat(16_001)))).toBeNull();
+  });
 });
