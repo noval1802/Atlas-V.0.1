@@ -202,6 +202,8 @@ export async function GET(request: Request) {
         return mergeResults([...gates, ...photon], supplement);
       },
       10 * 60 * 1000,
+      true,
+      { transient: true },
     )();
 
     return NextResponse.json(

@@ -34,13 +34,15 @@ const generation = new Map<string, number>();
 export const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 /**
- * Cap on distinct keys. Camera sources are a fixed handful, but callers with
- * per-coordinate keys (place lookups) would otherwise grow this map without
- * bound. Map preserves insertion order and `put` re-inserts on every read and
- * write, so the least recently used keys evict first. Plain insertion order
- * evicted the camera indexes (created at boot) before a burst of searches.
+ * Cap on distinct keys. Feeds and camera sources are a fixed set, but callers
+ * with per-query keys (searches, place lookups, ArcGIS URLs) mark themselves
+ * `transient` and would otherwise grow this map without bound. Only transient
+ * keys are evicted, least recently used first (`put` re-inserts on every read
+ * and write): the prebuilt CCTV payload goes minutes without reading cctv:*,
+ * and LRU alone let a burst of searches evict every camera index.
  */
 const MAX_ENTRIES = 500;
+const transientKeys = new Set<string>();
 
 function put(key: string, entry: Entry<unknown>): void {
   store.delete(key);
@@ -51,9 +53,10 @@ function evictIfNeeded(): void {
   if (store.size <= MAX_ENTRIES) return;
   for (const key of store.keys()) {
     if (store.size <= MAX_ENTRIES) break;
-    const entry = store.get(key);
-    if (entry?.inflight) continue; // never drop a request in progress
+    if (!transientKeys.has(key)) continue;
+    if (store.get(key)?.inflight) continue; // never drop a request in progress
     store.delete(key);
+    transientKeys.delete(key);
   }
 }
 
@@ -64,14 +67,17 @@ function evictIfNeeded(): void {
  * `throwOnFailure`: when the upstream fails and nothing is cached, throw (also
  * during the cooldown) instead of returning []. Routes whose empty list reads
  * as "nothing is happening" use it so they can answer 502.
+ *
+ * `transient`: the key is one of many built from user input; it may be evicted.
  */
 export function cachedSource<T>(
   key: string,
   fetcher: () => Promise<T[]>,
   ttlMs: number = DEFAULT_TTL_MS,
   rememberEmpty = true,
-  { throwOnFailure = false }: { throwOnFailure?: boolean } = {},
+  { throwOnFailure = false, transient = false }: { throwOnFailure?: boolean; transient?: boolean } = {},
 ): () => Promise<T[]> {
+  if (transient) transientKeys.add(key);
   return async () => {
     const now = Date.now();
     const entry = store.get(key) as Entry<T> | undefined;
@@ -95,7 +101,7 @@ export function cachedSource<T>(
         if (!current()) return data;
         // An empty result is treated as a failed refresh: keep whatever we had.
         if (data.length === 0 && entry?.data.length) {
-          put(key, { data: entry.data, expiresAt: now + ttlMs, inflight: null, fetchedAt: entry.fetchedAt, failedAt: entry.failedAt ?? Date.now() });
+          put(key, { data: entry.data, expiresAt: now + Math.min(ttlMs, 60_000), inflight: null, fetchedAt: entry.fetchedAt, failedAt: entry.failedAt ?? Date.now() });
           return entry.data;
         }
         // A place lookup uses this to mean "ask again". An empty camera index
@@ -193,10 +199,12 @@ export function seedSource<T>(key: string, data: T[], ttlMs: number = DEFAULT_TT
 export function forgetSource(key: string): void {
   generation.set(key, (generation.get(key) ?? 0) + 1);
   store.delete(key);
+  transientKeys.delete(key);
 }
 
 /** Test seam — drops all cached indexes. */
 export function clearSourceCache(): void {
   store.clear();
   generation.clear();
+  transientKeys.clear();
 }

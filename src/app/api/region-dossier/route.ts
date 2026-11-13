@@ -53,7 +53,7 @@ export async function placeAt(lat: number, lng: number): Promise<PhotonPlace | n
       }
     }
     return [];
-  }, PLACE_TTL_MS, false)(); // a miss is not kept, so the next click asks Photon again
+  }, PLACE_TTL_MS, false, { transient: true })(); // a miss is not kept, so the next click asks Photon again
   return rows[0] ?? null;
 }
 

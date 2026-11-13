@@ -123,16 +123,40 @@ describe('cachedSource', () => {
     }
   });
 
-  /* Camera indexes are created at boot; per-search keys arrive later. With
-     insertion-order eviction the indexes were the first to go. */
-  it('keeps a key that is still being read when one-off keys overflow the cap', async () => {
+  /* The prebuilt CCTV payload is served without reading cctv:* for minutes at a
+     time, while 30 operators typing in search create hundreds of keys. Only the
+     per-query keys may be evicted. */
+  it('never evicts a fixed source, even one not read while queries overflow the cap', async () => {
     seedSource('cctv:jakarta', [cam('j')]);
+    await cachedSource<Cam>('earthquakes:bmkg', async () => [cam('q')])();
     for (let i = 0; i < 600; i++) {
-      await cachedSource<Cam>(`geosearch:${i}`, async () => [cam(String(i))])();
-      if (i % 100 === 0) peekSource('cctv:jakarta', true);
+      await cachedSource<Cam>(`geosearch:${i}`, async () => [cam(String(i))], undefined, true, { transient: true })();
     }
     expect(peekSource('cctv:jakarta', true)).toEqual([cam('j')]);
+    expect(peekSource('earthquakes:bmkg', true)).toEqual([cam('q')]);
     expect(peekSource('geosearch:0', true)).toBeUndefined();
+    expect(peekSource('geosearch:599', true)).toEqual([cam('599')]);
+  });
+
+  /* Many CCTV fetchers return [] on error. Holding the old list is right, but
+     for the full 30-minute TTL it pinned a regional outage. */
+  it('retries soon after an empty refresh that kept the previous list', async () => {
+    let mode: 'ok' | 'empty' = 'ok';
+    let calls = 0;
+    const load = cachedSource<Cam>('t10', async () => { calls++; return mode === 'ok' ? [cam('a')] : []; }, 30 * 60_000);
+    const realNow = Date.now;
+    try {
+      await load();
+      mode = 'empty';
+      Date.now = () => realNow() + 31 * 60_000;
+      expect(await load()).toEqual([cam('a')]);
+      mode = 'ok';
+      Date.now = () => realNow() + 31 * 60_000 + 61_000;
+      await load();
+      expect(calls).toBe(3);
+    } finally {
+      Date.now = realNow;
+    }
   });
 
   /* The status bar reads these. Serving the last good list during an outage is

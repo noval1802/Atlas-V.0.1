@@ -169,6 +169,8 @@ async function discoverLayer(root: URL): Promise<Discovered> {
       return [{ layer: layer.id }];
     },
     SERVICE_INFO_TTL_MS,
+    true,
+    { transient: true },
   )();
   return info[0] ?? { error: 'Service description unavailable', status: 502 };
 }
