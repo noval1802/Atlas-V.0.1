@@ -81,6 +81,10 @@ lalu dibatalkan karena stream-nya tidak bisa diputar lewat proxy.
 | `356bd31` | Pemutar kamera dihentikan saat ditutup; buffer video dibatasi (temuan 3 dan 11) |
 | `d780930` | Proxy kamera dan tile hanya meneruskan tipe media; CSP sandbox berlaku (temuan 1). Label panel layer berbahasa Indonesia |
 | `f058f4f` | Status kesegaran data per sumber di bar bawah (Gempa, Cuaca, Gunung Api, Titik Api, CCTV, Kapal) menggantikan indikator "ONLINE" statis; endpoint `/api/sources` (P0-01, sebagian temuan 8) |
+| `ee40274` | Cache: pencarian tidak lagi mengusir cache CCTV, gempa dan cuaca; refresh kosong dicoba lagi setelah 60 detik, bukan 30 menit (audit 13 Nov) |
+| `318fdfc` | Maritim: posisi dan arah AIS "tidak tersedia" tidak lagi digambar; koneksi AIS dibuka saat layer dipakai, putus diam-diam terdeteksi, coba ulang bertahap (temuan 18) |
+| `0a82092` | AI chat tidak lagi menolak semua pesan setelah satu jawaban panjang (temuan 13) |
+| `b9d0853` | Pemindahan operator antar-Kotamaops dan perubahan nama tercatat di audit (temuan 14) |
 
 ### Status temuan audit ulang (11 Nov 2026)
 
@@ -102,8 +106,8 @@ Detail teknis temuan keamanan yang masih terbuka sengaja tidak ditulis di sini, 
 | 10 | Akun admin bisa dikunci orang lain lewat batas login | ✅ `356bd31` |
 | 11 | Buffer video multiview tumbuh tanpa batas | ✅ `356bd31` |
 | 12 | `/api/gdelt-events` tanpa cache dan berat | ⏳ |
-| 13 | AI chat rusak setelah satu jawaban panjang | ⏳ |
-| 14 | Pemindahan operator antar-Kotamaops tidak tercatat di audit | ⏳ |
+| 13 | AI chat rusak setelah satu jawaban panjang | ✅ `0a82092` |
+| 14 | Pemindahan operator antar-Kotamaops tidak tercatat di audit | ✅ `b9d0853` |
 
 **Sebaiknya diperbaiki**
 
@@ -112,7 +116,7 @@ Detail teknis temuan keamanan yang masih terbuka sengaja tidak ditulis di sini, 
 | 15 | Biaya AI chat tanpa batas harian dan tanpa timeout | ⏳ |
 | 16 | Format kunci vault TPT belum didokumentasikan | ⏳ |
 | 17 | Dokumen dan `.env.example` tertinggal dari kode | ✅ `ed10781`: `.env.example` memuat semua variabel yang dibaca kode (AI chat, vault TPT beserta formatnya, cache lokal, jeda Nominatim), sandi admin minimal 12 karakter, variabel yang tidak dibaca dibuang; semua endpoint tercatat di `akses-endpoint.md`; checklist, catatan CSP, rujukan tahap, dan status `deploy.sh` dikoreksi |
-| 18 | Maritim: koneksi AIS putus tidak terdeteksi, posisi tidak valid ikut digambar | ⏳ |
+| 18 | Maritim: koneksi AIS putus tidak terdeteksi, posisi tidak valid ikut digambar | ✅ `318fdfc` |
 | 19 | `/api/gdelt` menjawab kosong saat GDACS gagal | ⏳ |
 | 20 | Tile kamera tidak pulih sendiri; mengubah daftar SPACE me-restart semua tile | 🟡 `f058f4f`: tile pulih sendiri; restart semua tile saat daftar SPACE berubah belum |
 | 21 | Animasi Kotamaops membebani CPU/GPU layar dinding | ⏳ |
