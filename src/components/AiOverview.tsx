@@ -196,7 +196,7 @@ export default function AiOverview({
       >
         {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
         {loading ? 'ANALYZING…' : open ? 'HIDE AI OVERVIEW' : 'AI OVERVIEW'}
-        {stale && !loading && <span className="ml-1 w-1.5 h-1.5 rounded-full animate-osiris-pulse" style={{ background: accent }} title="The feed has changed since this read-out" />}
+        {stale && !loading && <span className="ml-1 w-1.5 h-1.5 rounded-full animate-atlas-pulse" style={{ background: accent }} title="The feed has changed since this read-out" />}
       </button>
 
       <AnimatePresence initial={false}>

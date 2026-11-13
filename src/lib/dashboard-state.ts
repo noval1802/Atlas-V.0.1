@@ -49,7 +49,7 @@ export type MapEntity =
       embed_allowed?: boolean;
     };
 
-/** The fields OsirisMap reads after the page drops hidden layers. */
+/** The fields AtlasMap reads after the page drops hidden layers. */
 export type ArcGisMapLayer = Pick<ArcGisLayer, 'id' | 'title' | 'geojson' | 'color' | 'opacity'>;
 
 /** One ArcGIS feature collection the map draws as its own source. */

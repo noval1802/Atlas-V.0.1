@@ -73,7 +73,7 @@ export async function fetchGresikCameras(): Promise<CctvCamera[]> {
     }
     return cameras;
   } catch (error) {
-    console.warn('[OSIRIS] Gresik CCTV failed:', error instanceof Error ? error.message : error);
+    console.warn('[ATLAS] Gresik CCTV failed:', error instanceof Error ? error.message : error);
     return [];
   }
 }

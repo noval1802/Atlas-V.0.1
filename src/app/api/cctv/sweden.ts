@@ -3,7 +3,7 @@ import { createPool } from '@/lib/fetch-pool';
 import { extractYouTubeId, youtubeEmbedUrl } from '@/lib/youtube';
 
 /**
- * OSIRIS — Sweden CCTV. Two keyless sources:
+ * ATLAS — Sweden CCTV. Two keyless sources:
  *
  *  • Trafikverket road cameras (~840), listed county by county by Kolla
  *    Trafiken (https://www.kollatrafiken.se/vagkameror). The list is theirs;
@@ -21,7 +21,7 @@ import { extractYouTubeId, youtubeEmbedUrl } from '@/lib/youtube';
  * against the one host it must belong to before it can reach a browser.
  */
 
-const UA = 'OSIRIS/5.0 (+https://osirisai.live)';
+const UA = 'ATLAS/1.0';
 const KOLLA = 'https://www.kollatrafiken.se';
 const TRAFIKVERKET_IMAGE_HOST = 'api.trafikinfo.trafikverket.se';
 const CAMSTREAMER = 'https://camstreamer.com';

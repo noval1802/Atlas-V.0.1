@@ -22,10 +22,10 @@ Simpan backup di luar folder repo, dengan hak akses hanya untuk Anda. Isinya has
 umask 077
 mkdir -p ~/atlas-backups
 STAMP=$(date +%Y%m%d-%H%M)
-/usr/lib/postgresql/18/bin/pg_dump -h 127.0.0.1 -p 5433 -U osiris -Fc \
-  -f ~/atlas-backups/osiris_ops-$STAMP.dump osiris_ops
+/usr/lib/postgresql/18/bin/pg_dump -h 127.0.0.1 -p 5433 -U atlas -Fc \
+  -f ~/atlas-backups/atlas_ops-$STAMP.dump atlas_ops
 # Verifikasi: arsip terbaca dan memuat tabel User
-/usr/lib/postgresql/18/bin/pg_restore --list ~/atlas-backups/osiris_ops-$STAMP.dump | grep -c 'TABLE DATA public User '
+/usr/lib/postgresql/18/bin/pg_restore --list ~/atlas-backups/atlas_ops-$STAMP.dump | grep -c 'TABLE DATA public User '
 ls -l ~/atlas-backups/   # harus -rw------- (600)
 ```
 
@@ -78,8 +78,8 @@ Jangan pernah memakai `echo ... | npm run ops:recover-admin`, karena sandi akan 
 ## 5. Rollback
 
 - **Lupa atau salah ketik sandi baru:** jalankan `npm run ops:recover-admin -- --username <nama-admin>` dan setel sandi lain.
-- **Akun rusak atau basis data bermasalah:** pulihkan dari backup langkah 1. Ini menimpa seluruh `osiris_ops` ke kondisi saat backup, termasuk situasi yang dilaporkan sesudahnya. Hentikan aplikasi dulu.
+- **Akun rusak atau basis data bermasalah:** pulihkan dari backup langkah 1. Ini menimpa seluruh `atlas_ops` ke kondisi saat backup, termasuk situasi yang dilaporkan sesudahnya. Hentikan aplikasi dulu.
   ```bash
-  /usr/lib/postgresql/18/bin/pg_restore -h 127.0.0.1 -p 5433 -U osiris -d osiris_ops --clean --if-exists ~/atlas-backups/osiris_ops-<STAMP>.dump
+  /usr/lib/postgresql/18/bin/pg_restore -h 127.0.0.1 -p 5433 -U atlas -d atlas_ops --clean --if-exists ~/atlas-backups/atlas_ops-<STAMP>.dump
   ```
 - Sandi lama **tidak** bisa dikembalikan, kecuali lewat restore backup.

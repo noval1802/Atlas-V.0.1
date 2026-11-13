@@ -11,7 +11,7 @@ import {
 } from '@/lib/navigation';
 
 /* ═══════════════════════════════════════════════════════════════
-   OSIRIS — Live Navigation
+   ATLAS — Live Navigation
    Turn-by-turn guidance driven by the device's own position feed
    ═══════════════════════════════════════════════════════════════ */
 

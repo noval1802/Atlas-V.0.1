@@ -6,8 +6,8 @@
 #   ops/backup/restore.sh <file.dump> <target-database-url>
 #
 # From the compose stack (the dump volume is mounted at /backups):
-#   docker compose run --rm osiris-backup /ops/restore.sh /backups/atlas-<stamp>.dump \
-#     "postgresql://osiris:$OSIRIS_POSTGRES_PASSWORD@osiris-postgres:5432/osiris_ops"
+#   docker compose run --rm atlas-backup /ops/restore.sh /backups/atlas-<stamp>.dump \
+#     "postgresql://atlas:$ATLAS_POSTGRES_PASSWORD@atlas-postgres:5432/atlas_ops"
 set -eu
 
 if [ $# -ne 2 ]; then

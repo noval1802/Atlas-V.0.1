@@ -7,7 +7,7 @@ import {
 } from './public-webcams.generated';
 
 /**
- * OSIRIS — webcams their operators broadcast publicly.
+ * ATLAS — webcams their operators broadcast publicly.
  *
  * Until now the Netherlands was 26 pins: the Rijkswaterstaat motorway cameras
  * in netherlands.ts, and nothing else. No harbours, no coast, no city centres.

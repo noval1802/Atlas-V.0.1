@@ -39,9 +39,9 @@ import { applyMapProjection } from '@/lib/map-projection';
 import { computeSolarTerminator } from '@/lib/solar-terminator';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-interface OsirisWindow extends Window {
+interface AtlasWindow extends Window {
   _globeSpinTimer?: number;
-  __osirisMap?: maplibregl.Map;
+  __atlasMap?: maplibregl.Map;
 }
 
 /** A GeoJSON feature loose enough for every layer writer. MapLibre receives it once, inside setGeo. */
@@ -52,7 +52,7 @@ interface MapFeature {
   id?: string | number;
 }
 
-interface OsirisMapProps {
+interface AtlasMapProps {
   data: MapData;
   activeLayers: ActiveLayers;
   onEntityClick?: (entity: MapEntity) => void;
@@ -155,7 +155,7 @@ interface AlertPinFeature {
   properties: AlertPinProps;
 }
 
-function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightClick, onViewStateChange, onReady, flyToLocation, alertPinIds = null, projection = 'globe', terrainEnabled = false, terrainRetry = 0, terrainFocus = 0, onTerrainStatusChange, mapStyle = 'dark', demoMode = false, theme = 'core', drawnPolygons = [], arcgisLayers = [], drawMode = null, onDrawComplete, onDrawProgress, onDrawCancel, drawCommand = null, onMapCenter, route = null, userLocation = null, followUser = false, onFollowInterrupt, navigating = false, tileProxy = null }: OsirisMapProps) {
+function AtlasMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightClick, onViewStateChange, onReady, flyToLocation, alertPinIds = null, projection = 'globe', terrainEnabled = false, terrainRetry = 0, terrainFocus = 0, onTerrainStatusChange, mapStyle = 'dark', demoMode = false, theme = 'core', drawnPolygons = [], arcgisLayers = [], drawMode = null, onDrawComplete, onDrawProgress, onDrawCancel, drawCommand = null, onMapCenter, route = null, userLocation = null, followUser = false, onFollowInterrupt, navigating = false, tileProxy = null }: AtlasMapProps) {
   const tileProxyRef = useRef(tileProxy);
   /* The logo resolver lives in the map-init effect; it reads the latest Kotamaops from here. */
   const kotamaopsRef = useRef(data.kotamaops ?? []);
@@ -206,7 +206,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         (image) => {
           try { draw(image); } catch { /* map was removed before the icon loaded */ }
         },
-        (error) => console.warn('[OSIRIS]', error.message),
+        (error) => console.warn('[ATLAS]', error.message),
       );
     }
   }, []);
@@ -265,8 +265,8 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
     return () => {
       isSpinning = false;
       if (spinReq) cancelAnimationFrame(spinReq);
-      if (typeof window !== 'undefined' && (window as OsirisWindow)._globeSpinTimer) {
-        clearInterval((window as OsirisWindow)._globeSpinTimer);
+      if (typeof window !== 'undefined' && (window as AtlasWindow)._globeSpinTimer) {
+        clearInterval((window as AtlasWindow)._globeSpinTimer);
       }
     };
   }, [mapReady, demoMode]);
@@ -328,7 +328,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         // A failed constructor leaves its canvas behind; the next attempt needs a clean container.
         container.innerHTML = '';
         if (canvasContextAttributes === attributeFallbacks[attributeFallbacks.length - 1]) throw e;
-        console.warn('[OSIRIS] WebGL context rejected, retrying with weaker attributes:', e instanceof Error ? e.message : e);
+        console.warn('[ATLAS] WebGL context rejected, retrying with weaker attributes:', e instanceof Error ? e.message : e);
       }
     }
     if (!map) return;
@@ -354,7 +354,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       const boot = readMapPalette(name => bootStyle.getPropertyValue(name));
       const cameraColor = boot.cctv;
 
-      // Create icons — OSIRIS Unified Palette
+      // Create icons — ATLAS Unified Palette
       createDot(map, 'dot-gold', isGhost ? phantomPurple : '#D4AF37', 8);
       createDot(map, 'dot-red', isGhost ? phantomPurple : '#D32F2F', 10);
       createDot(map, 'dot-orange', isGhost ? phantomPurple : '#E65100', 10);
@@ -661,7 +661,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
             const response = await map.loadImage(logo);
             if (logosAlive && !map.hasImage(id)) map.addImage(id, response.data, { pixelRatio: 2 });
           } catch (error) {
-            console.warn("[OSIRIS] logo Kotamaops gagal dimuat:", point.code, error instanceof Error ? error.message : error);
+            console.warn("[ATLAS] logo Kotamaops gagal dimuat:", point.code, error instanceof Error ? error.message : error);
           } finally {
             logoLoads.delete(id);
           }
@@ -725,7 +725,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
       map.once('idle', () => onReadyRef.current?.());
       // Dev-only handle. The map is otherwise unreachable from the console,
       // which makes interaction bugs guesswork rather than diagnosis.
-      if (process.env.NODE_ENV === 'development') (window as OsirisWindow).__osirisMap = map;
+      if (process.env.NODE_ENV === 'development') (window as AtlasWindow).__atlasMap = map;
     });
 
     // Events
@@ -1557,7 +1557,7 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
             'fog-color': '#0A0D16',
             'fog-ground-blend': 0.9,
           });
-        } catch (e) { console.warn('[OSIRIS] Suppressed error:', e instanceof Error ? e.message : e); }
+        } catch (e) { console.warn('[ATLAS] Suppressed error:', e instanceof Error ? e.message : e); }
       } else {
         if (map.getPitch() > 0.5) map.easeTo({ pitch: 0, duration: 350 });
       }
@@ -1614,9 +1614,9 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
         // and render heights. No second worldwide vector source is needed.
 
         // ── 3D BUILDING EXTRUSION LAYER ──
-        if (!map.getLayer('osiris-3d-buildings')) {
+        if (!map.getLayer('atlas-3d-buildings')) {
           map.addLayer({
-            id: 'osiris-3d-buildings',
+            id: 'atlas-3d-buildings',
             source: 'carto',
             'source-layer': 'building',
             type: 'fill-extrusion',
@@ -1656,10 +1656,10 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
 
       } else {
         // ── DISABLE 3D ──
-        if (map.getLayer('osiris-3d-buildings')) map.removeLayer('osiris-3d-buildings');
+        if (map.getLayer('atlas-3d-buildings')) map.removeLayer('atlas-3d-buildings');
       }
     } catch (e) {
-      console.warn('[OSIRIS] 3D terrain toggle error:', e);
+      console.warn('[ATLAS] 3D terrain toggle error:', e);
     }
   }, [mapReady, activeLayers.terrain_3d]);
 
@@ -2286,4 +2286,4 @@ function OsirisMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCl
   );
 }
 
-export default memo(OsirisMap);
+export default memo(AtlasMap);

@@ -26,7 +26,7 @@ import LiveAlerts from '@/components/LiveAlerts';
 import { ActiveEntityCount, getYouTubeWatchUrl, useIsMobile, ViewSegment, WibClock } from '@/components/dashboard-chrome';
 import { newsTransform } from '@/lib/news-transform';
 import ArcGISPanel from '@/components/ArcGISPanel';
-const OsirisMap = dynamic(() => import('@/components/OsirisMap'), { ssr: false });
+const AtlasMap = dynamic(() => import('@/components/AtlasMap'), { ssr: false });
 const LayerPanel = dynamic(() => import('@/components/LayerPanel'));
 const SpaceCam = dynamic(() => import('@/components/SpaceCam'), { ssr: false });
 const CameraViewer = dynamic(() => import('@/components/CameraViewer'));
@@ -175,11 +175,11 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
   const [mapStyle, setMapStyle] = useState<'dark'|'satellite'>('dark');
   const [drawnPolygons, setDrawnPolygons] = useState<DrawnShape[]>([]);
   const [demoMode, setDemoMode] = useState(false);
-  const [osirisTheme, setOsirisTheme] = useState<'core'|'ghost'>('core');
+  const [atlasTheme, setAtlasTheme] = useState<'core'|'ghost'>('core');
 
   useEffect(() => {
-    document.body.className = osirisTheme === 'core' ? '' : `theme-${osirisTheme}`;
-  }, [osirisTheme]);
+    document.body.className = atlasTheme === 'core' ? '' : `theme-${atlasTheme}`;
+  }, [atlasTheme]);
 
   /* Style Studio overrides are inline on <body>, so they survive the theme
      swap above and only need reapplying once per load. */
@@ -339,7 +339,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
           setLocationLabel(label);
           lastGeocodedPos.current = coords;
         }
-      } catch (e) { console.warn('[OSIRIS] Suppressed error:', e instanceof Error ? e.message : e); }
+      } catch (e) { console.warn('[ATLAS] Suppressed error:', e instanceof Error ? e.message : e); }
     }, 3000); // 3s debounce (was 1.5s)
   }, []);
 
@@ -349,7 +349,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
     try {
       const res = await fetch(`/api/region-dossier?lat=${coords.lat}&lng=${coords.lng}`);
       if (res.ok) setRegionDossier(await res.json() as RegionDossier);
-    } catch (e) { console.warn('[OSIRIS] Suppressed error:', e instanceof Error ? e.message : e); } finally { setDossierLoading(false); }
+    } catch (e) { console.warn('[ATLAS] Suppressed error:', e instanceof Error ? e.message : e); } finally { setDossierLoading(false); }
   }, []);
   // Entity click handler (hoisted from JSX to comply with Rules of Hooks - Fixes #113)
   const handleEntityClick = useCallback((entity: MapEntity) => {
@@ -362,7 +362,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
   }, []);
 
   // ── Drawing / AOI ──
-  // OsirisMap already owns the draw interaction and the polygon rendering;
+  // AtlasMap already owns the draw interaction and the polygon rendering;
   // this only turns a finished ring into a measured, named, coloured record.
   // Restore drawn areas on load. Work that vanishes on refresh is work the
   // operator will not trust the tool with.
@@ -425,7 +425,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
 
   const handleExportGeoJSON = useCallback(() => {
     downloadFile(
-      `osiris-aoi-${new Date().toISOString().slice(0, 10)}.geojson`,
+      `atlas-aoi-${new Date().toISOString().slice(0, 10)}.geojson`,
       JSON.stringify(shapesToGeoJSON(drawnPolygons), null, 2),
       'application/geo+json',
     );
@@ -459,7 +459,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
       }
       return false;
     } catch (e) {
-      console.warn('[OSIRIS] Suppressed error:', e instanceof Error ? e.message : e);
+      console.warn('[ATLAS] Suppressed error:', e instanceof Error ? e.message : e);
       setBackendStatus('error');
       return false;
     }
@@ -502,7 +502,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
     return loadCameraCatalog(cameras => {
       updateData(prev => ({ ...prev, cameras: mergeCameraCatalog(prev.cameras ?? [], cameras) }));
       setBackendStatus('connected');
-    }, () => console.warn('[OSIRIS] Camera catalogue load failed; bounded retry scheduled'));
+    }, () => console.warn('[ATLAS] Camera catalogue load failed; bounded retry scheduled'));
   }, [activeLayers.cctv, activeLayers.cctv_jm, activeLayers.cctv_jakarta, catalogNonce, updateData]);
 
   // GLOBAL: the prebuilt worldwide payload, minus Indonesia (the toggles above already cover it).
@@ -511,7 +511,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
     return loadCameraCatalog(cameras => {
       const foreign = cameras.filter(isGlobalCamera);
       if (foreign.length) updateData(prev => ({ ...prev, cameras: mergeCameraCatalog(prev.cameras ?? [], foreign) }));
-    }, () => console.warn('[OSIRIS] Global camera catalogue load failed; bounded retry scheduled'), ['all']);
+    }, () => console.warn('[ATLAS] Global camera catalogue load failed; bounded retry scheduled'), ['all']);
   }, [activeLayers.cctv_global, updateData]);
 
   useEffect(() => {
@@ -710,8 +710,8 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
 
       {/* ── MAP ── */}
       <ErrorBoundary name="Map">
-        <OsirisMap 
-          key={osirisTheme}
+        <AtlasMap 
+          key={atlasTheme}
           data={data} 
           activeLayers={activeLayers} 
           projection={mapProjection === 'mercator' ? 'mercator' : 'globe'}
@@ -728,7 +728,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
           flyToLocation={flyToLocation}
           alertPinIds={pinnedAlertIds}
           demoMode={demoMode}
-          theme={osirisTheme}
+          theme={atlasTheme}
           arcgisLayers={arcgisLayers.filter(l => l.visible).map(l => ({ id: l.id, title: l.title, geojson: l.geojson, color: l.color, opacity: l.opacity }))}
           onMapCenter={setMapCenter}
           route={activeRoute}
@@ -892,7 +892,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
 
 
       {/* ── NEW SIDEBAR (Root Level) ── */}
-      {showLayers && !isMobile && <LayerPanel {...terrainPanelProps} revealed={revealed} data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} theme={osirisTheme} setTheme={setOsirisTheme} />}
+      {showLayers && !isMobile && <LayerPanel {...terrainPanelProps} revealed={revealed} data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} theme={atlasTheme} setTheme={setAtlasTheme} />}
 
 
 
@@ -1039,7 +1039,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
               {/* Header */}
               <div className="flex items-center justify-between px-4 py-2.5 bg-[#111] border-b border-[var(--border-primary)]">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#FF4081] animate-osiris-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-[#FF4081] animate-atlas-pulse" />
                   <span className="text-[11px] font-mono font-bold text-white tracking-wider">{liveFeedName}</span>
                   <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-mono text-[10px] font-bold">LIVE STREAM</span>
                   {!liveFeedEmbedAllowed && (
@@ -1186,7 +1186,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
                           <div><div className="hud-label" style={{fontSize:'9px'}}>CUACA</div><div className="hud-value text-[10px]" style={{color:'var(--accent-weather)'}}>{(data.weather_events?.length||0)}</div></div>
                         </div>
                       </div>
-                      <LayerPanel {...terrainPanelProps} data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} isMobile={true} theme={osirisTheme} setTheme={setOsirisTheme} />
+                      <LayerPanel {...terrainPanelProps} data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} isMobile={true} theme={atlasTheme} setTheme={setAtlasTheme} />
                       <div className="mt-8">
                         <ViewPresets onNavigate={(lat, lng, zoom) => { setFlyToLocation({ lat, lng, zoom, ts: Date.now() }); setMobilePanel(null); }} />
                       </div>
@@ -1231,7 +1231,7 @@ export default function Dashboard({ kotamaops, role, userName, tileProxy = null 
       {/* ── Region Dossier ── */}
       {(regionDossier || dossierLoading) && (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="absolute top-16 md:top-20 left-2 right-2 md:left-1/2 md:right-auto md:-translate-x-1/2 z-[300] md:w-[480px] max-h-[65vh] overflow-y-auto styled-scrollbar">
-          <div className="glass-panel p-5 osiris-glow">
+          <div className="glass-panel p-5 atlas-glow">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-mono font-bold text-[var(--gold-primary)] tracking-wider">REGION DOSSIER</h2>
               <button onClick={() => { setRegionDossier(null); setDossierLoading(false); }} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs">✕</button>

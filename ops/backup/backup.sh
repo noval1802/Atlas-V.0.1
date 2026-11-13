@@ -1,5 +1,5 @@
 #!/bin/sh
-# Daily pg_dump of the ATLAS operations database, run by the osiris-backup service.
+# Daily pg_dump of the ATLAS operations database, run by the atlas-backup service.
 #   PGHOST, PGUSER, PGPASSWORD, PGDATABASE  connection (set by docker-compose.yml)
 #   BACKUP_DIR              where dumps go (default /backups, a volume)
 #   BACKUP_RETENTION_DAYS   dumps older than this are deleted (default 14)

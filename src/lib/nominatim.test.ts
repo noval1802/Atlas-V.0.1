@@ -2,13 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // No snapshot file is written or read during tests, and the wait between
 // requests is shortened so the suite does not sit through it.
-process.env.OSIRIS_NOMINATIM_CACHE = 'off';
-process.env.OSIRIS_NOMINATIM_GAP_MS = '20';
+process.env.ATLAS_NOMINATIM_CACHE = 'off';
+process.env.ATLAS_NOMINATIM_GAP_MS = '20';
 
 const httpJson = vi.fn();
 vi.mock('@/lib/httpJson', () => ({
   httpJson: (...args: unknown[]) => httpJson(...args),
-  OSIRIS_UA: 'test',
+  ATLAS_UA: 'test',
 }));
 
 const { nominatim, nominatimStats, clearNominatimCache, requestGapMs } = await import('./nominatim');
@@ -92,8 +92,8 @@ describe('nominatim', () => {
 
   it('holds to the policy’s one request a second outside tests, whatever the environment says', () => {
     expect(requestGapMs({} as NodeJS.ProcessEnv)).toBe(2_000);
-    expect(requestGapMs({ OSIRIS_NOMINATIM_GAP_MS: '5', NODE_ENV: 'production' } as NodeJS.ProcessEnv)).toBe(1_000);
-    expect(requestGapMs({ OSIRIS_NOMINATIM_GAP_MS: '4000', NODE_ENV: 'production' } as NodeJS.ProcessEnv)).toBe(4_000);
-    expect(requestGapMs({ OSIRIS_NOMINATIM_GAP_MS: '5', NODE_ENV: 'test' } as NodeJS.ProcessEnv)).toBe(5);
+    expect(requestGapMs({ ATLAS_NOMINATIM_GAP_MS: '5', NODE_ENV: 'production' } as NodeJS.ProcessEnv)).toBe(1_000);
+    expect(requestGapMs({ ATLAS_NOMINATIM_GAP_MS: '4000', NODE_ENV: 'production' } as NodeJS.ProcessEnv)).toBe(4_000);
+    expect(requestGapMs({ ATLAS_NOMINATIM_GAP_MS: '5', NODE_ENV: 'test' } as NodeJS.ProcessEnv)).toBe(5);
   });
 });

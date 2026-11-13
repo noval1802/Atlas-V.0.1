@@ -2,7 +2,7 @@ import type { DrawnShape } from './draw';
 import type { AoiReport } from './aoi';
 
 /**
- * OSIRIS — AOI persistence and export
+ * ATLAS — AOI persistence and export
  *
  * Two jobs that sound unrelated but are the same problem: getting a drawn area,
  * and what was found inside it, out of volatile memory. One goes to
@@ -76,7 +76,7 @@ export function contentsToCSV(shape: DrawnShape, report: AoiReport): string {
 
 /* ── Persistence ────────────────────────────────────────────────────────── */
 
-export const STORAGE_KEY = 'osiris.aoi.shapes.v1';
+export const STORAGE_KEY = 'atlas.aoi.shapes.v1';
 
 /** Only what is needed to rebuild a shape; derived values are recomputed. */
 /** Loose storage row — older builds and pasted JSON are checked field by field. */

@@ -6,7 +6,7 @@ import { assertTestDatabase } from "./test-db-guard";
 
 /*
  * Runs the recovery CLI as a real process against the throwaway database. Opt-in:
- *   TEST_DATABASE_URL=postgresql://osiris@127.0.0.1:5433/osiris_ops_test npm run test:db
+ *   TEST_DATABASE_URL=postgresql://atlas@127.0.0.1:5433/atlas_ops_test npm run test:db
  */
 const url = process.env.TEST_DATABASE_URL;
 const OLD_HASH = "scrypt$AAAAAAAAAAAAAAAAAAAAAA$AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE";

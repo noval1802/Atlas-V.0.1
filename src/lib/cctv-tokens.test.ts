@@ -37,8 +37,8 @@ describe('cctv token input', () => {
   it('writes the new value to disk without echoing it into another key', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'cctv-token-'));
     const file = path.join(dir, '.env');
-    const previousSnapshot = process.env.OSIRIS_CCTV_SNAPSHOT;
-    process.env.OSIRIS_CCTV_SNAPSHOT = path.join(dir, 'missing-catalog.json');
+    const previousSnapshot = process.env.ATLAS_CCTV_SNAPSHOT;
+    process.env.ATLAS_CCTV_SNAPSHOT = path.join(dir, 'missing-catalog.json');
     writeFileSync(file, 'OTHER=keep\nTPT_CCTV_TOKEN=old\nTPT_CCTV_TOKEN=older\n');
     try {
       const result = await updateStoredCctvToken('jakarta', 'access_token=fresh-token', file);
@@ -47,16 +47,16 @@ describe('cctv token input', () => {
       expect(process.env.TPT_CCTV_TOKEN).toBe('fresh-token');
     } finally {
       delete process.env.TPT_CCTV_TOKEN;
-      if (previousSnapshot === undefined) delete process.env.OSIRIS_CCTV_SNAPSHOT;
-      else process.env.OSIRIS_CCTV_SNAPSHOT = previousSnapshot;
+      if (previousSnapshot === undefined) delete process.env.ATLAS_CCTV_SNAPSHOT;
+      else process.env.ATLAS_CCTV_SNAPSHOT = previousSnapshot;
     }
   });
 
   // Docker has no .env file: the save must still apply instead of failing with a 500.
   it('applies the token in memory when the env file does not exist', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'cctv-token-'));
-    const previousSnapshot = process.env.OSIRIS_CCTV_SNAPSHOT;
-    process.env.OSIRIS_CCTV_SNAPSHOT = path.join(dir, 'missing-catalog.json');
+    const previousSnapshot = process.env.ATLAS_CCTV_SNAPSHOT;
+    process.env.ATLAS_CCTV_SNAPSHOT = path.join(dir, 'missing-catalog.json');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const result = await updateStoredCctvToken('jasamarga', 'new-token', path.join(dir, '.env'));
@@ -65,16 +65,16 @@ describe('cctv token input', () => {
     } finally {
       warn.mockRestore();
       delete process.env.JASAMARGA_WFS_TOKEN;
-      if (previousSnapshot === undefined) delete process.env.OSIRIS_CCTV_SNAPSHOT;
-      else process.env.OSIRIS_CCTV_SNAPSHOT = previousSnapshot;
+      if (previousSnapshot === undefined) delete process.env.ATLAS_CCTV_SNAPSHOT;
+      else process.env.ATLAS_CCTV_SNAPSHOT = previousSnapshot;
     }
   });
 
   it('drops saved cameras for the replaced token and leaves other regions', async () => {
     const dir = mkdtempSync(path.join(tmpdir(), 'cctv-token-'));
     const file = path.join(dir, '.env');
-    const previousSnapshot = process.env.OSIRIS_CCTV_SNAPSHOT;
-    process.env.OSIRIS_CCTV_SNAPSHOT = path.join(dir, 'catalog.json');
+    const previousSnapshot = process.env.ATLAS_CCTV_SNAPSHOT;
+    process.env.ATLAS_CCTV_SNAPSHOT = path.join(dir, 'catalog.json');
     writeFileSync(file, 'JASAMARGA_WFS_TOKEN=old-token\n');
     await writeSnapshot({
       jasamarga: [{ id: 'jm-old' }],
@@ -89,8 +89,8 @@ describe('cctv token input', () => {
       expect(restored?.regions.tpt).toEqual([{ id: 'tpt-keep' }]);
     } finally {
       delete process.env.JASAMARGA_WFS_TOKEN;
-      if (previousSnapshot === undefined) delete process.env.OSIRIS_CCTV_SNAPSHOT;
-      else process.env.OSIRIS_CCTV_SNAPSHOT = previousSnapshot;
+      if (previousSnapshot === undefined) delete process.env.ATLAS_CCTV_SNAPSHOT;
+      else process.env.ATLAS_CCTV_SNAPSHOT = previousSnapshot;
     }
   });
 });

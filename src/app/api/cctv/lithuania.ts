@@ -3,7 +3,7 @@ import { stealthFetch } from '@/lib/stealthFetch';
 import { cachedSource } from '@/lib/sourceCache';
 
 /**
- * OSIRIS — Lithuania CCTV Cameras (Via Lietuva / eismoinfo.lt)
+ * ATLAS — Lithuania CCTV Cameras (Via Lietuva / eismoinfo.lt)
  * Sources: https://eismoinfo.lt/eismoinfo-backend/layer-static-features/VKR?lks=false
  *          https://eismoinfo.lt/eismoinfo-backend/camera-info-table
  * ~300 national-road cameras — NO API KEY NEEDED.
@@ -158,7 +158,7 @@ async function loadLithuaniaCameras(): Promise<CctvCamera[]> {
   ]);
 
   const cams = parseLithuania(features, table);
-  console.log(`[OSIRIS] Lithuania cameras — Via Lietuva: ${cams.length}`);
+  console.log(`[ATLAS] Lithuania cameras — Via Lietuva: ${cams.length}`);
   return cams;
 }
 

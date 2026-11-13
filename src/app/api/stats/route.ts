@@ -6,7 +6,7 @@ import { GET as gdeltFeed } from '../gdelt/route';
 export const maxDuration = 60;
 
 /**
- * OSIRIS — Global Stats API
+ * ATLAS — Global Stats API
  * Lightweight aggregation endpoint.
  * Calls the feed handlers in-process and returns ONLY the counts.
  *

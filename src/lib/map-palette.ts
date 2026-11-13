@@ -1,5 +1,5 @@
 /**
- * OSIRIS — map layer palette.
+ * ATLAS — map layer palette.
  *
  * The colours the *map* draws with, as opposed to the chrome around it: the
  * camera dots. They live as `--map-*` custom properties beside

@@ -192,7 +192,7 @@ export async function fetchJasamargaCameras(): Promise<CctvCamera[]> {
     try {
       return await fetchLayer(token, typeName);
     } catch (error) {
-      console.warn('[OSIRIS] Jasa Marga CCTV failed:', error instanceof Error ? error.message : error);
+      console.warn('[ATLAS] Jasa Marga CCTV failed:', error instanceof Error ? error.message : error);
       return [];
     }
   }));

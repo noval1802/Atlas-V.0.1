@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getClientIp, isRateLimited, isPublicIp, visitorIp } from './ssrf-guard';
 
-const req = (headers: Record<string, string>) => new Request('https://osiris.test/api/scanner', { headers });
+const req = (headers: Record<string, string>) => new Request('https://atlas.test/api/scanner', { headers });
 
 describe('getClientIp', () => {
   /* The bypass: the leftmost X-Forwarded-For entry is written by the client,

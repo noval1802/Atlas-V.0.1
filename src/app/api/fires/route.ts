@@ -20,7 +20,7 @@ interface EonetEvent {
 export const dynamic = 'force-dynamic';
 
 /**
- * OSIRIS — Active Fire & Wildfire Tracking
+ * ATLAS — Active Fire & Wildfire Tracking
  * Multi-source: NASA FIRMS Open Data (primary for global fires), NASA EONET (volcanoes)
  *
  * The FIRMS CSV is tens of MB, so the merged list is cached for 10 minutes
@@ -42,7 +42,7 @@ const loadFires = cachedSource<FirePoint>('fires', async () => {
     try {
       const res = await fetch(url, {
         signal: AbortSignal.timeout(15000),
-        headers: { 'User-Agent': 'OSIRIS-Intelligence-Platform/3.5' },
+        headers: { 'User-Agent': 'ATLAS-Intelligence-Platform/3.5' },
       });
       if (res.ok) {
         const text = await res.text();
@@ -83,7 +83,7 @@ const loadFires = cachedSource<FirePoint>('fires', async () => {
       fires = [...fires, ...volcanoes];
       if (!source) source = 'NASA-EONET';
     }
-  } catch (e) { console.warn('[OSIRIS] Suppressed EONET error:', e instanceof Error ? e.message : e); }
+  } catch (e) { console.warn('[ATLAS] Suppressed EONET error:', e instanceof Error ? e.message : e); }
 
   // Nothing answered: throw so the cache keeps the last good list and the route answers 502.
   if (!fires.length) throw new Error('no fire provider answered');

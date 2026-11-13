@@ -1,5 +1,5 @@
 /**
- * OSIRIS — upstream source cache.
+ * ATLAS — upstream source cache.
  *
  * Camera *indexes* (where the cameras are) change on the order of weeks, while
  * the frames themselves are pulled live by the client straight from the source.
@@ -121,13 +121,13 @@ export function cachedSource<T>(
       } catch (e) {
         if (!current()) return [];
         if (entry?.data.length) {
-          console.warn(`[OSIRIS] ${key} refresh failed — serving ${entry.data.length} cached cameras`);
+          console.warn(`[ATLAS] ${key} refresh failed — serving ${entry.data.length} cached cameras`);
           // Retry sooner than a full TTL, but don't hammer the failing upstream.
           put(key, { data: entry.data, expiresAt: now + 60_000, inflight: null, fetchedAt: entry.fetchedAt, failedAt: entry.failedAt ?? Date.now() });
           return entry.data;
         }
         const detail = e instanceof Error ? e.message : String(e);
-        console.warn(`[OSIRIS] ${key} fetch failed with no cache to fall back on: ${detail}`);
+        console.warn(`[ATLAS] ${key} fetch failed with no cache to fall back on: ${detail}`);
         put(key, {
           data: [],
           expiresAt: rememberEmpty ? now + 60_000 : 0,

@@ -126,14 +126,14 @@ import { PATCH } from "./[id]/route";
 const PASSWORD = "Sandi-Uji-10";
 
 function patch(id: string, body: Record<string, unknown>) {
-  return PATCH(new Request("http://osiris.local/api/ops/users/" + id, {
+  return PATCH(new Request("http://atlas.local/api/ops/users/" + id, {
     method: "PATCH",
     body: JSON.stringify(body),
   }), { params: Promise.resolve({ id }) });
 }
 
 function create(body: Record<string, unknown>) {
-  return POST(new Request("http://osiris.local/api/ops/users", {
+  return POST(new Request("http://atlas.local/api/ops/users", {
     method: "POST",
     body: JSON.stringify(body),
   }));

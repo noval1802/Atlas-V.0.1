@@ -122,7 +122,7 @@ export async function updateStoredCctvToken(
     return { ok: true, persisted: true };
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code ?? 'unknown';
-    console.warn(`[OSIRIS] CCTV token ${source.id} applied in memory only; env file not written (${code})`);
+    console.warn(`[ATLAS] CCTV token ${source.id} applied in memory only; env file not written (${code})`);
     return { ok: true, persisted: false };
   }
 }

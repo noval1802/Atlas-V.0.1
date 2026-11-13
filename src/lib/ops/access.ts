@@ -127,11 +127,11 @@ export function acceptedNext(next: string, allowed: readonly string[]): string |
   if (!next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return null;
   let url: URL;
   try {
-    url = new URL(next, "http://osiris.local");
+    url = new URL(next, "http://atlas.local");
   } catch {
     return null;
   }
-  if (url.origin !== "http://osiris.local" || !allowed.includes(url.pathname)) return null;
+  if (url.origin !== "http://atlas.local" || !allowed.includes(url.pathname)) return null;
   const layers = url.searchParams.get("layers");
   const foreign = [...url.searchParams.keys()].some((key) => key !== "layers");
   if (foreign || layers === null) return url.pathname;

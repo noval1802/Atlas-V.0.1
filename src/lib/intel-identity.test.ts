@@ -14,7 +14,7 @@ describe('intel resolve identity', () => {
     const source = readFileSync(serverPath, 'utf8');
     expect(source).toContain("source: 'ATLAS Intelligence Layer'");
     expect(source).not.toMatch(/source:\s*'OSIRIS Intelligence Layer'/);
-    expect(source).toContain("const WIKIDATA_UA = 'OSIRIS-Intel/1.0 (https://osirisai.live; ontology engine)'");
+    expect(source).toContain("const WIKIDATA_UA = 'ATLAS-Intel/1.0'");
     expect(source).toContain("properties: { source: 'Wikidata' }");
   });
 

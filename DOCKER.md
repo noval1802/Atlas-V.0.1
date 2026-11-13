@@ -8,21 +8,21 @@ ATLAS dibangun sebagai Next.js `standalone` di atas `node:22-alpine`. Proses ber
 
 | Layanan | Port host | Fungsi |
 |---|---|---|
-| `osiris-cache` | **`8443`** (HTTPS), `8080` | nginx: pintu masuk pengguna. 8080 hanya mengalihkan ke 8443. Juga cache tile peta. |
-| `osiris` | `127.0.0.1:3000` | Aplikasi ATLAS. Tidak dibuka ke jaringan; akses lewat nginx. |
-| `osiris-migrate` | – | Sekali jalan setiap start: migrasi database lalu seed baris yang belum ada. Aplikasi menunggu sampai selesai. |
-| `osiris-postgres` | `127.0.0.1:5433` | Database operasi (PostgreSQL 16) |
-| `osiris-backup` | – | `pg_dump` harian ke `BACKUP_PATH` (default `./backups`), simpan 14 hari |
-| `osiris-intel` | `127.0.0.1:4000` | Layanan entitas internal |
+| `atlas-cache` | **`8443`** (HTTPS), `8080` | nginx: pintu masuk pengguna. 8080 hanya mengalihkan ke 8443. Juga cache tile peta. |
+| `atlas` | `127.0.0.1:3000` | Aplikasi ATLAS. Tidak dibuka ke jaringan; akses lewat nginx. |
+| `atlas-migrate` | – | Sekali jalan setiap start: migrasi database lalu seed baris yang belum ada. Aplikasi menunggu sampai selesai. |
+| `atlas-postgres` | `127.0.0.1:5433` | Database operasi (PostgreSQL 16) |
+| `atlas-backup` | – | `pg_dump` harian ke `BACKUP_PATH` (default `./backups`), simpan 14 hari |
+| `atlas-intel` | `127.0.0.1:4000` | Layanan entitas internal |
 
-Nama kontainer masih `osiris-*` agar volume dan konfigurasi lama tetap jalan. Semua log Docker dibatasi 5 × 10 MB per layanan.
+Semua log Docker dibatasi 5 × 10 MB per layanan.
 
 ## Pemasangan pertama
 
 ```bash
 # 1. Konfigurasi
 cp .env.example .env
-#    isi: OSIRIS_POSTGRES_PASSWORD, OPS_SESSION_SECRET, OPS_ADMIN_USERNAME,
+#    isi: ATLAS_POSTGRES_PASSWORD, OPS_SESSION_SECRET, OPS_ADMIN_USERNAME,
 #    OPS_ADMIN_PASSWORD, OPS_PUBLIC_URL (lihat tabel di bawah)
 
 # 2. Sertifikat HTTPS sementara (self-signed), sampai CA satuan menerbitkan yang resmi
@@ -31,24 +31,24 @@ ops/tls/self-signed.sh <nama-host> [alamat-ip]
 
 # 3. Jalankan
 docker compose up -d --build
-docker compose ps        # osiris dan osiris-cache harus "healthy"
+docker compose ps        # atlas dan atlas-cache harus "healthy"
 ```
 
 Buka `https://<nama-host>:8443`. Selama memakai sertifikat self-signed, browser akan menampilkan peringatan. Pasang sertifikat CA satuan untuk menghilangkannya (lihat di bawah).
 
-Urutan start diatur otomatis: Postgres sehat → `osiris-migrate` selesai → aplikasi sehat → nginx. Kalau `osiris-migrate` gagal (misalnya belum ada SUPER_ADMIN dan `OPS_ADMIN_PASSWORD` kosong atau ditolak aturan kata sandi), aplikasi tidak dijalankan. Cek dengan `docker compose logs osiris-migrate`.
+Urutan start diatur otomatis: Postgres sehat → `atlas-migrate` selesai → aplikasi sehat → nginx. Kalau `atlas-migrate` gagal (misalnya belum ada SUPER_ADMIN dan `OPS_ADMIN_PASSWORD` kosong atau ditolak aturan kata sandi), aplikasi tidak dijalankan. Cek dengan `docker compose logs atlas-migrate`.
 
 ## Variabel wajib di `.env`
 
 | Variabel | Keterangan |
 |---|---|
-| `OSIRIS_POSTGRES_PASSWORD` | Wajib, compose menolak jalan tanpanya. Gunakan nilai aman-URL: `openssl rand -hex 24`. |
+| `ATLAS_POSTGRES_PASSWORD` | Wajib, compose menolak jalan tanpanya. Gunakan nilai aman-URL: `openssl rand -hex 24`. |
 | `OPS_SESSION_SECRET` | Minimal 32 karakter (`openssl rand -hex 32`). Kurang dari itu, login ditolak. |
 | `OPS_ADMIN_USERNAME`, `OPS_ADMIN_PASSWORD` | Akun SUPER_ADMIN pertama, dibuat seed hanya bila belum ada SUPER_ADMIN aktif. Sandi minimal 12 karakter, tidak memuat nama pengguna, nama aplikasi, atau nama peran. Mengubah nilai ini **tidak** mengganti sandi akun yang sudah ada (ganti lewat menu Pengguna); setelah admin dibuat, keduanya boleh dikosongkan. |
 | `OPS_PUBLIC_URL` | `https://<nama-host>:8443`. Wajib agar email reset sandi terkirim. |
 | `TILE_PROXY_PATH` | `/proxy/tiles`, supaya tile peta dilayani dari cache nginx. |
 
-`DATABASE_URL` di `.env` hanya untuk alat di host (`npm run dev`, Prisma). Di dalam stack, compose memakai `osiris-postgres:5432` secara otomatis.
+`DATABASE_URL` di `.env` hanya untuk alat di host (`npm run dev`, Prisma). Di dalam stack, compose memakai `atlas-postgres:5432` secara otomatis.
 
 ## Sertifikat resmi
 
@@ -58,24 +58,24 @@ Ganti dua file dengan nama yang sama, lalu muat ulang nginx:
 cp sertifikat-dari-CA.crt nginx/certs/atlas.crt
 cp kunci-privat.key       nginx/certs/atlas.key
 chmod 600 nginx/certs/atlas.key
-docker compose exec osiris-cache nginx -s reload
+docker compose exec atlas-cache nginx -s reload
 ```
 
 `nginx/certs/` tidak pernah masuk git.
 
 ## Backup dan restore
 
-- **Jadwal:** `osiris-backup` membuat satu dump per hari: `backups/atlas-<waktu UTC>.dump` (format `pg_dump -Fc`). Dump yang lebih tua dari `BACKUP_RETENTION_DAYS` dihapus otomatis.
+- **Jadwal:** `atlas-backup` membuat satu dump per hari: `backups/atlas-<waktu UTC>.dump` (format `pg_dump -Fc`). Dump yang lebih tua dari `BACKUP_RETENTION_DAYS` dihapus otomatis.
 - **Salin ke mesin lain.** Backup di disk yang sama tidak selamat kalau disk itu rusak.
 - **Backup manual sekarang:**
   ```bash
-  docker compose run --rm -e BACKUP_ONCE=1 osiris-backup
+  docker compose run --rm -e BACKUP_ONCE=1 atlas-backup
   ```
 - **Restore** (menghapus isi database tujuan). Uji dulu ke database percobaan:
   ```bash
-  docker compose run --rm --entrypoint sh osiris-backup /ops/restore.sh \
+  docker compose run --rm --entrypoint sh atlas-backup /ops/restore.sh \
     /backups/atlas-<waktu>.dump \
-    "postgresql://osiris:<password>@osiris-postgres:5432/osiris_ops"
+    "postgresql://atlas:<password>@atlas-postgres:5432/atlas_ops"
   ```
 
 ## Build lokal vs build distribusi
@@ -94,7 +94,7 @@ Tiga berkas runtime (`.cache/cctv-catalog.json`, `.cache/nominatim.json`, dan `.
 
 ```bash
 docker compose ps
-docker compose logs -f osiris
+docker compose logs -f atlas
 docker compose up -d --build   # setelah menarik kode baru; migrasi berjalan otomatis
 docker compose down
 ```

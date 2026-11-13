@@ -7,9 +7,9 @@ import { DbSessionVault } from './tpt-vault';
 
 /*
  * Atomic session vault against a throwaway database. Opt-in:
- *   TEST_DATABASE_URL=postgresql://osiris@127.0.0.1:5433/osiris_ops_test \
+ *   TEST_DATABASE_URL=postgresql://atlas@127.0.0.1:5433/atlas_ops_test \
  *     TPT_VAULT_KEY=<base64 32 bytes> npx vitest run src/lib/tpt-vault.db.test.ts
- * The guard refuses any database other than osiris_ops_test on localhost.
+ * The guard refuses any database other than atlas_ops_test on localhost.
  */
 const url = process.env.TEST_DATABASE_URL;
 

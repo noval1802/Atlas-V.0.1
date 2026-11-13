@@ -133,13 +133,13 @@ function upgrade(socket: net.Socket, host: string): Promise<tls.TLSSocket> {
 async function deliver(input: Delivery): Promise<void> {
   let socket = await connect(input.host, input.port, input.implicit);
   await expectCode(socket, 220);
-  command(socket, "EHLO osiris");
+  command(socket, "EHLO atlas");
   await expectCode(socket, 250);
   if (!input.implicit) {
     command(socket, "STARTTLS");
     await expectCode(socket, 220);
     socket = await upgrade(socket, input.host);
-    command(socket, "EHLO osiris");
+    command(socket, "EHLO atlas");
     await expectCode(socket, 250);
   }
   if (input.user) {

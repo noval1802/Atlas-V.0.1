@@ -91,7 +91,7 @@ function actor(role: (typeof ROLES)[number], kotamaopsId: string | null = null) 
 }
 
 function save(id: string) {
-  return patchSituation(new Request("http://osiris.local/api/ops/situations/" + id, {
+  return patchSituation(new Request("http://atlas.local/api/ops/situations/" + id, {
     method: "PATCH",
     body: JSON.stringify({ status: "WASPADA", personnel: 2, deployed: 1, incidentCount: 0, note: "" }),
   }), { params: Promise.resolve({ id }) });

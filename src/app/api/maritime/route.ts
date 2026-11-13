@@ -24,7 +24,7 @@ interface AisFrame {
 }
 
 /**
- * OSIRIS — Maritime Intelligence
+ * ATLAS — Maritime Intelligence
  * Real-time AIS vessel tracking via aisstream.io + Static global ports.
  */
 
@@ -126,8 +126,8 @@ const AIS_RETRY_MIN_MS = 5_000;
 const AIS_RETRY_MAX_MS = 5 * 60_000;
 let aisRetryMs = AIS_RETRY_MIN_MS;
 
-// Map AIS ship types to OSIRIS categories
-const getOsirisShipType = (typeCode?: number) => {
+// Map AIS ship types to ATLAS categories
+const getAtlasShipType = (typeCode?: number) => {
   if (!typeCode) return 'cargo';
   if (typeCode >= 80 && typeCode <= 89) return 'tanker';
   if (typeCode >= 70 && typeCode <= 79) return 'cargo';
@@ -163,7 +163,7 @@ export function applyAisFrame(cache: Map<number, AisShip>, parsed: AisFrame, now
     const staticData = parsed.Message.ShipStaticData;
     existing.name = staticData.Name ? staticData.Name.trim() : existing.name;
     existing.destination = staticData.Destination ? staticData.Destination.trim() : existing.destination;
-    existing.type = getOsirisShipType(staticData.Type);
+    existing.type = getAtlasShipType(staticData.Type);
   }
 
   // Only store ships with a real position

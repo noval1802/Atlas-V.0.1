@@ -87,13 +87,13 @@ describe("local super admin recovery", () => {
 });
 
 describe("test database guard", () => {
-  it("accepts only osiris_ops_test on localhost", () => {
-    expect(() => assertTestDatabase("postgresql://osiris@127.0.0.1:5433/osiris_ops_test")).not.toThrow();
-    expect(() => assertTestDatabase("postgresql://osiris@localhost:5433/osiris_ops_test")).not.toThrow();
+  it("accepts only atlas_ops_test on localhost", () => {
+    expect(() => assertTestDatabase("postgresql://atlas@127.0.0.1:5433/atlas_ops_test")).not.toThrow();
+    expect(() => assertTestDatabase("postgresql://atlas@localhost:5433/atlas_ops_test")).not.toThrow();
     for (const url of [
-      "postgresql://osiris@127.0.0.1:5433/osiris_ops",
-      "postgresql://osiris@10.0.0.5:5433/osiris_ops_test",
-      "postgresql://osiris@127.0.0.1:5433/osiris_ops_test_copy",
+      "postgresql://atlas@127.0.0.1:5433/atlas_ops",
+      "postgresql://atlas@10.0.0.5:5433/atlas_ops_test",
+      "postgresql://atlas@127.0.0.1:5433/atlas_ops_test_copy",
     ]) {
       expect(() => assertTestDatabase(url)).toThrow();
     }

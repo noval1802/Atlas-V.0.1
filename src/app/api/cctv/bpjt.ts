@@ -99,10 +99,10 @@ export async function fetchBpjtCameras(): Promise<CctvCamera[]> {
     });
     if (!response.ok) throw new Error(`BPJT HTTP ${response.status}`);
     const cameras = parseBpjt(await response.text());
-    if (!cameras.length) console.warn('[OSIRIS] BPJT CCTV: page returned no camera records (layout changed?)');
+    if (!cameras.length) console.warn('[ATLAS] BPJT CCTV: page returned no camera records (layout changed?)');
     return cameras;
   } catch (error) {
-    console.warn('[OSIRIS] BPJT CCTV failed:', error instanceof Error ? error.message : error);
+    console.warn('[ATLAS] BPJT CCTV failed:', error instanceof Error ? error.message : error);
     return [];
   }
 }

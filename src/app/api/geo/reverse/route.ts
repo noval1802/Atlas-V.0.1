@@ -4,7 +4,7 @@ import { ATTRIBUTION, nominatim } from '@/lib/nominatim';
 export const maxDuration = 15;
 
 /**
- * OSIRIS — the place name for a coordinate.
+ * ATLAS — the place name for a coordinate.
  *
  * The map's location readout used to ask Nominatim from the browser as the
  * cursor moved, which meant one stream of requests per visitor and no shared

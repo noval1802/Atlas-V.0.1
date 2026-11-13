@@ -1,4 +1,4 @@
-export const OPS_COOKIE = "osiris_ops";
+export const OPS_COOKIE = "atlas_ops";
 export const SESSION_MS = 8 * 60 * 60 * 1000;
 export const REMEMBER_MS = 14 * 24 * 60 * 60 * 1000;
 

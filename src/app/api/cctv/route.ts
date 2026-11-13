@@ -80,7 +80,7 @@ import {
 } from './public-webcams';
 
 /**
- * OSIRIS — Worldwide CCTV Camera API v2
+ * ATLAS — Worldwide CCTV Camera API v2
  * Viewport-aware: pass ?region=xx to load cameras for specific regions
  * Supports the regions keyed in RAW_REGION_FETCHERS below
  * Or pass ?lat=x&lng=y&radius=5 for proximity-based loading
@@ -180,12 +180,12 @@ async function subSource(label: string, url: string, timeoutMs: number): Promise
          — Montreal (403) and Alberta (400) between them pushed Canada past
          12s, so the whole country came back empty on a cold cache. */
       if (res.status >= 400 && res.status < 500) {
-        console.warn(`[OSIRIS] ${label} returned ${res.status} — absent from this refresh, not retried`);
+        console.warn(`[ATLAS] ${label} returned ${res.status} — absent from this refresh, not retried`);
         return null;
       }
-      if (attempt === 2) console.warn(`[OSIRIS] ${label} returned ${res.status} — absent from this refresh`);
+      if (attempt === 2) console.warn(`[ATLAS] ${label} returned ${res.status} — absent from this refresh`);
     } catch (e) {
-      if (attempt === 2) console.warn(`[OSIRIS] ${label} failed — absent from this refresh:`, e instanceof Error ? e.message : e);
+      if (attempt === 2) console.warn(`[ATLAS] ${label} failed — absent from this refresh:`, e instanceof Error ? e.message : e);
     }
   }
   return null;
@@ -632,7 +632,7 @@ function refreshRegion(region: string): Promise<CatalogCamera[]> {
         new Promise<CatalogCamera[]>(resolve => {
           timer = setTimeout(() => {
             timedOut = true;
-            console.warn(`[OSIRIS] cctv:${region} over ${budgetMs}ms — backing off for 300s`);
+            console.warn(`[ATLAS] cctv:${region} over ${budgetMs}ms — backing off for 300s`);
             backedOff.set(region, Date.now() + BACKOFF_MS);
             resolve([]);
           }, budgetMs);
@@ -708,7 +708,7 @@ async function persistCatalogue() {
   try {
     await writeSnapshot(currentRegions());
   } catch (error) {
-    console.warn('[OSIRIS] Could not save the camera catalogue:', error);
+    console.warn('[ATLAS] Could not save the camera catalogue:', error);
   }
 }
 
@@ -739,8 +739,8 @@ function ensureRestored(): Promise<void> {
     }
     rebuildPayload();
     lastPersistedTotal = cameras;
-    console.log(`[OSIRIS] Camera catalogue restored: ${cameras} cameras from disk`);
-  })().catch(error => { console.warn('[OSIRIS] Could not restore the camera catalogue:', error); });
+    console.log(`[ATLAS] Camera catalogue restored: ${cameras} cameras from disk`);
+  })().catch(error => { console.warn('[ATLAS] Could not restore the camera catalogue:', error); });
   startHealthChecks();
   return restoring;
 }
@@ -759,10 +759,10 @@ function startHealthChecks() {
     const cameras = CAMERA_REGIONS.flatMap(region => peekSource<CatalogCamera>(`cctv:${region}`, true) ?? []);
     if (!cameras.length) return;
     const dead = await checkCameras(cameras);
-    console.log(`[OSIRIS] Camera health: ${dead} of ${cameras.length} show nothing`);
+    console.log(`[ATLAS] Camera health: ${dead} of ${cameras.length} show nothing`);
     rebuildPayload();
   };
-  const tick = () => { void run().catch(error => { console.warn('[OSIRIS] Camera health check failed:', error); }); };
+  const tick = () => { void run().catch(error => { console.warn('[ATLAS] Camera health check failed:', error); }); };
   setTimeout(tick, HEALTH_FIRST_MS).unref?.();
   setInterval(tick, HEALTH_EVERY_MS).unref?.();
 }
@@ -828,7 +828,7 @@ async function collectRegions(regions: string[]): Promise<{ cameras: Record<stri
   /* An empty answer is still pending so the client can retry, but it is not
      "still filling". That line is only for a fetch that has not come back. */
   const waiting = pending.filter(region => !settled.has(region));
-  if (waiting.length) console.warn(`[OSIRIS] cctv still filling: ${waiting.join(", ")}`);
+  if (waiting.length) console.warn(`[ATLAS] cctv still filling: ${waiting.join(", ")}`);
   return { cameras, pending };
 }
 
@@ -965,7 +965,7 @@ function rebuildInBackground() {
     await collectRegions(ALL_REGIONS());
     rebuildPayload();
     await persistCatalogue();
-  })().catch(error => { console.warn('[OSIRIS] Camera catalogue rebuild failed:', error); })
+  })().catch(error => { console.warn('[ATLAS] Camera catalogue rebuild failed:', error); })
     .finally(() => { rebuilding = undefined; });
   return rebuilding;
 }

@@ -84,7 +84,7 @@ export async function fetchAcehCameras(): Promise<CctvCamera[]> {
     }
     return cameras;
   } catch (error) {
-    console.warn('[OSIRIS] Banda Aceh CCTV failed:', error instanceof Error ? error.message : error);
+    console.warn('[ATLAS] Banda Aceh CCTV failed:', error instanceof Error ? error.message : error);
     return [];
   }
 }

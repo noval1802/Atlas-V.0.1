@@ -78,7 +78,7 @@ export async function fetchBandungCameras(): Promise<CctvCamera[]> {
     }
     return cameras;
   } catch (error) {
-    console.warn('[OSIRIS] Bandung CCTV failed:', error instanceof Error ? error.message : error);
+    console.warn('[ATLAS] Bandung CCTV failed:', error instanceof Error ? error.message : error);
     return [];
   }
 }

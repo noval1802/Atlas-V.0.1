@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   try {
     saved = await updateStoredCctvToken(id, body.token);
   } catch (error) {
-    console.error(`[OSIRIS] CCTV token update failed: ${source.id}`, error);
+    console.error(`[ATLAS] CCTV token update failed: ${source.id}`, error);
     await writeAudit({ action: 'cctv_token_update', result: 'error', actorId: user.id, ip: requestIp(request), detail: source.id });
     return NextResponse.json({ error: 'Token gagal disimpan.' }, { status: 500 });
   }

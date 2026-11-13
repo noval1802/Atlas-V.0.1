@@ -5,7 +5,7 @@ import { Search, X, MapPin, Navigation, Building2, Globe2, Landmark } from 'luci
 import { parseCoordinates } from '@/lib/geo';
 
 /* ═══════════════════════════════════════════════════════════════
-   OSIRIS — Enhanced Search / Locate Bar
+   ATLAS — Enhanced Search / Locate Bar
    Street-level geocoding with intelligent zoom levels
    Ctrl+F / Cmd+F keyboard shortcut support
    ═══════════════════════════════════════════════════════════════ */

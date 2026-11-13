@@ -1,6 +1,6 @@
 import { opsDb } from "./db";
 
-const SECRET = /scrypt\$\S+|bearer\s+\S+|osiris_ops=\S+/gi;
+const SECRET = /scrypt\$\S+|bearer\s+\S+|atlas_ops=\S+/gi;
 
 export function scrubDetail(value: string): string {
   return value.replace(SECRET, "[redacted]").replace(/[\r\n]/g, " ").slice(0, 300);

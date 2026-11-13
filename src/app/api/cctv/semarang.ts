@@ -90,10 +90,10 @@ export async function fetchSemarangCameras(): Promise<CctvCamera[]> {
     });
     if (!response.ok) throw new Error(`Semarang HTTP ${response.status}`);
     const cameras = parseSemarang(await response.text());
-    if (!cameras.length) console.warn('[OSIRIS] Semarang CCTV: page returned no camera records (layout changed?)');
+    if (!cameras.length) console.warn('[ATLAS] Semarang CCTV: page returned no camera records (layout changed?)');
     return cameras;
   } catch (error) {
-    console.warn('[OSIRIS] Semarang CCTV failed:', error instanceof Error ? error.message : error);
+    console.warn('[ATLAS] Semarang CCTV failed:', error instanceof Error ? error.message : error);
     return [];
   }
 }

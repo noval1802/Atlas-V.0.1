@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════
-   ArcGIS Search & Import Panel — OSIRIS OSINT Dashboard
+   ArcGIS Search & Import Panel — ATLAS OSINT Dashboard
    Premium dark-ops glassmorphism aesthetic
    ═══════════════════════════════════════════════════════════════ */
 

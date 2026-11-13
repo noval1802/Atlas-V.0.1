@@ -8,19 +8,19 @@ import { buildPayload, clearPayload, dropSnapshotRegion, getPayload, readSnapsho
 let directory: string;
 
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), 'osiris-snap-'));
-  process.env.OSIRIS_CCTV_SNAPSHOT = join(directory, 'nested', 'cctv-catalog.json');
+  directory = await mkdtemp(join(tmpdir(), 'atlas-snap-'));
+  process.env.ATLAS_CCTV_SNAPSHOT = join(directory, 'nested', 'cctv-catalog.json');
   clearPayload();
 });
 
 afterEach(async () => {
-  delete process.env.OSIRIS_CCTV_SNAPSHOT;
+  delete process.env.ATLAS_CCTV_SNAPSHOT;
   await rm(directory, { recursive: true, force: true });
 });
 
 describe('camera catalogue snapshot', () => {
   it("writes nothing when the snapshot is 'off'", async () => {
-    process.env.OSIRIS_CCTV_SNAPSHOT = 'off';
+    process.env.ATLAS_CCTV_SNAPSHOT = 'off';
     const cwd = process.cwd();
     process.chdir(directory);
     try {
@@ -47,7 +47,7 @@ describe('camera catalogue snapshot', () => {
     expect(await readSnapshot()).toBeNull();
 
     await writeSnapshot({ uk: [{ id: 'a' }] });
-    await writeFile(process.env.OSIRIS_CCTV_SNAPSHOT!, '{"version":1,"regions":{"uk":[{"id"');
+    await writeFile(process.env.ATLAS_CCTV_SNAPSHOT!, '{"version":1,"regions":{"uk":[{"id"');
     expect(await readSnapshot()).toBeNull();
   });
 
@@ -65,9 +65,9 @@ describe('camera catalogue snapshot', () => {
   });
 
   it('rejects a catalogue written by a different format version', async () => {
-    await writeFile(process.env.OSIRIS_CCTV_SNAPSHOT!.replace(/nested[\\/]/, ''), '{}').catch(() => {});
+    await writeFile(process.env.ATLAS_CCTV_SNAPSHOT!.replace(/nested[\\/]/, ''), '{}').catch(() => {});
     await writeSnapshot({ uk: [{ id: 'a' }] });
-    const path = process.env.OSIRIS_CCTV_SNAPSHOT!;
+    const path = process.env.ATLAS_CCTV_SNAPSHOT!;
     await writeFile(path, JSON.stringify({ version: 99, builtAt: Date.now(), regions: { uk: [{ id: 'a' }] } }));
     expect(await readSnapshot()).toBeNull();
   });

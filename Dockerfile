@@ -10,7 +10,7 @@ COPY . .
 # check-artifact fails the image build if any secret-looking file reached the standalone output.
 RUN npx prisma generate && npm run build && node tools/check-artifact.mjs .next/standalone
 
-# One-shot job run by the `osiris-migrate` compose service before the app starts:
+# One-shot job run by the `atlas-migrate` compose service before the app starts:
 # applies pending migrations, then seeds Kotamaops and the bootstrap admin.
 # The seed only creates missing rows, so re-running it never overwrites reports.
 # Kept out of the runner so the served image carries no Prisma CLI.

@@ -3,7 +3,7 @@ import { stealthFetch } from '@/lib/stealthFetch';
 import { cachedSource } from '@/lib/sourceCache';
 
 /**
- * OSIRIS — Edmonton traffic cameras (City of Edmonton Traffic Management Centre)
+ * ATLAS — Edmonton traffic cameras (City of Edmonton Traffic Management Centre)
  * Source: https://edmontontrafficcam.com — the city's public camera site.
  * ~57 live HLS streams — NO API KEY NEEDED.
  *
@@ -99,7 +99,7 @@ async function loadEdmontonCameras(): Promise<CctvCamera[]> {
   if (!res.ok) throw new Error(`Edmonton GetCameras HTTP ${res.status}`);
 
   const cams = parseEdmonton(await res.json());
-  console.log(`[OSIRIS] Edmonton cameras — City of Edmonton: ${cams.length}`);
+  console.log(`[ATLAS] Edmonton cameras — City of Edmonton: ${cams.length}`);
   return cams;
 }
 

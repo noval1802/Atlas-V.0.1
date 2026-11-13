@@ -4,7 +4,7 @@ import { httpJson } from '@/lib/httpJson';
 import { cachedSource } from '@/lib/sourceCache';
 
 /**
- * OSIRIS — Region Dossier API
+ * ATLAS — Region Dossier API
  * Provides country intelligence for any coordinate (double right-click on map)
  * Fix #115: Steps 2-4 now run in parallel via Promise.allSettled
  */
@@ -48,7 +48,7 @@ export async function placeAt(lat: number, lng: number): Promise<PhotonPlace | n
         const found = json.features?.[0]?.properties;
         return found ? [found] : [];  // open sea has no place, and no dossier
       } catch (e) {
-        console.warn(`[OSIRIS] Photon reverse failed (attempt ${attempt}):`, e instanceof Error ? e.message : e);
+        console.warn(`[ATLAS] Photon reverse failed (attempt ${attempt}):`, e instanceof Error ? e.message : e);
         if (attempt === 1) await new Promise(resolve => setTimeout(resolve, 800));
       }
     }
@@ -229,7 +229,7 @@ export async function GET(request: Request) {
               thumbnail: wiki.thumbnail?.source,
             };
           }
-        } catch (e) { console.warn('[OSIRIS] Wikipedia fetch error:', e instanceof Error ? e.message : e); }
+        } catch (e) { console.warn('[ATLAS] Wikipedia fetch error:', e instanceof Error ? e.message : e); }
         return null;
       })(),
 

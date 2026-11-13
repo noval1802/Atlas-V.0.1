@@ -18,8 +18,8 @@ describe("auth mail", () => {
   });
 
   it("builds a reset note that contains the link and no password", () => {
-    const message = resetMessage("https://osiris.example/atur-sandi?token=rahasia");
-    expect(message.text).toContain("https://osiris.example/atur-sandi?token=rahasia");
+    const message = resetMessage("https://atlas.example/atur-sandi?token=rahasia");
+    expect(message.text).toContain("https://atlas.example/atur-sandi?token=rahasia");
     expect(message.text).not.toContain("password=");
     expect(mailboxError("orang@example.com\nBcc: x")).not.toBeNull();
   });

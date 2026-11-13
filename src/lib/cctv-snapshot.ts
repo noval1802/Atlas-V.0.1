@@ -4,7 +4,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 /**
- * OSIRIS — the camera catalogue, saved.
+ * ATLAS — the camera catalogue, saved.
  *
  * Cameras were assembled live, per request, from 48 upstreams. That put every
  * visitor behind the slowest provider of the moment: production served 23,240
@@ -28,7 +28,7 @@ const SNAPSHOT_VERSION = 1;
 
 /** Overridable so a test never writes into the real cache directory. */
 export const snapshotPath = () =>
-  process.env.OSIRIS_CCTV_SNAPSHOT || join(/*turbopackIgnore: true*/ process.cwd(), '.cache', 'cctv-catalog.json');
+  process.env.ATLAS_CCTV_SNAPSHOT || join(/*turbopackIgnore: true*/ process.cwd(), '.cache', 'cctv-catalog.json');
 
 interface SnapshotFile {
   version: number;
@@ -41,7 +41,7 @@ export async function readSnapshot(): Promise<SnapshotFile | null> {
   // 'off' keeps tests off the filesystem entirely: real disk I/O cannot be
   // flushed deterministically under fake timers, and these caches are module
   // state that leaks between cases if a read lands late.
-  if (process.env.OSIRIS_CCTV_SNAPSHOT === 'off') return null;
+  if (process.env.ATLAS_CCTV_SNAPSHOT === 'off') return null;
   try {
     // turbopackIgnore: runtime state file; tracing a cwd-relative path otherwise copies the whole repo (.env included) into the build output.
     const raw = await readFile(/*turbopackIgnore: true*/ snapshotPath(), 'utf8');
@@ -68,7 +68,7 @@ export async function dropSnapshotRegion(region: string): Promise<void> {
  */
 export async function writeSnapshot(regions: RegionCameras): Promise<void> {
   // 'off' disables writes as well as reads; otherwise it is taken as a path and an "off" file lands in the cwd.
-  if (process.env.OSIRIS_CCTV_SNAPSHOT === 'off') return;
+  if (process.env.ATLAS_CCTV_SNAPSHOT === 'off') return;
   const path = snapshotPath();
   const payload: SnapshotFile = { version: SNAPSHOT_VERSION, builtAt: Date.now(), regions };
   await mkdir(dirname(path), { recursive: true });

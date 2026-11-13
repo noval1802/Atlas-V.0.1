@@ -1,14 +1,14 @@
 import type { CctvCamera } from './types';
 
 /**
- * OSIRIS — publicly broadcast webcams (GENERATED).
+ * ATLAS — publicly broadcast webcams (GENERATED).
  *
  * Open data, in the plainest sense: every camera here is one its operator
  * publishes themselves, on their own site or their own channel. What the web
  * does not have is a catalogue of them, so these were gathered by reading a
  * public index of such cameras — a list of pages rather than of feeds, with no
  * coordinates and no stream URLs, across 383 different hosts. This file is
- * what is left after reading those pages, and only what OSIRIS can actually
+ * what is left after reading those pages, and only what ATLAS can actually
  * show. Regenerate with scratch/scrape_public_webcams.js.
  *
  * The 26 Rijkswaterstaat motorway cameras that index also lists are skipped:

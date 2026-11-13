@@ -52,7 +52,7 @@ describe("POST /api/ops/register", () => {
   });
 
   it("creates a pending analyst and does not issue a session", async () => {
-    const response = await POST(new Request("http://osiris.local/api/ops/register", { method: "POST", body: JSON.stringify(body) }));
+    const response = await POST(new Request("http://atlas.local/api/ops/register", { method: "POST", body: JSON.stringify(body) }));
     expect(response.status).toBe(201);
     expect(response.headers.get("set-cookie")).toBeNull();
     const payload = await response.json();
@@ -64,14 +64,14 @@ describe("POST /api/ops/register", () => {
   });
 
   it("answers a taken username or email exactly like a new account", async () => {
-    const fresh = await POST(new Request("http://osiris.local/api/ops/register", {
+    const fresh = await POST(new Request("http://atlas.local/api/ops/register", {
       method: "POST",
       body: JSON.stringify({ ...body, username: "orang.baru", email: "baru@example.com" }),
     }));
     const expected = await fresh.json();
     state.rows = [{ id: "ada", username: "budi.ops", email: "lain@example.com" }];
     for (const attempt of [body, { ...body, username: "budi.baru", email: "lain@example.com" }]) {
-      const response = await POST(new Request("http://osiris.local/api/ops/register", { method: "POST", body: JSON.stringify(attempt) }));
+      const response = await POST(new Request("http://atlas.local/api/ops/register", { method: "POST", body: JSON.stringify(attempt) }));
       expect(response.status).toBe(fresh.status);
       expect(await response.json()).toEqual(expected);
     }

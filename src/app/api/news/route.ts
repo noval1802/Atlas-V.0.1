@@ -6,7 +6,7 @@ import type { Bloc } from '@/lib/alert-digest';
 import { alertKind, budgetedLookup, locateReport, type AlertKind, type AlertPlace } from '@/lib/alert-places';
 
 /**
- * OSIRIS — Live Alerts news feed.
+ * ATLAS — Live Alerts news feed.
  *
  * Reads two kinds of source into one feed: public Telegram OSINT channels,
  * which are fast and carry footage, and wire services, which cover the ground

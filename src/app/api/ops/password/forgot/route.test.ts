@@ -39,11 +39,11 @@ describe("POST /api/ops/password/forgot", () => {
   });
 
   it("returns the same public message for a known and an unknown email", async () => {
-    const known = await POST(new Request("http://osiris.local/api/ops/password/forgot", {
+    const known = await POST(new Request("http://atlas.local/api/ops/password/forgot", {
       method: "POST",
       body: JSON.stringify({ email: "ada@example.com" }),
     }));
-    const unknown = await POST(new Request("http://osiris.local/api/ops/password/forgot", {
+    const unknown = await POST(new Request("http://atlas.local/api/ops/password/forgot", {
       method: "POST",
       body: JSON.stringify({ email: "tidak@example.com" }),
     }));

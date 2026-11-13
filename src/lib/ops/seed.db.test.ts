@@ -5,8 +5,8 @@ import { assertTestDatabase } from "./test-db-guard";
 
 /*
  * Runs prisma/seed.mjs against a throwaway database. Opt-in:
- *   TEST_DATABASE_URL=postgresql://osiris@127.0.0.1:5433/osiris_ops_test npx vitest run src/lib/ops/seed.db.test.ts
- * The guard below refuses any other database, so the working osiris_ops can never be wiped by mistake.
+ *   TEST_DATABASE_URL=postgresql://atlas@127.0.0.1:5433/atlas_ops_test npx vitest run src/lib/ops/seed.db.test.ts
+ * The guard below refuses any other database, so the working atlas_ops can never be wiped by mistake.
  */
 const url = process.env.TEST_DATABASE_URL;
 

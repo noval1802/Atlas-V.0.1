@@ -23,8 +23,8 @@ import {
   type MapPalette,
 } from './map-palette';
 
-const STORAGE_KEY = 'osiris:style-studio';
-const STYLE_TAG_ID = 'osiris-style-studio';
+const STORAGE_KEY = 'atlas:style-studio';
+const STYLE_TAG_ID = 'atlas-style-studio';
 
 export interface StyleSettings {
   accent: string;
@@ -394,7 +394,7 @@ export function readTheme(): StyleSettings {
  * palette and pushes it in. An event keeps that one-way: the token engine has
  * no idea the map exists.
  */
-export const STYLE_EVENT = 'osiris:style';
+export const STYLE_EVENT = 'atlas:style';
 
 function announce() {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(STYLE_EVENT));

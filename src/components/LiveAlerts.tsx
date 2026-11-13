@@ -153,7 +153,7 @@ function NewsCard({ item, now, open, wide, onToggle, onLocate }: {
       <button type="button" onClick={onToggle} aria-expanded={open} className="w-full text-left px-2.5 pt-2 pb-2 outline-none focus-visible:ring-1 focus-visible:ring-white/30 rounded-lg">
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9.5px] font-mono uppercase tracking-wider">
-            {fresh && <span className="w-1.5 h-1.5 rounded-full animate-osiris-pulse" style={{ background: ACCENT }} title="Posted in the last 15 minutes" />}
+            {fresh && <span className="w-1.5 h-1.5 rounded-full animate-atlas-pulse" style={{ background: ACCENT }} title="Posted in the last 15 minutes" />}
             <span className="font-semibold text-[#E8E6E0]">{item.source_name}</span>
             {item.lean && <span style={{ color }} title={item.bloc ? BLOCS[item.bloc].label : undefined}>{item.lean}</span>}
           </div>
@@ -352,7 +352,7 @@ function StatementCard({ speaker, items, now, open, wide, onToggle }: {
       <button type="button" onClick={onToggle} aria-expanded={open} className="w-full text-left px-2.5 pt-2 pb-1.5 outline-none focus-visible:ring-1 focus-visible:ring-white/30 rounded-lg">
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[9.5px] font-mono uppercase tracking-wider">
-            {fresh && <span className="w-1.5 h-1.5 rounded-full animate-osiris-pulse" style={{ background: ACCENT }} title="Posted in the last 15 minutes" />}
+            {fresh && <span className="w-1.5 h-1.5 rounded-full animate-atlas-pulse" style={{ background: ACCENT }} title="Posted in the last 15 minutes" />}
             <span className="font-semibold text-[#E8E6E0]">{lead.source_name}</span>
             {lead.lean && <span style={{ color }}>{lead.lean}</span>}
           </div>
@@ -970,7 +970,7 @@ export default function LiveAlerts({ data, onLocate, onWatchFeed, onRefresh, pin
               className="flex items-center gap-1 cursor-help"
               style={{ color: liveSources === sources.length ? '#00E676' : '#FF9500' }}
             >
-              <span className="h-1.5 w-1.5 rounded-full animate-osiris-pulse" style={{ background: 'currentColor' }} />
+              <span className="h-1.5 w-1.5 rounded-full animate-atlas-pulse" style={{ background: 'currentColor' }} />
               {liveSources}/{sources.length} SOURCES LIVE
             </span>
           ) : (

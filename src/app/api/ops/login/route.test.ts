@@ -35,7 +35,7 @@ vi.mock("@/lib/ops/password", () => ({
 import { POST } from "./route";
 
 function login(body: Record<string, unknown>, headers: Record<string, string> = {}) {
-  return POST(new Request("http://osiris.local/api/ops/login", { method: "POST", body: JSON.stringify(body), headers }));
+  return POST(new Request("http://atlas.local/api/ops/login", { method: "POST", body: JSON.stringify(body), headers }));
 }
 
 describe("POST /api/ops/login", () => {

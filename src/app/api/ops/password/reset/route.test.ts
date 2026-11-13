@@ -53,7 +53,7 @@ vi.mock("@/lib/ops/password", () => ({
 import { POST } from "./route";
 
 function reset(body: Record<string, unknown>) {
-  return POST(new Request("http://osiris.local/api/ops/password/reset", { method: "POST", body: JSON.stringify(body) }));
+  return POST(new Request("http://atlas.local/api/ops/password/reset", { method: "POST", body: JSON.stringify(body) }));
 }
 
 describe("POST /api/ops/password/reset", () => {
