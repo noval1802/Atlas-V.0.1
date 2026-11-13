@@ -33,6 +33,9 @@ services:
       DATABASE_URL: *database-url
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Camera catalogue and place-name cache, so a restart or redeploy does not start cold.
+    volumes:
+      - atlas-app-cache:/app/.cache
     depends_on:
       atlas-postgres:
         condition: service_healthy
@@ -144,5 +147,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  atlas-app-cache:
   nginx-cache:
   atlas-postgres-data:

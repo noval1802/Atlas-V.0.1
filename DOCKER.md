@@ -99,6 +99,16 @@ docker compose up -d --build   # setelah menarik kode baru; migrasi berjalan oto
 docker compose down
 ```
 
+## Jaringan: unduhan besar putus (`ECONNRESET`)
+
+Gejala: `npm ci` saat build putus dengan `ECONNRESET`, atau di aplikasi `/api/fires` menjawab 502 sementara data kecil (gempa, cuaca) normal. Penyebab yang sering: MTU jaringan host lebih kecil dari Docker (1500), misalnya VPN atau WSL dengan MTU 1450. Cek dengan `ip route get 1.1.1.1` lalu `ip link show <dev>`. Samakan MTU Docker dengan host, lalu restart Docker dan stack:
+
+```bash
+echo '{"mtu": 1450}' | sudo tee /etc/docker/daemon.json
+sudo service docker restart        # atau: sudo systemctl restart docker
+docker compose up -d --build
+```
+
 ## Yang belum dikerjakan
 
 Daftar lengkap dan statusnya ada di [`docs/CATATAN_PENGEMBANGAN.md`](docs/CATATAN_PENGEMBANGAN.md).
