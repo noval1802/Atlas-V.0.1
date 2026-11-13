@@ -5,6 +5,7 @@ import { Camera, CameraOff, ExternalLink, PlayCircle } from 'lucide-react';
 import Hls from 'hls.js';
 import { isHostedOffPlatform, liveFeedAtSource, localEmbed, needsResolution, offPlatformView } from '@/lib/camera-feed';
 import type { WatchedCamera } from '@/lib/dashboard-state';
+import { BUFFERING_BADGE_MS, STALL_MS, START_TIMEOUT_MS, nextRetryDelay } from '@/lib/stream-recovery';
 
 /** Playback state for one camera. Shared by the map's CameraViewer and the SPACE grid, so both play every feed type the same way. */
 export function useCameraFeed(camera: WatchedCamera | null) {
@@ -12,6 +13,14 @@ export function useCameraFeed(camera: WatchedCamera | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  /** An automatic reconnect is pending. */
+  const [reconnecting, setReconnecting] = useState(false);
+  /** The live video has been waiting for data long enough to say so. */
+  const [buffering, setBuffering] = useState(false);
+  const autoRetries = useRef(0);
+  /** This camera has shown video at least once, across reconnects. */
+  const everPlayed = useRef(false);
+  const lastCameraKey = useRef<unknown>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -72,14 +81,104 @@ export function useCameraFeed(camera: WatchedCamera | null) {
     setLoading(true);
     setError(false);
     setImageUrl(null);
+    setBuffering(false);
+    // A new camera starts with a fresh reconnect budget; a reconnect of the same one does not.
+    const cameraKey = camera.id ?? camera.stream_url;
+    if (lastCameraKey.current !== cameraKey) {
+      lastCameraKey.current = cameraKey;
+      autoRetries.current = 0;
+      everPlayed.current = false;
+      setReconnecting(false);
+    }
 
     /* Every branch hands back this teardown, so closing the viewer, swapping a
        SPACE tile or retrying stops the old stream instead of leaving it
        downloading in the background. */
     let cancelled = false;
     let nativeVideo: HTMLVideoElement | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let stallTimer: ReturnType<typeof setTimeout> | undefined;
+    let badgeTimer: ReturnType<typeof setTimeout> | undefined;
+    let startTimer: ReturnType<typeof setTimeout> | undefined;
+    let jumpedToLive = false;
+    let hasPlayed = false;
+    let watched: HTMLVideoElement | null = null;
+
+    /* Reconnect by rebuilding the player after a short wait; the error screen
+       only appears once every automatic attempt has failed. */
+    const reconnect = () => {
+      if (cancelled || retryTimer) return;
+      clearTimeout(startTimer);
+      // A stream that never showed a frame gets one more try, not the full budget.
+      const delay = !everPlayed.current && autoRetries.current >= 1 ? null : nextRetryDelay(autoRetries.current);
+      if (delay === null) {
+        setReconnecting(false);
+        setError(true);
+        return;
+      }
+      setReconnecting(true);
+      retryTimer = setTimeout(() => {
+        autoRetries.current += 1;
+        setRetryCount(c => c + 1);
+      }, delay);
+    };
+
+    /* A live stream that waits too long: first jump to the live edge (the
+       segments behind it may simply have been slow), then reconnect. */
+    const onStall = () => {
+      stallTimer = undefined;
+      const video = watched;
+      const edge = hlsRef.current?.liveSyncPosition;
+      if (video && !jumpedToLive && typeof edge === 'number' && edge - video.currentTime > 1) {
+        jumpedToLive = true;
+        video.currentTime = edge;
+        stallTimer = setTimeout(onStall, STALL_MS);
+        return;
+      }
+      reconnect();
+    };
+    const onWaiting = () => {
+      // Before the first frame, a slow source is still starting; hls.js's own timeouts cover a dead one.
+      if (!hasPlayed) return;
+      stallTimer ??= setTimeout(onStall, STALL_MS);
+      badgeTimer ??= setTimeout(() => setBuffering(true), BUFFERING_BADGE_MS);
+    };
+    const onPlaying = () => {
+      clearTimeout(stallTimer);
+      clearTimeout(badgeTimer);
+      stallTimer = badgeTimer = undefined;
+      clearTimeout(startTimer);
+      jumpedToLive = false;
+      hasPlayed = true;
+      everPlayed.current = true;
+      autoRetries.current = 0;
+      setLoading(false);
+      setBuffering(false);
+      setReconnecting(false);
+    };
+    // First frame decoded: drop the overlay even if autoplay was refused and 'playing' never comes.
+    const onFirstFrame = () => setLoading(false);
+    const watch = (video: HTMLVideoElement) => {
+      watched = video;
+      startTimer = setTimeout(() => { if (!hasPlayed && video.readyState < 2) reconnect(); }, START_TIMEOUT_MS);
+      video.addEventListener('loadeddata', onFirstFrame);
+      video.addEventListener('waiting', onWaiting);
+      video.addEventListener('stalled', onWaiting);
+      video.addEventListener('playing', onPlaying);
+    };
+
     const teardown = () => {
       cancelled = true;
+      clearTimeout(retryTimer);
+      clearTimeout(stallTimer);
+      clearTimeout(badgeTimer);
+      clearTimeout(startTimer);
+      if (watched) {
+        watched.removeEventListener('loadeddata', onFirstFrame);
+        watched.removeEventListener('waiting', onWaiting);
+        watched.removeEventListener('stalled', onWaiting);
+        watched.removeEventListener('playing', onPlaying);
+      }
       hlsRef.current?.destroy();
       hlsRef.current = null;
       flvRef.current?.destroy();
@@ -102,18 +201,28 @@ export function useCameraFeed(camera: WatchedCamera | null) {
         hlsRef.current = hls;
         hls.loadSource(camera.stream_url);
         hls.attachMedia(videoRef.current);
+        // The loading overlay stays until the first frame ('playing'), not just the playlist.
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          setLoading(false);
           videoRef.current?.play().catch(() => {});
         });
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) setError(true);
+        watch(videoRef.current);
+        let mediaRecovered = false;
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data.fatal) return; // hls.js retries non-fatal network errors itself
+          // A decode error is usually recoverable in place once; anything else rebuilds the player.
+          if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !mediaRecovered) {
+            mediaRecovered = true;
+            hls.recoverMediaError();
+            return;
+          }
+          reconnect();
         });
       } else if (videoRef.current?.canPlayType('application/vnd.apple.mpegurl')) {
         nativeVideo = videoRef.current;
+        watch(nativeVideo);
+        nativeVideo.addEventListener('error', reconnect, { once: true });
         nativeVideo.src = camera.stream_url;
         nativeVideo.addEventListener('loadedmetadata', () => {
-          setLoading(false);
           videoRef.current?.play().catch(() => {});
         }, { once: true });
       }
@@ -126,6 +235,7 @@ export function useCameraFeed(camera: WatchedCamera | null) {
       const url = camera.stream_url;
       import('mpegts.js').then(({ default: mpegts }) => {
         if (cancelled || !videoRef.current || !mpegts.isSupported()) { if (!cancelled) setError(true); return; }
+        watch(videoRef.current);
         const player = mpegts.createPlayer(
           { type: 'flv', url, isLive: true, cors: true },
           // Off by default in mpegts.js; without it a live tile buffers the whole session.
@@ -133,11 +243,10 @@ export function useCameraFeed(camera: WatchedCamera | null) {
         );
         flvRef.current = player;
         player.attachMediaElement(videoRef.current);
-        player.on(mpegts.Events.ERROR, () => setError(true));
+        player.on(mpegts.Events.ERROR, reconnect);
         player.load();
-        setLoading(false);
         videoRef.current.play().catch(() => {});
-      }).catch(() => { if (!cancelled) setError(true); });
+      }).catch(() => { if (!cancelled) reconnect(); });
       return teardown;
     }
 
@@ -176,9 +285,17 @@ export function useCameraFeed(camera: WatchedCamera | null) {
     return () => clearInterval(iv);
   }, [camera, streamType]);
 
+  /** The operator's own retry: a fresh set of automatic attempts. */
+  const retry = () => {
+    autoRetries.current = 0;
+    setError(false);
+    setRetryCount(c => c + 1);
+  };
+
   return {
-    camera, imageUrl, setImageUrl, loading, setLoading, error, setError, setRetryCount, videoRef,
+    camera, imageUrl, setImageUrl, loading, setLoading, error, setError, retry, videoRef,
     externalFeedUrl, view, externalOnly, streamType, streamUrl, resolvedEmbed, watchLiveUrl, gone,
+    reconnecting, buffering,
   };
 }
 
@@ -187,8 +304,9 @@ export type CameraFeed = ReturnType<typeof useCameraFeed>;
 /** The picture: player plus loading, offline, external and error states. Fills its positioned parent. */
 export function CameraFeedView({ feed, contain = false }: { feed: CameraFeed; contain?: boolean }) {
   const {
-    camera, imageUrl, loading, setLoading, error, setError, setRetryCount, videoRef,
+    camera, imageUrl, loading, setLoading, error, setError, retry, videoRef,
     externalFeedUrl, view, externalOnly, streamType, streamUrl, watchLiveUrl, gone,
+    reconnecting, buffering,
   } = feed;
   if (!camera) return null;
   return (
@@ -197,7 +315,9 @@ export function CameraFeedView({ feed, contain = false }: { feed: CameraFeed; co
         <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-30 backdrop-blur-sm">
           <div className="text-center">
             <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-3" style={{ borderColor: 'var(--gold-dim)', borderTopColor: 'transparent' }} />
-            <span className="text-[10px] font-mono tracking-[0.25em]" style={{ color: 'var(--gold-primary)' }}>DECRYPTING FEED...</span>
+            <span className="text-[10px] font-mono tracking-[0.25em]" style={{ color: 'var(--gold-primary)' }}>
+              {reconnecting ? 'MENYAMBUNG ULANG…' : 'MEMUAT VIDEO…'}
+            </span>
           </div>
         </div>
       )}
@@ -235,14 +355,21 @@ export function CameraFeedView({ feed, contain = false }: { feed: CameraFeed; co
         <div className="absolute inset-0 flex items-center justify-center bg-black/90">
           <div className="text-center">
             <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center mb-2 mx-auto"><Camera className="w-4 h-4 text-red-400" /></div>
-            <span className="text-[10px] font-mono text-red-400 tracking-widest block mb-1">FEED UNAVAILABLE</span>
-            <span className="text-[9px] font-mono text-[var(--text-muted)]">Camera may be offline or restricted</span>
-            <button onClick={() => { setError(false); setRetryCount(c => c + 1); }} className="block mx-auto mt-3 px-3 py-1 text-[9px] font-mono text-[#7E57C2] border border-[#7E57C2]/30 rounded hover:bg-[#7E57C2]/10 transition-colors tracking-wider">
-              RETRY
+            <span className="text-[10px] font-mono text-red-400 tracking-widest block mb-1">KAMERA TIDAK DAPAT DIPUTAR</span>
+            <span className="text-[9px] font-mono text-[var(--text-muted)]">Sumber mati atau terlalu lambat</span>
+            <button onClick={retry} className="block mx-auto mt-3 px-3 py-1 text-[9px] font-mono text-[#7E57C2] border border-[#7E57C2]/30 rounded hover:bg-[#7E57C2]/10 transition-colors tracking-wider">
+              COBA LAGI
             </button>
           </div>
         </div>
       ) : streamType === 'hls' || streamType === 'flv' ? (
+        <>
+        {buffering && !loading && (
+          <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 rounded bg-black/70 px-2 py-1" role="status">
+            <div className="w-2.5 h-2.5 border border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--gold-primary)', borderTopColor: 'transparent' }} />
+            <span className="text-[9px] font-mono tracking-wider" style={{ color: 'var(--gold-primary)' }}>MENYANGGA · SUMBER LAMBAT</span>
+          </div>
+        )}
         <video
           ref={videoRef}
           className={`w-full h-full ${contain ? 'object-contain' : 'object-cover'}`}
@@ -250,6 +377,7 @@ export function CameraFeedView({ feed, contain = false }: { feed: CameraFeed; co
           muted
           playsInline
         />
+        </>
       ) : streamType === 'mjpeg' && camera.stream_url ? (
         <img
           src={camera.stream_url}

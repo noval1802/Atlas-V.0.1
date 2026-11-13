@@ -2,6 +2,43 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { formatWib } from '@/lib/map-popup';
+import { formatAge, statusTitle, type SourceState, type SourceStatus } from '@/lib/source-status';
+
+const STATE_COLOR: Record<SourceState, string> = {
+  ok: '#00E676',
+  lambat: '#FFC400',
+  gagal: '#FF5252',
+  nonaktif: 'rgba(255,255,255,0.25)',
+};
+
+/** Per-source freshness, polled from /api/sources. `offline` once the server itself stops answering. */
+function useSourceStatus() {
+  const [report, setReport] = useState<{ sources: SourceStatus[]; skew: number } | null>(null);
+  const [offline, setOffline] = useState(false);
+  const [clock, setClock] = useState(() => Date.now());
+
+  useEffect(() => {
+    let live = true;
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/sources', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = await res.json() as { now: number; sources: SourceStatus[] };
+        // Ages are measured on the server clock, so a wrong PC clock cannot make old data look new.
+        if (live) { setReport({ sources: body.sources, skew: body.now - Date.now() }); setOffline(false); }
+      } catch {
+        if (live) setOffline(true);
+      }
+    };
+    poll();
+    const iv = setInterval(poll, 60_000);
+    const tick = setInterval(() => setClock(Date.now()), 30_000);
+    return () => { live = false; clearInterval(iv); clearInterval(tick); };
+  }, []);
+
+  return { sources: report?.sources ?? [], now: clock + (report?.skew ?? 0), offline };
+}
 
 interface Earthquake { id: string; magnitude: number; place: string; time: number; depth: number; }
 
@@ -9,6 +46,7 @@ interface Earthquake { id: string; magnitude: number; place: string; time: numbe
 export default function GlobalStatusBar({ revealed = true }: { revealed?: boolean }) {
   const [quakes, setQuakes] = useState<Earthquake[]>([]);
   const [hoveredQuake, setHoveredQuake] = useState<Earthquake | null>(null);
+  const status = useSourceStatus();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,11 +108,25 @@ export default function GlobalStatusBar({ revealed = true }: { revealed?: boolea
         {/* ── RIGHT: Status ── */}
         <div className="flex-shrink-0 h-full flex items-center pointer-events-auto border-l border-white/[0.04]">
 
-          {/* Status indicator */}
-          <div className="h-full px-3 flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#00E676] animate-pulse" />
-            <span className="text-[#00E676]/70 text-[9px] tracking-[0.2em]">ONLINE</span>
-          </div>
+          {/* Source freshness: when each upstream last answered, not when we last asked. */}
+          {status.offline ? (
+            <div className="h-full px-3 flex items-center gap-1.5" role="status">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: STATE_COLOR.gagal }} />
+              <span className="text-[9px] tracking-[0.2em]" style={{ color: STATE_COLOR.gagal }}>SERVER TERPUTUS</span>
+            </div>
+          ) : (
+            <ul className="h-full flex items-center" aria-label="Status sumber data">
+              {status.sources.map(s => (
+                <li key={s.id} title={statusTitle(s, status.now, formatWib)} className="h-full px-2 flex items-center gap-1.5 cursor-help border-l border-white/[0.04]">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: STATE_COLOR[s.state] }} aria-hidden />
+                  <span className="text-[9px] tracking-[0.15em] uppercase text-white/50">{s.label}</span>
+                  <span className="text-[9px] tabular-nums" style={{ color: STATE_COLOR[s.state] }}>
+                    {s.state === 'gagal' ? 'GAGAL' : s.state === 'nonaktif' ? '—' : s.badge ?? (s.fetchedAt !== null ? formatAge(status.now - s.fetchedAt) : '?')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 

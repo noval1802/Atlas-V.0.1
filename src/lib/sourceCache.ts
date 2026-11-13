@@ -21,6 +21,10 @@ interface Entry<T> {
   inflight: Promise<T[]> | null;
   /** The last fetch threw and there was nothing cached to fall back on. */
   failed?: boolean;
+  /** When the upstream last answered with data. Unset for data seeded from disk. */
+  fetchedAt?: number;
+  /** When refreshes started failing (error or empty answer); cleared by the next success. */
+  failedAt?: number;
 }
 
 const store = new Map<string, Entry<unknown>>();
@@ -91,7 +95,7 @@ export function cachedSource<T>(
         if (!current()) return data;
         // An empty result is treated as a failed refresh: keep whatever we had.
         if (data.length === 0 && entry?.data.length) {
-          put(key, { data: entry.data, expiresAt: now + ttlMs, inflight: null });
+          put(key, { data: entry.data, expiresAt: now + ttlMs, inflight: null, fetchedAt: entry.fetchedAt, failedAt: entry.failedAt ?? Date.now() });
           return entry.data;
         }
         // A place lookup uses this to mean "ask again". An empty camera index
@@ -101,14 +105,19 @@ export function cachedSource<T>(
           put(key, { data: [], expiresAt: 0, inflight: null });
           return data;
         }
-        put(key, { data, expiresAt: now + (data.length ? ttlMs : Math.min(ttlMs, 60_000)), inflight: null });
+        put(key, {
+          data,
+          expiresAt: now + (data.length ? ttlMs : Math.min(ttlMs, 60_000)),
+          inflight: null,
+          ...(data.length ? { fetchedAt: Date.now() } : { failedAt: entry?.failedAt ?? Date.now() }),
+        });
         return data;
       } catch (e) {
         if (!current()) return [];
         if (entry?.data.length) {
           console.warn(`[OSIRIS] ${key} refresh failed — serving ${entry.data.length} cached cameras`);
           // Retry sooner than a full TTL, but don't hammer the failing upstream.
-          put(key, { data: entry.data, expiresAt: now + 60_000, inflight: null });
+          put(key, { data: entry.data, expiresAt: now + 60_000, inflight: null, fetchedAt: entry.fetchedAt, failedAt: entry.failedAt ?? Date.now() });
           return entry.data;
         }
         const detail = e instanceof Error ? e.message : String(e);
@@ -118,6 +127,7 @@ export function cachedSource<T>(
           expiresAt: rememberEmpty ? now + 60_000 : 0,
           inflight: null,
           failed: true,
+          failedAt: entry?.failedAt ?? Date.now(),
         });
         if (throwOnFailure) throw e;
         return [];
@@ -128,6 +138,8 @@ export function cachedSource<T>(
       data: entry?.data ?? [],
       expiresAt: entry?.expiresAt ?? 0,
       inflight,
+      fetchedAt: entry?.fetchedAt,
+      failedAt: entry?.failedAt,
     } as Entry<unknown>);
     evictIfNeeded();
 
@@ -149,6 +161,13 @@ export function peekSource<T>(key: string, allowStale = false): T[] | undefined 
   put(key, entry as Entry<unknown>);
   if (allowStale || Date.now() < entry.expiresAt) return entry.data;
   return undefined;
+}
+
+/** How fresh a source is, without fetching it. Undefined when it was never loaded. */
+export function sourceHealth(key: string): { count: number; fetchedAt?: number; failedAt?: number } | undefined {
+  const entry = store.get(key);
+  if (!entry) return undefined;
+  return { count: entry.data.length, fetchedAt: entry.fetchedAt, failedAt: entry.failedAt };
 }
 
 /** Is what peekSource would return past its TTL? */

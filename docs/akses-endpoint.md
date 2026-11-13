@@ -13,7 +13,7 @@ Peta dan monitoring, semuanya `GET` kecuali disebut lain:
 - `/api/maritime`
 - `/api/earthquakes`, `/api/fires`, `/api/weather`, `/api/air-quality`, `/api/volcanoes`, `/api/volcanoes/report`
 - `/api/news`, `/api/live-news`, `/api/gdelt`, `/api/gdelt-events`
-- `/api/region-dossier`, `/api/stats`, `/api/directions`
+- `/api/region-dossier`, `/api/stats`, `/api/sources` (status kesegaran tiap sumber data), `/api/directions`
 - `/api/geo`, `/api/geo/reverse`, `/api/geosearch`, `/api/proxy-tiles`
 - `/api/sentinel`, `/api/entity/expand`, `/api/arcgis`
 

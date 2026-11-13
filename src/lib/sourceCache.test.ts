@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { cachedSource, clearSourceCache, forgetSource, peekSource, seedSource } from './sourceCache';
+import { cachedSource, clearSourceCache, forgetSource, peekSource, seedSource, sourceHealth } from './sourceCache';
 
 type Cam = { id: string };
 const cam = (id: string): Cam => ({ id });
@@ -133,5 +133,46 @@ describe('cachedSource', () => {
     }
     expect(peekSource('cctv:jakarta', true)).toEqual([cam('j')]);
     expect(peekSource('geosearch:0', true)).toBeUndefined();
+  });
+
+  /* The status bar reads these. Serving the last good list during an outage is
+     right, but it must not look like a fresh answer. */
+  it('records when data arrived and since when refreshes fail', async () => {
+    let mode: 'ok' | 'fail' = 'ok';
+    const load = cachedSource<Cam>('health', async () => {
+      if (mode === 'fail') throw new Error('down');
+      return [cam('a')];
+    }, 10);
+    expect(sourceHealth('health')).toBeUndefined();
+
+    await load();
+    const first = sourceHealth('health')!;
+    expect(first.count).toBe(1);
+    expect(first.fetchedAt).toBeTypeOf('number');
+    expect(first.failedAt).toBeUndefined();
+
+    mode = 'fail';
+    await new Promise(r => setTimeout(r, 25));
+    await load();
+    const failing = sourceHealth('health')!;
+    expect(failing.fetchedAt).toBe(first.fetchedAt);
+    expect(failing.failedAt).toBeTypeOf('number');
+
+    mode = 'ok';
+    const realNow = Date.now;
+    try {
+      Date.now = () => realNow() + 61_000;
+      await load();
+    } finally {
+      Date.now = realNow;
+    }
+    const recovered = sourceHealth('health')!;
+    expect(recovered.failedAt).toBeUndefined();
+    expect(recovered.fetchedAt!).toBeGreaterThan(first.fetchedAt!);
+  });
+
+  it('marks an empty answer with nothing cached as failing', async () => {
+    await cachedSource<Cam>('health-empty', async () => [])();
+    expect(sourceHealth('health-empty')).toMatchObject({ count: 0, failedAt: expect.any(Number) });
   });
 });

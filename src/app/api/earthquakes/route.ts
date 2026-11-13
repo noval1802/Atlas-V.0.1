@@ -8,7 +8,7 @@ import { cachedSource } from '@/lib/sourceCache';
  * Indonesia and its surroundings only; this replaced the global USGS feed.
  */
 
-const loadQuakes = cachedSource('earthquakes:bmkg', async () => {
+export const loadQuakes = cachedSource('earthquakes:bmkg', async () => {
   const results = await Promise.allSettled(BMKG_QUAKE_URLS.map(async url => {
     const res = await fetch(url, { headers: BMKG_HEADERS, signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error(`BMKG ${res.status}`);

@@ -122,7 +122,7 @@ function parseGdacsRss(xml: string): WeatherEvent[] {
  * more here than anywhere else in the app: an empty warnings panel reads as
  * "nothing is happening", and that is not the same as "we could not ask".
  */
-const loadEvents = cachedSource<WeatherEvent>('weather:events', collectEvents, 3 * 60_000, true, { throwOnFailure: true });
+export const loadEvents = cachedSource<WeatherEvent>('weather:events', collectEvents, 3 * 60_000, true, { throwOnFailure: true });
 
 export async function GET() {
   try {

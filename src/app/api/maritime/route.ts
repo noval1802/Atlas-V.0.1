@@ -108,6 +108,8 @@ const CHOKEPOINTS = [
 const globalForAis = globalThis as unknown as {
   shipsCache: Map<number, AisShip>;
   isAisConnecting: boolean;
+  /** When the AIS stream last delivered a message; drives the source-status bar. */
+  aisLastMessageAt?: number;
 };
 
 if (!globalForAis.shipsCache) {
@@ -174,6 +176,7 @@ function connectAisStream() {
   };
 
   ws.on("message", (data) => {
+    globalForAis.aisLastMessageAt = Date.now();
     try {
       const parsed = JSON.parse(data.toString()) as AisFrame;
       const mmsi = parsed.MetaData?.MMSI;
@@ -336,6 +339,11 @@ function buildSnapshot(now: number): string {
     total_ships: ships.length,
     timestamp: new Date(now).toISOString(),
   });
+}
+
+/** AIS freshness for /api/sources. `configured` is false when no AIS key is set. */
+export function aisStatus(): { configured: boolean; lastMessageAt?: number; ships: number } {
+  return { configured: Boolean(process.env.AIS_API_KEY), lastMessageAt: globalForAis.aisLastMessageAt, ships: shipsCache.size };
 }
 
 /** Test seam — forces the next GET to rebuild. */
