@@ -76,6 +76,29 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       detail: `${existing.role} -> ${role}`,
     });
   }
+  if (kotamaopsId !== existing.kotamaopsId) {
+    // The unit decides whose situation an operator may edit, so a move is recorded like a role change.
+    const code = async (unitId: string | null) =>
+      unitId ? (await opsDb().kotamaops.findUnique({ where: { id: unitId } }))?.code ?? unitId : "-";
+    await writeAudit({
+      action: "kotamaops_change",
+      result: "ok",
+      actorId: actor.id,
+      targetId: existing.id,
+      ip,
+      detail: `${await code(existing.kotamaopsId)} -> ${await code(kotamaopsId)}`,
+    });
+  }
+  if (parsed.value.name !== undefined && parsed.value.name !== existing.name) {
+    await writeAudit({
+      action: "name_change",
+      result: "ok",
+      actorId: actor.id,
+      targetId: existing.id,
+      ip,
+      detail: `${existing.name} -> ${parsed.value.name}`,
+    });
+  }
   const action = statusAction(existing.accountStatus, account.accountStatus);
   if (action) {
     await writeAudit({

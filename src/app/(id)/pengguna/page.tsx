@@ -20,6 +20,8 @@ const auditLabel: Record<string, string> = {
   account_disable: "Penonaktifan akun",
   account_status: "Status akun",
   role_change: "Perubahan peran",
+  kotamaops_change: "Pemindahan Kotamaops",
+  name_change: "Perubahan nama",
   account_create: "Pembuatan akun",
   password_change: "Perubahan kata sandi",
 };

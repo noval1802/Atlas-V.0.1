@@ -232,6 +232,20 @@ describe("user administration routes", () => {
     expect(JSON.stringify(state.audits)).not.toContain("scrypt$");
   });
 
+  /* Moving an operator to another Kotamaops changes whose situation they can
+     edit; it left no trace in the audit log. */
+  it("records moving an operator to another Kotamaops and renaming them", async () => {
+    state.actor = state.users[0];
+    state.units.push({ id: "unit-v", code: "V/BRW", name: "Brawijaya" });
+    state.users.push(account({ id: "op-1", username: "operator.satu", name: "Operator Satu", role: "OPERATOR_KODAM", kotamaopsId: "unit-xii" }));
+    const response = await patch("op-1", { name: "Operator Pindah", kotamaopsId: "unit-v" });
+    expect(response.status).toBe(200);
+    expect(state.audits).toEqual([
+      expect.objectContaining({ action: "kotamaops_change", actorId: "root-1", targetId: "op-1", detail: "XII/TPR -> V/BRW" }),
+      expect.objectContaining({ action: "name_change", targetId: "op-1", detail: "Operator Satu -> Operator Pindah" }),
+    ]);
+  });
+
   it("lets a super admin create another super admin and record the role only", async () => {
     state.actor = state.users[0];
     const response = await create({ name: "Penjaga Tiga", username: "penjaga.tiga", password: PASSWORD, role: "SUPER_ADMIN" });
