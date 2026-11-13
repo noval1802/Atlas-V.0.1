@@ -111,7 +111,7 @@ Detail teknis temuan keamanan yang masih terbuka sengaja tidak ditulis di sini, 
 |---|---|---|
 | 15 | Biaya AI chat tanpa batas harian dan tanpa timeout | ⏳ |
 | 16 | Format kunci vault TPT belum didokumentasikan | ⏳ |
-| 17 | Dokumen dan `.env.example` tertinggal dari kode | ✅ *(commit ini)*: `.env.example` memuat semua variabel yang dibaca kode (AI chat, vault TPT beserta formatnya, cache lokal, jeda Nominatim), sandi admin minimal 12 karakter, variabel yang tidak dibaca dibuang; semua endpoint tercatat di `akses-endpoint.md`; checklist, catatan CSP, rujukan tahap, dan status `deploy.sh` dikoreksi |
+| 17 | Dokumen dan `.env.example` tertinggal dari kode | ✅ `ed10781`: `.env.example` memuat semua variabel yang dibaca kode (AI chat, vault TPT beserta formatnya, cache lokal, jeda Nominatim), sandi admin minimal 12 karakter, variabel yang tidak dibaca dibuang; semua endpoint tercatat di `akses-endpoint.md`; checklist, catatan CSP, rujukan tahap, dan status `deploy.sh` dikoreksi |
 | 18 | Maritim: koneksi AIS putus tidak terdeteksi, posisi tidak valid ikut digambar | ⏳ |
 | 19 | `/api/gdelt` menjawab kosong saat GDACS gagal | ⏳ |
 | 20 | Tile kamera tidak pulih sendiri; mengubah daftar SPACE me-restart semua tile | 🟡 `f058f4f`: tile pulih sendiri; restart semua tile saat daftar SPACE berubah belum |
