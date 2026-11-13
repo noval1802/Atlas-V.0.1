@@ -24,7 +24,7 @@ Ada empat celah besar sebelum sistem layak dipakai sebagai Monitoring Situasi Na
 | 3 | **Bergantung penuh pada layanan asing.** Peta dasar (CARTO), citra satelit (Esri), terrain (AWS), dan font (Google) semuanya dari luar. AI mengirim data ke Google Gemini. | Di jaringan tertutup peta dasar kosong. Area pandang operator dan kueri bocor ke pihak asing. | ⏳ Peta dasar, citra, terrain, dan font masih dari luar. Gemini sudah dicabut (`9c27781`), tetapi chat AI baru (`355a0e0`) mengirim teks ketikan operator ke LLM eksternal. |
 | 4 | **Alur pelaporan baru sebatas angka.** Belum ada log kejadian, persetujuan berjenjang, ekspor laporan situasi (lapsit), maupun notifikasi eskalasi. | Belum mendukung kerja ruang operasi sehari-hari. | ⏳ Belum. |
 
-Selain itu ada sejumlah keharusan operasional yang belum terpenuhi: TLS, backup database, healthcheck, migrasi saat deploy, dan CI/CD internal. *(12 Nov: TLS, backup, healthcheck, dan migrasi sudah dikerjakan di Tahap 1; CI/CD internal belum.)* `deploy.sh` dan workflow GitHub peninggalan OSIRIS masih mengarah ke server asing dan registry publik.
+Selain itu ada sejumlah keharusan operasional yang belum terpenuhi: TLS, backup database, healthcheck, migrasi saat deploy, dan CI/CD internal. *(12 Nov: TLS, backup, healthcheck, dan migrasi sudah dikerjakan di Tahap 1; CI/CD internal belum. `deploy.sh` sudah dihapus di `c8c2c83`; workflow GitHub kini hanya berjalan bila dipicu manual.)* `deploy.sh` dan workflow GitHub peninggalan OSIRIS masih mengarah ke server asing dan registry publik.
 
 **Penilaian kesiapan** (subjektif, skala 1–5):
 

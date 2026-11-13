@@ -80,7 +80,7 @@ lalu dibatalkan karena stream-nya tidak bisa diputar lewat proxy.
 | `356bd31` | Login: admin tidak bisa dikunci orang lain (temuan 10) |
 | `356bd31` | Pemutar kamera dihentikan saat ditutup; buffer video dibatasi (temuan 3 dan 11) |
 | `d780930` | Proxy kamera dan tile hanya meneruskan tipe media; CSP sandbox berlaku (temuan 1). Label panel layer berbahasa Indonesia |
-| *(commit ini)* | Status kesegaran data per sumber di bar bawah (Gempa, Cuaca, Gunung Api, Titik Api, CCTV, Kapal) menggantikan indikator "ONLINE" statis; endpoint `/api/sources` (P0-01, sebagian temuan 8) |
+| `f058f4f` | Status kesegaran data per sumber di bar bawah (Gempa, Cuaca, Gunung Api, Titik Api, CCTV, Kapal) menggantikan indikator "ONLINE" statis; endpoint `/api/sources` (P0-01, sebagian temuan 8) |
 
 ### Status temuan audit ulang (11 Nov 2026)
 
@@ -97,7 +97,7 @@ Detail teknis temuan keamanan yang masih terbuka sengaja tidak ditulis di sini, 
 | 5 | CCTV TPT Jakarta macet berkala dan mati saat portal error sebentar | ⏳ |
 | 6 | Refresh data pesawat menahan permintaan | ➖ `dc942ec` |
 | 7 | Satelit mengunduh ulang dari CelesTrak terus-menerus | ➖ `dc942ec` |
-| 8 | Cache menyajikan data basi sebagai data segar | 🟡 status bar menandai data terlambat; batas umur maksimum per sumber belum |
+| 8 | Cache menyajikan data basi sebagai data segar | 🟡 `f058f4f`: status bar menandai data terlambat; batas umur maksimum per sumber belum |
 | 9 | Gempa lama tampil seperti baru | ✅ `d1b3b69` |
 | 10 | Akun admin bisa dikunci orang lain lewat batas login | ✅ `356bd31` |
 | 11 | Buffer video multiview tumbuh tanpa batas | ✅ `356bd31` |
@@ -111,10 +111,10 @@ Detail teknis temuan keamanan yang masih terbuka sengaja tidak ditulis di sini, 
 |---|---|---|
 | 15 | Biaya AI chat tanpa batas harian dan tanpa timeout | ⏳ |
 | 16 | Format kunci vault TPT belum didokumentasikan | ⏳ |
-| 17 | Dokumen dan `.env.example` tertinggal dari kode | 🟡 env pesawat/satelit sudah dibuang; sisanya belum |
+| 17 | Dokumen dan `.env.example` tertinggal dari kode | ✅ *(commit ini)*: `.env.example` memuat semua variabel yang dibaca kode (AI chat, vault TPT beserta formatnya, cache lokal, jeda Nominatim), sandi admin minimal 12 karakter, variabel yang tidak dibaca dibuang; semua endpoint tercatat di `akses-endpoint.md`; checklist, catatan CSP, rujukan tahap, dan status `deploy.sh` dikoreksi |
 | 18 | Maritim: koneksi AIS putus tidak terdeteksi, posisi tidak valid ikut digambar | ⏳ |
 | 19 | `/api/gdelt` menjawab kosong saat GDACS gagal | ⏳ |
-| 20 | Tile kamera tidak pulih sendiri; mengubah daftar SPACE me-restart semua tile | ⏳ |
+| 20 | Tile kamera tidak pulih sendiri; mengubah daftar SPACE me-restart semua tile | 🟡 `f058f4f`: tile pulih sendiri; restart semua tile saat daftar SPACE berubah belum |
 | 21 | Animasi Kotamaops membebani CPU/GPU layar dinding | ⏳ |
 | 22 | Stream `http://` ditandai sehat padahal tidak bisa diputar di HTTPS | ⏳ |
 | 23 | Tombol Share mengirim URL internal ke media sosial | ⏳ |

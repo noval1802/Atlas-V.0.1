@@ -101,9 +101,9 @@ docker compose down
 
 ## Yang belum dikerjakan
 
-Daftar lengkap ada di `docs/audit/AUDIT_MONITORING_SITUASI_NASIONAL.md`.
+Daftar lengkap dan statusnya ada di [`docs/CATATAN_PENGEMBANGAN.md`](docs/CATATAN_PENGEMBANGAN.md).
 
-- Peta dasar, font, dan terrain masih diambil dari layanan luar (CARTO, Google Fonts, AWS). Itu Tahap 2.
+- Peta dasar, font, dan terrain masih diambil dari layanan luar (CARTO, Google Fonts, AWS).
 - Belum ada replika database maupun pemantauan (metrics/alert).
 
 Workflow `.github/workflows/docker-publish.yml` hanya berjalan bila dipicu manual dari tab Actions.

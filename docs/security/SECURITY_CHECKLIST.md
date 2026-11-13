@@ -239,7 +239,7 @@ Status yang dipakai: `✅ Selesai`, `🟡 Sebagian`, `⏳ Terbuka`, `➖ Tidak b
 ### DATA-04 Seed
 
 - **Status:** ✅ Selesai (547f807)
-- **Bukti:** `prisma/seed.mjs` menolak admin bila username atau password environment kosong atau password lebih pendek dari 10 karakter. Tidak ada literal sandi di migrasi.
+- **Bukti:** `prisma/seed.mjs` menolak admin bila username atau password environment kosong atau password lebih pendek dari 12 karakter (`prisma/password-policy.mjs`). Tidak ada literal sandi di migrasi.
 - **Risiko:** seed dijalankan dengan sandi lemah dari environment.
 - **Rekomendasi:** jangan menyalin nilai environment ke dokumen atau log.
 - **Verifikasi:** baca seed tanpa mencetak environment.

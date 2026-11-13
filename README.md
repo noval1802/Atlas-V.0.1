@@ -53,4 +53,4 @@ Lihat [`DOCKER.md`](DOCKER.md). Workflow `.github/workflows/docker-publish.yml` 
 
 ## Asal-usul dan lisensi
 
-ATLAS dikembangkan dari proyek open source [OSIRIS](https://github.com/simplifaisoul/osiris) (lisensi MIT). Modul-modul OSIRIS yang tidak relevan untuk Pusdalops dihapus bertahap; lihat tahap pengembangan di dokumen audit. Pemberitahuan hak cipta asli tetap berlaku sesuai [`LICENSE`](LICENSE).
+ATLAS dikembangkan dari proyek open source [OSIRIS](https://github.com/simplifaisoul/osiris) (lisensi MIT). Modul-modul OSIRIS yang tidak relevan untuk Pusdalops dihapus bertahap; lihat tahap pengembangan di [`docs/CATATAN_PENGEMBANGAN.md`](docs/CATATAN_PENGEMBANGAN.md). Pemberitahuan hak cipta asli tetap berlaku sesuai [`LICENSE`](LICENSE).
