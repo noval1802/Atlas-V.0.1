@@ -87,7 +87,7 @@ lalu dibatalkan karena stream-nya tidak bisa diputar lewat proxy.
 | `b9d0853` | Pemindahan operator antar-Kotamaops dan perubahan nama tercatat di audit (temuan 14) |
 | `6b6c3df` | Grup ancaman di panel layer berganti nama menjadi SITUASI; tombol Titik Pengamanan (belum ada sumber data) |
 | `780bef0` | Gladi Docker pertama: build tanpa dependency git, healthcheck intel, backup pertama menunggu migrasi |
-| *(commit ini)* | Nama OSIRIS diganti ATLAS di kode, konfigurasi, Docker (`atlas-*`), variabel env (`ATLAS_*`), database (`atlas_ops`), dan cookie sesi. Kredit ke proyek asal OSIRIS di README, LICENSE, dan dokumen snapshot tetap. |
+| `4286f5a` | Nama OSIRIS diganti ATLAS di kode, konfigurasi, Docker (`atlas-*`), variabel env (`ATLAS_*`), database (`atlas_ops`), dan cookie sesi. Kredit ke proyek asal OSIRIS di README, LICENSE, dan dokumen snapshot tetap. |
 
 ### Status temuan audit ulang (11 Nov 2026)
 
