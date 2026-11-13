@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GET, clearMaritimeSnapshot } from './route';
+import { GET, applyAisFrame, clearMaritimeSnapshot } from './route';
 
 /* The route aggregates over the websocket-fed ship map on globalThis, so the
    tests drive it directly rather than standing up an AIS stream. */
@@ -70,5 +70,46 @@ describe('GET /api/maritime', () => {
     expect(cc).toContain('max-age=5');
     expect(cc).not.toContain('no-store');
     expect(res.headers.get('content-type')).toContain('application/json');
+  });
+});
+
+describe('applyAisFrame', () => {
+  const pos = (mmsi: number, p: Record<string, number>) => ({
+    MetaData: { MMSI: mmsi }, MessageType: 'PositionReport',
+    Message: { PositionReport: { Latitude: 1, Longitude: 104, Sog: 5, ...p } },
+  });
+
+  it('uses course over ground when the heading is 511 (not available)', () => {
+    const cache = new Map();
+    applyAisFrame(cache, pos(1, { TrueHeading: 511, Cog: 90 }), 0);
+    expect(cache.get(1).heading).toBe(90);
+  });
+
+  it('keeps a true heading of 0 (due north)', () => {
+    const cache = new Map();
+    applyAisFrame(cache, pos(1, { TrueHeading: 0, Cog: 90 }), 0);
+    expect(cache.get(1).heading).toBe(0);
+  });
+
+  it('drops a position of 91/181 (not available)', () => {
+    const cache = new Map();
+    applyAisFrame(cache, pos(1, { Latitude: 91, Longitude: 181 }), 0);
+    expect(cache.has(1)).toBe(false);
+  });
+
+  it('keeps a ship on the equator or the prime meridian', () => {
+    const cache = new Map();
+    applyAisFrame(cache, pos(1, { Latitude: 0, Longitude: 104 }), 0);
+    applyAisFrame(cache, pos(2, { Latitude: 51, Longitude: 0 }), 0);
+    expect(cache.has(1) && cache.has(2)).toBe(true);
+  });
+
+  it('evicts the ship heard from longest ago, not the first one inserted', () => {
+    const cache = new Map();
+    applyAisFrame(cache, pos(1, {}), 0, 2);
+    applyAisFrame(cache, pos(2, {}), 0, 2);
+    applyAisFrame(cache, pos(1, {}), 0, 2); // ship 1 reports again
+    applyAisFrame(cache, pos(3, {}), 0, 2);
+    expect([...cache.keys()].sort()).toEqual([1, 3]);
   });
 });

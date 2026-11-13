@@ -107,35 +107,94 @@ const CHOKEPOINTS = [
 
 const globalForAis = globalThis as unknown as {
   shipsCache: Map<number, AisShip>;
-  isAisConnecting: boolean;
+  /** A socket is open or connecting, or a reconnect is scheduled. */
+  aisActive?: boolean;
   /** When the AIS stream last delivered a message; drives the source-status bar. */
   aisLastMessageAt?: number;
 };
 
 if (!globalForAis.shipsCache) {
   globalForAis.shipsCache = new Map();
-  globalForAis.isAisConnecting = false;
 }
 
 const shipsCache = globalForAis.shipsCache;
 
+const MAX_SHIPS = 20_000;
+/** A socket that delivers nothing this long is treated as dead (half-open TCP never fires close). */
+const AIS_SILENCE_MS = 2 * 60_000;
+const AIS_RETRY_MIN_MS = 5_000;
+const AIS_RETRY_MAX_MS = 5 * 60_000;
+let aisRetryMs = AIS_RETRY_MIN_MS;
+
+// Map AIS ship types to OSIRIS categories
+const getOsirisShipType = (typeCode?: number) => {
+  if (!typeCode) return 'cargo';
+  if (typeCode >= 80 && typeCode <= 89) return 'tanker';
+  if (typeCode >= 70 && typeCode <= 79) return 'cargo';
+  if (typeCode === 35) return 'military';
+  return 'cargo';
+};
+
+/**
+ * Fold one AIS message into the ship map. AIS marks missing values with
+ * out-of-range codes: heading 511, course 360, latitude 91, longitude 181.
+ */
+export function applyAisFrame(cache: Map<number, AisShip>, parsed: AisFrame, now: number, maxShips = MAX_SHIPS): void {
+  const mmsi = parsed.MetaData?.MMSI;
+  if (!mmsi) return;
+
+  const existing = cache.get(mmsi) || { id: mmsi, mmsi, timestamp: now } as AisShip;
+
+  // Extract Name from MetaData if available (present in most messages)
+  if (parsed.MetaData?.ShipName) existing.name = parsed.MetaData.ShipName.trim();
+
+  const report = parsed.MessageType === 'PositionReport' ? parsed.Message?.PositionReport : undefined;
+  if (report) {
+    const { Latitude: lat, Longitude: lng, TrueHeading: th, Cog: cog } = report;
+    if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      existing.lat = lat;
+      existing.lng = lng;
+      existing.speed = report.Sog;
+      existing.heading = th !== undefined && th >= 0 && th < 360 ? th
+        : cog !== undefined && cog >= 0 && cog < 360 ? cog : undefined;
+      existing.timestamp = now;
+    }
+  } else if (parsed.MessageType === 'ShipStaticData' && parsed.Message?.ShipStaticData) {
+    const staticData = parsed.Message.ShipStaticData;
+    existing.name = staticData.Name ? staticData.Name.trim() : existing.name;
+    existing.destination = staticData.Destination ? staticData.Destination.trim() : existing.destination;
+    existing.type = getOsirisShipType(staticData.Type);
+  }
+
+  // Only store ships with a real position
+  if (typeof existing.lat !== 'number') return;
+  // Re-insert so Map order is least recently heard first, then cap memory
+  cache.delete(mmsi);
+  cache.set(mmsi, existing);
+  if (cache.size > maxShips) cache.delete(cache.keys().next().value!);
+}
+
 function connectAisStream() {
-  if (globalForAis.isAisConnecting) return;
+  if (globalForAis.aisActive) return;
   const apiKey = process.env.AIS_API_KEY;
   if (!apiKey) return;
 
-  globalForAis.isAisConnecting = true;
+  globalForAis.aisActive = true;
   let ws: WebSocket;
-
   try {
-    ws = new WebSocket("wss://stream.aisstream.io/v0/stream");
-  } catch (e) {
-    globalForAis.isAisConnecting = false;
+    ws = new WebSocket("wss://stream.aisstream.io/v0/stream", { handshakeTimeout: 10_000 });
+  } catch {
+    globalForAis.aisActive = false;
     return;
   }
 
+  let lastHeard = Date.now();
+  const watchdog = setInterval(() => {
+    if (Date.now() - lastHeard > AIS_SILENCE_MS) ws.terminate();
+  }, 30_000);
+
   ws.on("open", () => {
-    globalForAis.isAisConnecting = false;
+    lastHeard = Date.now();
     const subscriptionMessage = {
       APIKey: apiKey,
       // Target specific high-value SCM areas to ensure data delivery on free tier
@@ -166,78 +225,31 @@ function connectAisStream() {
     ws.send(JSON.stringify(subscriptionMessage));
   });
 
-  // Map AIS ship types to OSIRIS categories
-  const getOsirisShipType = (typeCode?: number) => {
-    if (!typeCode) return 'cargo';
-    if (typeCode >= 80 && typeCode <= 89) return 'tanker';
-    if (typeCode >= 70 && typeCode <= 79) return 'cargo';
-    if (typeCode === 35) return 'military';
-    return 'cargo';
-  };
-
   ws.on("message", (data) => {
-    globalForAis.aisLastMessageAt = Date.now();
+    lastHeard = Date.now();
+    globalForAis.aisLastMessageAt = lastHeard;
+    aisRetryMs = AIS_RETRY_MIN_MS;
     try {
-      const parsed = JSON.parse(data.toString()) as AisFrame;
-      const mmsi = parsed.MetaData?.MMSI;
-      if (!mmsi) return;
-
-      const existing = shipsCache.get(mmsi) || {
-        id: mmsi, mmsi: mmsi, timestamp: Date.now()
-      } as AisShip;
-
-      // Extract Name from MetaData if available (present in most messages)
-      if (parsed.MetaData?.ShipName) {
-        existing.name = parsed.MetaData.ShipName.trim();
-      }
-
-      if (parsed.MessageType === "PositionReport" && parsed.Message?.PositionReport) {
-        const report = parsed.Message.PositionReport;
-        existing.lat = report.Latitude;
-        existing.lng = report.Longitude;
-        existing.speed = report.Sog;
-        existing.heading = report.TrueHeading || report.Cog;
-        existing.timestamp = Date.now();
-      } 
-      else if (parsed.MessageType === "ShipStaticData" && parsed.Message?.ShipStaticData) {
-        const staticData = parsed.Message.ShipStaticData;
-        existing.name = staticData.Name ? staticData.Name.trim() : existing.name;
-        existing.destination = staticData.Destination ? staticData.Destination.trim() : existing.destination;
-        existing.type = getOsirisShipType(staticData.Type);
-      }
-
-      // Only store if we have coordinates
-      if (existing.lat && existing.lng) {
-        shipsCache.set(mmsi, existing);
-      }
-
-      // Limit cache size to prevent memory leak (allow up to 20,000 ships)
-      if (shipsCache.size > 20000) {
-        const firstKey = shipsCache.keys().next().value;
-        if (firstKey) shipsCache.delete(firstKey);
-      }
-    } catch (e) {
+      applyAisFrame(shipsCache, JSON.parse(data.toString()) as AisFrame, lastHeard);
+    } catch {
       // ignore parse errors
     }
   });
 
   ws.on("close", () => {
-    globalForAis.isAisConnecting = false;
-    setTimeout(connectAisStream, 5000); // Reconnect
+    clearInterval(watchdog);
+    // Back off while the stream keeps failing (a bad key closes at once), reset by the next message.
+    const delay = aisRetryMs;
+    aisRetryMs = Math.min(aisRetryMs * 2, AIS_RETRY_MAX_MS);
+    setTimeout(() => {
+      globalForAis.aisActive = false;
+      connectAisStream();
+    }, delay);
   });
 
   ws.on("error", () => {
-    ws.close();
+    ws.terminate();
   });
-}
-
-// Start connection process asynchronously
-connectAisStream();
-
-// --- SCM Integration: VesselAPI Hybrid Fallback (Satellite AIS) ---
-const lastVesselApiFetch = 0;
-async function fetchVesselApiFallback() {
-  // Mock data removed per user request. We only rely on real live stream data.
 }
 
 /* ── Response snapshot cache ──────────────────────────────────────────────
@@ -352,8 +364,8 @@ export function clearMaritimeSnapshot(): void {
 }
 
 export async function GET() {
-  // Trigger Hybrid Fallback
-  await fetchVesselApiFallback();
+  // The stream opens when someone first asks for ships, not when any route imports this file.
+  connectAisStream();
 
   const now = Date.now();
   const cached = globalForSnapshot.maritimeSnapshot;
