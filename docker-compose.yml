@@ -150,3 +150,10 @@ volumes:
   atlas-app-cache:
   nginx-cache:
   atlas-postgres-data:
+
+# The stack's own network ignores the daemon "mtu" setting; set ATLAS_DOCKER_MTU in .env
+# when the host link is smaller than 1500 (VPN, WSL). See DOCKER.md, "Jaringan".
+networks:
+  default:
+    driver_opts:
+      com.docker.network.driver.mtu: "${ATLAS_DOCKER_MTU:-1500}"

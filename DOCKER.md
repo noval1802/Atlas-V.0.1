@@ -101,13 +101,19 @@ docker compose down
 
 ## Jaringan: unduhan besar putus (`ECONNRESET`)
 
-Gejala: `npm ci` saat build putus dengan `ECONNRESET`, atau di aplikasi `/api/fires` menjawab 502 sementara data kecil (gempa, cuaca) normal. Penyebab yang sering: MTU jaringan host lebih kecil dari Docker (1500), misalnya VPN atau WSL dengan MTU 1450. Cek dengan `ip route get 1.1.1.1` lalu `ip link show <dev>`. Samakan MTU Docker dengan host, lalu restart Docker dan stack:
+Gejala: `npm ci` saat build putus dengan `ECONNRESET`, atau di aplikasi `/api/fires` menjawab 502 sementara data kecil (gempa, cuaca) normal. Penyebab yang sering: MTU jaringan host lebih kecil dari Docker (1500), misalnya VPN atau WSL dengan MTU 1450. Cek dengan `ip route get 1.1.1.1` lalu `ip link show <dev>`. Samakan MTU Docker dengan host di dua tempat, karena keduanya terpisah:
+
+1. **Build** (`npm ci`): tambahkan kunci `"mtu": 1450` ke `/etc/docker/daemon.json`. Jangan timpa berkasnya; bila sudah berisi pengaturan lain, sisipkan kunci itu saja. Buat berkas baru hanya bila belum ada. Lalu `sudo service docker restart` (atau `sudo systemctl restart docker`).
+2. **Aplikasi** (`/api/fires`): jaringan stack tidak ikut pengaturan daemon. Isi `ATLAS_DOCKER_MTU=1450` di `.env`.
+
+Jaringan yang sudah ada tidak berubah MTU-nya, jadi buat ulang stack:
 
 ```bash
-echo '{"mtu": 1450}' | sudo tee /etc/docker/daemon.json
-sudo service docker restart        # atau: sudo systemctl restart docker
+docker compose down                # data tetap: volume tidak dihapus tanpa -v
 docker compose up -d --build
 ```
+
+Cek: `docker network inspect atlas_default --format '{{index .Options "com.docker.network.driver.mtu"}}'` harus menampilkan 1450.
 
 ## Yang belum dikerjakan
 
