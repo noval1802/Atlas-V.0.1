@@ -4,9 +4,10 @@ import type { NextConfig } from "next";
 function lanDevOrigins(): string[] {
   const origins: string[] = [];
   for (const [name, entries] of Object.entries(os.networkInterfaces())) {
-    if (name === "lo" || name.startsWith("docker") || name.startsWith("br-") || name.startsWith("veth")) continue;
+    if (name.startsWith("docker") || name.startsWith("br-") || name.startsWith("veth")) continue;
     for (const entry of entries ?? []) {
-      if (entry.family === "IPv4" && !entry.internal) origins.push(entry.address);
+      // By address, not interface: WSL puts its printed "Network" IP (10.255.255.254) on lo.
+      if (entry.family === "IPv4" && !entry.address.startsWith("127.")) origins.push(entry.address);
     }
   }
   return ["127.0.0.1", ...origins];

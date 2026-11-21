@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { parseChatMessages } from "./ai-chat";
+import { chatReply, chatSystem, parseChatMessages } from "./ai-chat";
+
+describe("chatReply", () => {
+  it("reads the first choice, and never returns an empty or broken reply", () => {
+    expect(chatReply({ choices: [{ message: { content: " jawab " } }] })).toBe("jawab");
+    expect(chatReply({ choices: [{ message: { content: "" } }] })).toBe("Tidak ada jawaban.");
+    expect(chatReply(null)).toBe("Tidak ada jawaban.");
+    expect(chatReply({ choices: [{ message: { content: "x" }, finish_reason: "content_filter" }] })).toMatch(/tidak dapat dijawab/);
+  });
+});
+
+describe("chatSystem", () => {
+  it("lists one row per unit in WIB, and says so when the user may see none", () => {
+    const text = chatSystem([{ code: "A", name: "N | x", matra: "AL", region: "R", location: "L", status: "KONDUSIF",
+      personnel: 1, deployed: 0, incidentCount: 0, note: "", updatedAt: new Date("2026-11-19T03:00:00Z") }]);
+    expect(text).toMatch(/^A \| N x \| AL \| R \| L \| KONDUSIF \| 1 \| 0 \| 0 \| - \| .*10[.:]00 WIB$/m);
+    expect(chatSystem([])).toContain("tidak ada Kotamaops");
+  });
+});
 
 describe("parseChatMessages", () => {
   it("accepts a user-first, user-last conversation and trims text", () => {

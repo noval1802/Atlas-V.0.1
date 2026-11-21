@@ -27,7 +27,7 @@ CCTV dan media, `GET`:
 AI, `POST`, dengan batas laju di handler:
 
 - `/api/ai/overview`: ringkasan dibuat di server ini tanpa model eksternal.
-- `/api/ai/chat`: isi chat dikirim ke penyedia AI eksternal (Anthropic). Menjawab 503 bila server belum dikonfigurasi.
+- `/api/ai/chat`: isi chat, beserta data situasi Kotamaops yang boleh dilihat pengguna itu, dikirim lewat Hermes (`HERMES_URL`) ke penyedia AI eksternal. Menjawab 503 bila server belum dikonfigurasi atau Hermes mati.
 
 Situasi, baca:
 

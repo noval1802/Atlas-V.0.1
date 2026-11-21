@@ -106,7 +106,7 @@ export function AtlasChat() {
             <div ref={log} role="log" aria-live="polite" className="flex-1 space-y-3 overflow-y-auto px-4 py-3 text-sm">
               {turns.length === 0 && (
                 <p className="text-[var(--text-secondary)]">
-                  Tanyakan apa saja seputar penggunaan ATLAS. Asisten tidak membaca data situasi, peta, atau CCTV.
+                  Tanyakan seputar ATLAS dan situasi Kotamaops. Asisten membaca data situasi Kotamaops yang boleh Anda lihat, belum peta langsung atau CCTV. Isi chat dan data itu dikirim ke penyedia AI di luar server ini.
                 </p>
               )}
               {turns.map((t, i) => (
