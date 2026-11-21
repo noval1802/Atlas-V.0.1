@@ -225,6 +225,59 @@ function readCount(value: unknown, label: string): number | string {
   return number;
 }
 
+/** Adding a unit is a national job: admins and Pusdalops operators, not a Kodam operator bound to one unit. */
+export function canAddKotamaops(role: string): boolean {
+  return canWriteSituation(role) && seesAllKotamaops(role);
+}
+
+/** Deleting a unit also deletes its situation history, so it stays with admins. */
+export function canDeleteKotamaops(role: string): boolean {
+  return canManageUsers(role);
+}
+
+export const MATRAS = ["AD", "AL", "AU"] as const;
+export type MatraName = (typeof MATRAS)[number];
+
+export type NewKotamaopsInput = {
+  code: string;
+  name: string;
+  region: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  matra: MatraName;
+};
+
+const KOTAMAOPS_CODE = /^[A-Z0-9][A-Z0-9 /.-]{0,23}$/;
+
+export function parseNewKotamaops(body: unknown): { ok: true; value: NewKotamaopsInput } | { ok: false; error: string } {
+  if (!body || typeof body !== "object") return { ok: false, error: "Data Kotamaops tidak lengkap." };
+  const raw = body as Record<string, unknown>;
+  const code = typeof raw.code === "string" ? raw.code.trim().replace(/\s+/g, " ").toUpperCase() : "";
+  if (!KOTAMAOPS_CODE.test(code)) {
+    return { ok: false, error: "Kode 1–24 karakter: huruf, angka, spasi, garis miring, titik, atau strip (mis. XVII/CEN)." };
+  }
+  const name = readText(raw.name, "Nama", 2, 120);
+  if (typeof name !== "string") return { ok: false, error: name.error };
+  const region = readText(raw.region, "Wilayah", 2, 120);
+  if (typeof region !== "string") return { ok: false, error: region.error };
+  const location = readText(raw.location, "Lokasi markas", 2, 120);
+  if (typeof location !== "string") return { ok: false, error: location.error };
+  const latitude = readCoordinate(raw.latitude, "Lintang", 90);
+  if (typeof latitude !== "number") return { ok: false, error: latitude };
+  const longitude = readCoordinate(raw.longitude, "Bujur", 180);
+  if (typeof longitude !== "number") return { ok: false, error: longitude };
+  if (!MATRAS.includes(raw.matra as MatraName)) return { ok: false, error: "Matra harus AD, AL, atau AU." };
+  return { ok: true, value: { code, name, region, location, latitude, longitude, matra: raw.matra as MatraName } };
+}
+
+function readCoordinate(value: unknown, label: string, limit: number): number | string {
+  const text = typeof value === "string" ? value.trim().replace(",", ".") : value;
+  const number = typeof text === "number" ? text : typeof text === "string" && text !== "" ? Number(text) : NaN;
+  if (!Number.isFinite(number) || Math.abs(number) > limit) return `${label} harus angka desimal -${limit} sampai ${limit}.`;
+  return number;
+}
+
 export type NewUserInput = {
   name: string;
   username: string;

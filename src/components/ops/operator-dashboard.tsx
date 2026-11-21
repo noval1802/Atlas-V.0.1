@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, List, Map, PanelLeftClose, PanelLeftOpen, Users } from "lucide-react";
 import { PortalMenu } from "@/components/ops/portal-menu";
 import { AtlasChat } from "@/components/ops/atlas-chat";
+import { KotamaopsManager } from "@/components/ops/kotamaops-form";
 import { OperatorBoard, type SituationRow } from "@/app/(id)/operator/operator-board";
 import {
   filterSituations,
@@ -118,6 +119,8 @@ export function OperatorDashboard({
   boardUser,
   canWrite,
   canManage,
+  canAdd,
+  canDelete,
   initial,
   revisions,
 }: {
@@ -125,6 +128,8 @@ export function OperatorDashboard({
   boardUser: { name: string; role: string; kotamaops: { code: string; name: string } | null };
   canWrite: boolean;
   canManage: boolean;
+  canAdd: boolean;
+  canDelete: boolean;
   initial: SituationRow[];
   revisions: RevisionView[];
 }) {
@@ -170,6 +175,21 @@ export function OperatorDashboard({
       },
       ...current.filter((item) => item.id !== `simpan-${row.id}-${row.updatedAt}`),
     ]);
+  }
+
+  // The board keeps its own copy of rows; bumping its key remounts it after a unit is added, edited, or deleted.
+  const [boardVersion, setBoardVersion] = useState(0);
+  function onAdded(row: SituationRow) {
+    setRows((current) => [...current, row]);
+    setBoardVersion((value) => value + 1);
+  }
+  function onUpdated(row: SituationRow) {
+    setRows((current) => current.map((item) => (item.id === row.id ? row : item)));
+    setBoardVersion((value) => value + 1);
+  }
+  function onRemoved(situationId: string) {
+    setRows((current) => current.filter((item) => item.id !== situationId));
+    setBoardVersion((value) => value + 1);
   }
 
   const control =
@@ -412,9 +432,21 @@ export function OperatorDashboard({
                 <h2 id="formulir-judul" className="text-base font-semibold text-[var(--text-heading)]">
                   Formulir situasi
                 </h2>
-                <OperatorBoard me={boardUser} initial={rows} canWrite={canWrite} showChrome={false} onSaved={onSaved} />
+                <OperatorBoard key={boardVersion} me={boardUser} initial={rows} canWrite={canWrite} showChrome={false} onSaved={onSaved} />
               </section>
             </div>
+            {canAdd && (
+              <section aria-labelledby="tambah-judul" style={{ "--i": 2 } as React.CSSProperties} className="ops-rise">
+                <details className="rounded-lg border border-[var(--border-secondary)] bg-[var(--bg-secondary)] px-4 py-3">
+                  <summary className="min-h-11 cursor-pointer content-center text-base font-semibold text-[var(--text-heading)]">
+                    <span id="tambah-judul">Kelola Kotamaops</span>
+                  </summary>
+                  <div className="mt-3">
+                    <KotamaopsManager canDelete={canDelete} onAdded={onAdded} onUpdated={onUpdated} onRemoved={onRemoved} />
+                  </div>
+                </details>
+              </section>
+            )}
             <section aria-labelledby="peta-judul" style={{ "--i": 2 } as React.CSSProperties} className="ops-rise space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 id="peta-judul" className="text-base font-semibold text-[var(--text-heading)]">

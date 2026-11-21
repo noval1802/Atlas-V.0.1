@@ -12,7 +12,7 @@ export interface KotamaopsPoint {
   lat: number;
   lng: number;
   matra: Matra;
-  /** Path lambang di /public; kosong = perisai bawaan. */
+  /** Lambang: /kodam/*.png bawaan atau unggahan di /api/ops/kotamaops/logo/; kosong = perisai bawaan. */
   logo: string;
 }
 
@@ -21,9 +21,9 @@ export function kotamaopsIconId(code: string): string {
   return `kotamaops-${code.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 }
 
-/** Hanya lambang lokal di /kodam/ yang dipakai, karena nilainya berasal dari database. */
+/** Hanya lambang bawaan di /kodam/ atau unggahan operator (lihat lib/ops/kotamaops-logo.ts), karena nilainya berasal dari database. */
 export function safeKotamaopsLogo(logo: string): string {
-  return /^\/kodam\/[a-z0-9-]+\.png$/.test(logo) ? logo : "";
+  return /^\/kodam\/[a-z0-9-]+\.png$/.test(logo) || /^\/api\/ops\/kotamaops\/logo\/[a-z0-9-]+\.(png|jpg|webp)$/.test(logo) ? logo : "";
 }
 
 export function kotamaopsFeatures(points: KotamaopsPoint[], visible: (matra: Matra) => boolean) {

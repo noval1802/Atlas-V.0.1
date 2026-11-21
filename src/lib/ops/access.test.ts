@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   acceptedNext,
   allowedNext,
+  canAddKotamaops,
   canManageUsers,
   canWriteSituation,
   deniedPage,
@@ -9,6 +10,7 @@ import {
   mayWriteSituationRow,
   situationWriteLookup,
   nextAccountState,
+  parseNewKotamaops,
   parseNewUser,
   parseRegister,
   parseSituation,
@@ -231,5 +233,43 @@ describe("ops access", () => {
       active: false,
       accountStatus: "DISABLED",
     });
+  });
+
+  it("lets only national writers add a Kotamaops", () => {
+    expect(canAddKotamaops("SUPER_ADMIN")).toBe(true);
+    expect(canAddKotamaops("ADMIN")).toBe(true);
+    expect(canAddKotamaops("OPERATOR_PUSDALOPS")).toBe(true);
+    expect(canAddKotamaops("OPERATOR_KODAM")).toBe(false);
+    expect(canAddKotamaops("ANALYST")).toBe(false);
+    expect(canAddKotamaops("PIMPINAN")).toBe(false);
+  });
+
+  it("normalises a new Kotamaops and reads comma decimals", () => {
+    expect(
+      parseNewKotamaops({
+        code: "  xxv/con ",
+        name: " Kodam XXV/Contoh ",
+        region: "Papua Tengah",
+        location: "Nabire",
+        latitude: "-3,36",
+        longitude: 135.5,
+        matra: "AD",
+      }),
+    ).toEqual({
+      ok: true,
+      value: { code: "XXV/CON", name: "Kodam XXV/Contoh", region: "Papua Tengah", location: "Nabire", latitude: -3.36, longitude: 135.5, matra: "AD" },
+    });
+  });
+
+  it("refuses a Kotamaops with a bad code, coordinate, or matra", () => {
+    const good = { code: "KODAERAL VI", name: "Kodaeral VI", region: "Sulawesi Selatan", location: "Makassar", latitude: -5.1, longitude: 119.4, matra: "AL" };
+    expect(parseNewKotamaops(good).ok).toBe(true);
+    expect(parseNewKotamaops({ ...good, code: "/BAD" }).ok).toBe(false);
+    expect(parseNewKotamaops({ ...good, code: "" }).ok).toBe(false);
+    expect(parseNewKotamaops({ ...good, latitude: "abc" }).ok).toBe(false);
+    expect(parseNewKotamaops({ ...good, latitude: 91 }).ok).toBe(false);
+    expect(parseNewKotamaops({ ...good, longitude: "" }).ok).toBe(false);
+    expect(parseNewKotamaops({ ...good, matra: "AX" }).ok).toBe(false);
+    expect(parseNewKotamaops({ ...good, name: "X" }).ok).toBe(false);
   });
 });

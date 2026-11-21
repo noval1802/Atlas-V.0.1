@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { canManageUsers, canWriteSituation, portalLabel, situationWhere } from "@/lib/ops/access";
+import { canAddKotamaops, canDeleteKotamaops, canManageUsers, canWriteSituation, portalLabel, situationWhere } from "@/lib/ops/access";
 import { currentUser, publicUser } from "@/lib/ops/current-user";
 import { opsDb } from "@/lib/ops/db";
 import { OperatorDashboard } from "@/components/ops/operator-dashboard";
@@ -57,6 +57,8 @@ export default async function OperatorPage() {
       }}
       canWrite={canWriteSituation(user.role)}
       canManage={canManageUsers(user.role)}
+      canAdd={canAddKotamaops(user.role)}
+      canDelete={canDeleteKotamaops(user.role)}
       initial={initial}
       revisions={revisions.map((row) => ({
         id: row.id,

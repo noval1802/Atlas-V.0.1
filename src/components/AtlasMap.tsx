@@ -127,6 +127,21 @@ const DOUBLE_RIGHT_MS = 500;
 /** …and this close on screen, so a second click elsewhere starts afresh. */
 const DOUBLE_RIGHT_SLOP_PX = 12;
 
+/** Built-in crests in /public/kodam are 128×128; an uploaded logo of any size is fitted (aspect kept, centred) into the same box so every crest draws at one size. */
+const KOTAMAOPS_LOGO_PX = 128;
+function fitKotamaopsLogo(image: HTMLImageElement | ImageBitmap) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = KOTAMAOPS_LOGO_PX;
+  const ctx = canvas.getContext('2d');
+  if (!ctx || !image.width || !image.height) return image;
+  const scale = Math.min(KOTAMAOPS_LOGO_PX / image.width, KOTAMAOPS_LOGO_PX / image.height);
+  const w = image.width * scale;
+  const h = image.height * scale;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image, (KOTAMAOPS_LOGO_PX - w) / 2, (KOTAMAOPS_LOGO_PX - h) / 2, w, h);
+  return { width: KOTAMAOPS_LOGO_PX, height: KOTAMAOPS_LOGO_PX, data: new Uint8Array(ctx.getImageData(0, 0, KOTAMAOPS_LOGO_PX, KOTAMAOPS_LOGO_PX).data) };
+}
+
 /** What a pin carries: flat, as map feature properties must be. */
 interface AlertPinProps {
   id: string;
@@ -659,7 +674,7 @@ function AtlasMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCli
         const load = (async () => {
           try {
             const response = await map.loadImage(logo);
-            if (logosAlive && !map.hasImage(id)) map.addImage(id, response.data, { pixelRatio: 2 });
+            if (logosAlive && !map.hasImage(id)) map.addImage(id, fitKotamaopsLogo(response.data), { pixelRatio: 2 });
           } catch (error) {
             console.warn("[ATLAS] logo Kotamaops gagal dimuat:", point.code, error instanceof Error ? error.message : error);
           } finally {

@@ -60,6 +60,9 @@ describe("kotamaopsFeatures", () => {
     expect(safeKotamaopsLogo("/kodam/i-bb.png")).toBe("/kodam/i-bb.png");
     expect(safeKotamaopsLogo("https://evil.example/x.png")).toBe("");
     expect(safeKotamaopsLogo('/kodam/x.png" onerror="alert(1)')).toBe("");
+    expect(safeKotamaopsLogo("/api/ops/kotamaops/logo/xxv-con-1a2b3c4d.webp")).toBe("/api/ops/kotamaops/logo/xxv-con-1a2b3c4d.webp");
+    expect(safeKotamaopsLogo("/api/ops/kotamaops/logo/../../x.png")).toBe("");
+    expect(safeKotamaopsLogo("/api/ops/kotamaops/logo/x.svg")).toBe("");
     expect(kotamaopsFeatures([point("X", "AD", "javascript:alert(1)")], () => true)[0].properties.icon).toBe("kotamaops-shield");
   });
 });
