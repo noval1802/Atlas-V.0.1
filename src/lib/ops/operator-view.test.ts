@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   filterSituations,
-  karhutlaScope,
   pageWindow,
   situationTotals,
   sortSituations,
@@ -39,15 +38,6 @@ describe("operator view", () => {
       deployed: 5,
       latestUpdate: "2026-10-17T10:00:00.000Z",
     });
-  });
-
-  it("limits the frozen karhutla lapsit to the caller's unit codes", () => {
-    expect(karhutlaScope(["XXII/TB", "IM"])).toMatchObject({
-      at: "5 Okt 2026, 22.00",
-      unitsOnReport: 1,
-      dalamPemadaman: 1,
-    });
-    expect(karhutlaScope(["IM"])).toMatchObject({ unitsOnReport: 0, dalamPemadaman: 0 });
   });
 
   it("filters by status and location without inventing a category", () => {

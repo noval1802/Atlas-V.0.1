@@ -14,6 +14,8 @@ export interface KotamaopsPoint {
   matra: Matra;
   /** Lambang: /kodam/*.png bawaan atau unggahan di /api/ops/kotamaops/logo/; kosong = perisai bawaan. */
   logo: string;
+  /** Situasi terakhir dari tabel Situation; tidak ada bila peran ini tidak boleh melihatnya. */
+  situation?: { status: string; personnel: number; deployed: number; incidentCount: number; note: string; updatedByName: string; updatedAt: string };
 }
 
 /** MapLibre image id for a unit crest. */
@@ -42,6 +44,7 @@ export function kotamaopsFeatures(points: KotamaopsPoint[], visible: (matra: Mat
           matra: point.matra,
           icon: logo ? kotamaopsIconId(point.code) : "kotamaops-shield",
           logo,
+          ...(point.situation ?? {}),
         },
       };
     });

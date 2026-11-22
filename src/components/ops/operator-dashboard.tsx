@@ -11,7 +11,6 @@ import { OperatorBoard, type SituationRow } from "@/app/(id)/operator/operator-b
 import {
   filterSituations,
   formatWib,
-  karhutlaScope,
   pageWindow,
   situationTotals,
   sortSituations,
@@ -145,7 +144,6 @@ export function OperatorDashboard({
   const [mapState, setMapState] = useState<"membuka" | "terbuka">("membuka");
 
   const totals = useMemo(() => situationTotals(rows), [rows]);
-  const fires = useMemo(() => karhutlaScope(rows.map((row) => row.code)), [rows]);
   const listed = useMemo(
     () => sortSituations(filterSituations(rows, query, status), direction),
     [rows, query, status, direction],
@@ -269,11 +267,6 @@ export function OperatorDashboard({
                 <Figure i={3} label="Kondusif" value={totals.kondusif.toLocaleString("id-ID")} />
                 <Figure i={4} label="Kejadian tersimpan" value={totals.incidentStored.toLocaleString("id-ID")} />
               </div>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                {fires.unitsOnReport === 0
-                  ? `Karhutla: tidak ada pada laporan tetap ${fires.at} untuk cakupan ini.`
-                  : `Karhutla, laporan tetap ${fires.at}: ${fires.dalamPemadaman.toLocaleString("id-ID")} satuan dalam pemadaman dari ${fires.unitsOnReport.toLocaleString("id-ID")} satuan pada laporan itu.`}
-              </p>
             </section>
 
             <div style={{ "--i": 1 } as React.CSSProperties} className="ops-rise grid gap-6 xl:grid-cols-2">

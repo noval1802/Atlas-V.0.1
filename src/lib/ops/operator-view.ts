@@ -1,4 +1,3 @@
-import { KARHUTLA_LAPSIT_AT, karhutlaReports } from "@/lib/karhutla-lapsit";
 
 export const SITUATION_STATUSES = ["KONDUSIF", "WASPADA", "SIAGA"] as const;
 export type SituationStatus = (typeof SITUATION_STATUSES)[number];
@@ -27,12 +26,6 @@ export type SituationTotals = {
   latestUpdate: string | null;
 };
 
-export type KarhutlaScope = {
-  at: string;
-  unitsOnReport: number;
-  dalamPemadaman: number;
-};
-
 function uniqueRows(rows: readonly SituationView[]): SituationView[] {
   const byId = new Map<string, SituationView>();
   for (const row of rows) byId.set(row.id, row);
@@ -56,14 +49,6 @@ export function situationTotals(rows: readonly SituationView[]): SituationTotals
     if (!latestUpdate || row.updatedAt > latestUpdate) latestUpdate = row.updatedAt;
   }
   return { units: unique.length, kondusif, waspada, siaga, incidentStored, deployed, latestUpdate };
-}
-
-/** Frozen 5 Oct 2026 lapsit, limited to unit codes the caller can already see. */
-export function karhutlaScope(codes: readonly string[]): KarhutlaScope {
-  const allowed = new Set(codes);
-  const reports = karhutlaReports().filter((item) => allowed.has(item.code));
-  const dalamPemadaman = reports.filter((item) => (item.prosesTitik ?? 0) > 0 || item.prosesHa > 0).length;
-  return { at: KARHUTLA_LAPSIT_AT, unitsOnReport: reports.length, dalamPemadaman };
 }
 
 export function filterSituations(

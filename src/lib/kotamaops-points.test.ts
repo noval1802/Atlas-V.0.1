@@ -56,6 +56,12 @@ describe("kotamaopsFeatures", () => {
     expect(kotamaopsFeatures(points, () => true).find((f) => f.properties.code === "KOOPSUD I")?.properties.icon).toBe("kotamaops-shield");
   });
 
+  it("carries the latest situation into the popup properties", () => {
+    const situation = { status: "WASPADA", personnel: 1929, deployed: 0, incidentCount: 2, note: "LAPSIT", updatedByName: "hermes", updatedAt: "2026-11-22T06:43:55.000Z" };
+    expect(kotamaopsFeatures([{ ...point("XXIV/MT", "AD"), situation }], () => true)[0].properties).toMatchObject(situation);
+    expect(kotamaopsFeatures([point("XXIV/MT", "AD")], () => true)[0].properties).not.toHaveProperty("status");
+  });
+
   it("refuses crest paths outside /kodam/", () => {
     expect(safeKotamaopsLogo("/kodam/i-bb.png")).toBe("/kodam/i-bb.png");
     expect(safeKotamaopsLogo("https://evil.example/x.png")).toBe("");

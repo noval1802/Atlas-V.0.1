@@ -1,19 +1,11 @@
-/** Shared flame for Kodam that still have fire spots. Eight frames, one timer. */
+/** Shared flame for Kotamaops with open incidents. Eight frames, one timer. */
 
-import { karhutlaReports } from "@/lib/karhutla-lapsit";
-
-/** Only a remaining hotspot count gets a flame. Extinguished and unaffected units stay still. */
-export const KOTAMAOPS_FLAME_CODES = karhutlaReports()
-  .filter((item) => (item.prosesTitik ?? 0) > 0)
-  .map((item) => item.code);
+/** MapLibre filter: a flame only where the latest situation reports at least one incident (Situation.incidentCount). */
+export const KOTAMAOPS_FLAME_FILTER = [">", ["coalesce", ["get", "incidentCount"], 0], 0];
 export const KOTAMAOPS_FLAME_FRAMES = 8;
 export const KOTAMAOPS_FLAME_FRAME_MS = 110;
 export const KOTAMAOPS_FLAME_WIDTH = 96;
 export const KOTAMAOPS_FLAME_HEIGHT = 144;
-
-export function kotamaopsHasFlame(code: string): boolean {
-  return KOTAMAOPS_FLAME_CODES.includes(code);
-}
 
 export function nextKotamaopsFlameFrame(frame: number): number {
   return (frame + 1) % KOTAMAOPS_FLAME_FRAMES;

@@ -174,6 +174,13 @@ export interface KotamaopsPopup extends Record<string, unknown> {
   name?: string;
   region?: string;
   location?: string;
+  status?: string;
+  personnel?: number;
+  deployed?: number;
+  incidentCount?: number;
+  note?: string;
+  updatedByName?: string;
+  updatedAt?: string;
 }
 
 export interface PortPopup extends Record<string, unknown> {

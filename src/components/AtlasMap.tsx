@@ -18,8 +18,8 @@ import { NKRI_CENTER } from '@/lib/nkri-view';
 import { tileRequestUrl } from '@/lib/tile-proxy';
 import { volcanoIconData, volcanoIconId, volcanoPulses, volcanoShown, VOLCANO_LEVEL_COLORS } from '@/lib/volcano-icon';
 import { CAMERA_ICON_ID, CAMERA_OFFLINE_COLOR, CAMERA_OFFLINE_ICON_ID, cameraGlyph, cameraIconData, loadCameraGlyph } from '@/lib/camera-icon';
-import { KARHUTLA_LAPSIT_AT, formatKarhutlaAmount, formatPersonel, karhutlaReport } from '@/lib/karhutla-lapsit';
-import { KOTAMAOPS_FLAME_CODES, KOTAMAOPS_FLAME_FRAMES, KOTAMAOPS_FLAME_FRAME_MS, KOTAMAOPS_FLAME_HEIGHT, KOTAMAOPS_FLAME_WIDTH, drawKotamaopsFlame, kotamaopsFlameImageId, nextKotamaopsFlameFrame } from '@/lib/kotamaops-flame';
+import { formatPersonel } from '@/lib/karhutla-lapsit';
+import { KOTAMAOPS_FLAME_FILTER, KOTAMAOPS_FLAME_FRAMES, KOTAMAOPS_FLAME_FRAME_MS, KOTAMAOPS_FLAME_HEIGHT, KOTAMAOPS_FLAME_WIDTH, drawKotamaopsFlame, kotamaopsFlameImageId, nextKotamaopsFlameFrame } from '@/lib/kotamaops-flame';
 import type { ArcGisMapLayer, MapEntity } from '@/lib/dashboard-state';
 import type { ActiveLayers } from '@/lib/layer-feeds';
 import { type AlertPinReport, type MapData } from '@/lib/map-data';
@@ -719,7 +719,7 @@ function AtlasMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCli
           map.addImage(id, { width: canvas.width, height: canvas.height, data: new Uint8Array(ctx.getImageData(0, 0, canvas.width, canvas.height).data) }, { pixelRatio: 2 });
         }
       }
-      map.addLayer({ id: 'kotamaops-flame', type: 'symbol', source: 'kotamaops', filter: ['in', ['get', 'code'], ['literal', KOTAMAOPS_FLAME_CODES]], layout: {
+      map.addLayer({ id: 'kotamaops-flame', type: 'symbol', source: 'kotamaops', filter: KOTAMAOPS_FLAME_FILTER as maplibregl.FilterSpecification, layout: {
         'icon-image': kotamaopsFlameImageId(0),
         'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.42, 5, 0.62, 8, 0.82, 12, 1],
         'icon-anchor': 'bottom',
@@ -1072,15 +1072,17 @@ function AtlasMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCli
       const coords = pointCoordinates(e.features?.[0]?.geometry);
       if (!p || !coords) return;
       const logo = safeKotamaopsLogo(String(p.logo || ''));
-      const report = karhutlaReport(String(p.code || ''));
-      const karhutlaLine = (label: string, value: string, color: string) =>
+      const line = (label: string, value: string, color: string) =>
         `<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;white-space:nowrap;"><span style="color:#5C5A54;letter-spacing:0.06em;flex:none;">${label}</span><span style="color:${color};font-weight:700;text-align:right;">${htmlEsc(value)}</span></div>`;
-      const karhutla = report ? `<div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(212,175,55,0.28);display:grid;gap:3px;font-size:9px;">
-          <div style="color:#D4AF37;font-size:8px;letter-spacing:0.14em;">KARHUTLA · ${htmlEsc(KARHUTLA_LAPSIT_AT)}</div>
-          ${karhutlaLine('AWAL', formatKarhutlaAmount(report.awalTitik, report.awalHa), '#FF8A80')}
-          ${karhutlaLine('SUDAH PADAM', formatKarhutlaAmount(report.padamTitik, report.padamHa), '#81D4FA')}
-          ${karhutlaLine('DALAM PEMADAMAN', formatKarhutlaAmount(report.prosesTitik, report.prosesHa), report.prosesHa > 0 ? '#FF8A80' : '#8A8880')}
-          ${karhutlaLine('PERSONEL SIAGA', formatPersonel(report.personelSiaga), '#F3E6B8')}
+      const statusColor = p.status === 'SIAGA' ? '#FF3D3D' : p.status === 'WASPADA' ? '#FFB300' : '#4CAF50';
+      const situasi = p.status ? `<div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(212,175,55,0.28);display:grid;gap:3px;font-size:9px;">
+          <div style="color:#D4AF37;font-size:8px;letter-spacing:0.14em;">SITUASI · ${htmlEsc(p.updatedAt ? new Date(String(p.updatedAt)).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB' : '—')}</div>
+          ${line('STATUS', String(p.status), statusColor)}
+          ${line('PERSONEL', formatPersonel(Number(p.personnel ?? 0)), '#F3E6B8')}
+          ${line('DIKERAHKAN', formatPersonel(Number(p.deployed ?? 0)), '#F3E6B8')}
+          ${line('KEJADIAN', formatPersonel(Number(p.incidentCount ?? 0)), Number(p.incidentCount) > 0 ? '#FF8A80' : '#8A8880')}
+          ${p.note ? `<div style="color:#E8E6E0;white-space:normal;line-height:1.4;margin-top:2px;">${htmlEsc(String(p.note))}</div>` : ''}
+          ${p.updatedByName ? `<div style="color:#5C5A54;">oleh ${htmlEsc(String(p.updatedByName))}</div>` : ''}
         </div>` : '';
       popup(coords, `<div style="${pStyle}border:1px solid rgba(212,175,55,0.45);min-width:250px;max-width:320px;background:#0C0E1A;padding:10px 12px;">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
@@ -1097,7 +1099,7 @@ function AtlasMap({ data, activeLayers, onEntityClick, onMouseCoords, onRightCli
           <div><span style="color:#5C5A54;">LINTANG</span><br/><span style="color:#E8E6E0;">${Number(coords[1]).toFixed(5)}°</span></div>
           <div><span style="color:#5C5A54;">BUJUR</span><br/><span style="color:#E8E6E0;">${Number(coords[0]).toFixed(5)}°</span></div>
         </div>
-        ${karhutla}
+        ${situasi}
       </div>`, 'bottom');
     };
     map.on('click', 'kotamaops-icon', openKotamaops);
